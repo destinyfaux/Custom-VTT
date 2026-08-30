@@ -57,5 +57,7 @@ Thumbs.db
 # =====================================================================
 # GIT PULL & PUSH
 # =====================================================================
+.pull_from_github.bat
+.push_to_github.bat
 .pull_from_github
 .push_to_github

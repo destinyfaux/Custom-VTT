@@ -36,6 +36,7 @@ import { CheckpointsDrawer } from './components/CheckpointsDrawer';
 import { DatasetManager } from './components/DatasetManager';
 import { ModelComponentsCard } from './components/ModelComponentsCard';
 import { SystemErrorTracker } from './components/SystemErrorTracker';
+import { FileBrowserModal } from './components/FileBrowserModal';
 
 export default function App() {
   const {
@@ -55,6 +56,11 @@ export default function App() {
   // Modals & Drawers
   const [isDryRunOpen, setIsDryRunOpen] = useState(false);
   const [isCheckpointsOpen, setIsCheckpointsOpen] = useState(false);
+
+  // File Browser Modal State
+  const [browserOpen, setBrowserOpen] = useState(false);
+  const [browserTargetField, setBrowserTargetField] = useState<string>('dataset');
+  const [browserMode, setBrowserMode] = useState<'folder' | 'file'>('folder');
 
   // System Errors State
   const [errors, setErrors] = useState<SystemErrorLog[]>([]);
@@ -196,6 +202,33 @@ export default function App() {
       }
       return next;
     });
+  };
+
+  // Host File Browser Helpers
+  const handleOpenBrowser = (field: string, mode: 'folder' | 'file' = 'folder') => {
+    setBrowserTargetField(field);
+    setBrowserMode(mode);
+    setBrowserOpen(true);
+  };
+
+  const handlePathSelected = (selectedPath: string) => {
+    if (browserTargetField === 'output_dir') {
+      updateConfig({ output_dir: selectedPath });
+    } else if (browserTargetField === 'transformer_path') {
+      updateConfig({ transformer_path: selectedPath, base_model_path: selectedPath });
+    } else if (browserTargetField === 'vae_path') {
+      updateConfig({ vae_path: selectedPath });
+    } else if (browserTargetField === 'text_encoder_path') {
+      updateConfig({ text_encoder_path: selectedPath });
+    } else if (browserTargetField === 'dataset_cache_path') {
+      updateConfig({ dataset_cache_path: selectedPath });
+    } else if (browserTargetField === 'add_dataset_folder') {
+      const newFolders = [
+        ...(config.dataset_folders || []),
+        { id: `ds_${Date.now()}`, path: selectedPath, weight: 1.0, repeats: 1, pair_count: 0, enabled: true }
+      ];
+      updateConfig({ dataset_folders: newFolders });
+    }
   };
 
   // Actions
@@ -409,7 +442,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Tab Navigation with Clean Responsive Wrap (No forced horizontal scrollbar) */}
+      {/* Main Tab Navigation */}
       <div className="bg-neutral-900/60 border-b border-neutral-800/80 px-4 lg:px-8">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center gap-1.5 py-2">
           <button
@@ -571,6 +604,16 @@ export default function App() {
         {/* Tab 2: Dataset & Captions Inspector */}
         {activeTab === 'datasets' && (
           <div className="space-y-6">
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => handleOpenBrowser('add_dataset_folder', 'folder')}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors shadow-md shadow-indigo-600/20"
+              >
+                <FolderOpen className="w-3.5 h-3.5" />
+                Browse & Add Host Dataset Folder
+              </button>
+            </div>
             <DatasetManager
               folders={config.dataset_folders || []}
               onChangeFolders={(folders) => updateConfig({ dataset_folders: folders })}
@@ -584,6 +627,24 @@ export default function App() {
         {/* Tab 3: Model & Backbones Configuration */}
         {activeTab === 'models' && (
           <div className="space-y-6">
+            <div className="flex flex-wrap gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => handleOpenBrowser('transformer_path', 'folder')}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 rounded-lg transition-colors"
+              >
+                <HardDrive className="w-3.5 h-3.5 text-cyan-400" />
+                Browse Base/Transformer Path
+              </button>
+              <button
+                type="button"
+                onClick={() => handleOpenBrowser('output_dir', 'folder')}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 rounded-lg transition-colors"
+              >
+                <Save className="w-3.5 h-3.5 text-emerald-400" />
+                Browse Output Directory
+              </button>
+            </div>
             <ModelComponentsCard
               transformerPath={config.transformer_path || config.base_model_path}
               onChangeTransformerPath={(p) => updateConfig({ transformer_path: p, base_model_path: p })}
@@ -708,7 +769,7 @@ export default function App() {
         onClose={() => setIsDryRunOpen(false)}
       />
 
-      {/* Zero-Loss Checkpoints Drawer */}
+      {/* Checkpoints Drawer */}
       <CheckpointsDrawer
         isOpen={isCheckpointsOpen}
         onClose={() => setIsCheckpointsOpen(false)}
@@ -716,7 +777,16 @@ export default function App() {
         onResumeFromCheckpoint={handleResumeFromCheckpoint}
         onRollback={handleRollback}
       />
+
+      {/* Host Local File & Folder Browser Modal */}
+      <FileBrowserModal
+        isOpen={browserOpen}
+        onClose={() => setBrowserOpen(false)}
+        onSelect={handlePathSelected}
+        initialPath={config.base_model_path || 'G:\\'}
+        mode={browserMode}
+        title={`Select ${browserTargetField.replace(/_/g, ' ').toUpperCase()} Path`}
+      />
     </div>
   );
 }
-
