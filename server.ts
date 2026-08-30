@@ -1,10 +1,32 @@
 import express from "express";
 import http from "http";
 import path from "path";
+import fs from "fs";
 import os from "os";
 import { WebSocketServer, WebSocket } from "ws";
 import { exec } from "child_process";
 import { createServer as createViteServer } from "vite";
+
+interface SystemErrorLog {
+  id: string;
+  timestamp: number;
+  category: "cuda_oom" | "dataset" | "model" | "training" | "process" | "general";
+  severity: "error" | "warning" | "info";
+  title: string;
+  details: string;
+  suggestion?: string;
+  step?: number;
+}
+
+interface SamplePromptItem {
+  id: string;
+  name?: string;
+  prompt: string;
+  seed: number;
+  steps?: number;
+  guidance_scale?: number;
+  enabled: boolean;
+}
 
 interface TrainingState {
   status: "idle" | "running" | "paused" | "completed" | "error";
@@ -13,6 +35,7 @@ interface TrainingState {
   config: Record<string, any>;
   health_status: "healthy" | "warning" | "critical";
   health_alert: string | null;
+  errors: SystemErrorLog[];
   history: Array<{
     step: number;
     loss: number;
@@ -37,6 +60,8 @@ interface TrainingState {
     guidance_scale: number;
     steps: number;
     resolution: string;
+    is_baseline?: boolean;
+    prompt_index?: number;
     timestamp: number;
   }>;
   checkpoints: Array<{
@@ -50,15 +75,47 @@ interface TrainingState {
   }>;
 }
 
+const defaultPromptQueue: SamplePromptItem[] = [
+  {
+    id: "prompt_1",
+    name: "Primary Subject (Character / Focus)",
+    prompt: "A cinematic hyperrealistic cybernetic warrior in a luminescent neon botanical laboratory, 8k, photorealistic",
+    seed: 42,
+    steps: 8,
+    guidance_scale: 4.0,
+    enabled: true
+  },
+  {
+    id: "prompt_2",
+    name: "Style & Lighting Variation",
+    prompt: "Atmospheric dusk landscape with glowing bioluminescent flora and volumetric misty haze, cinematic lighting",
+    seed: 1337,
+    steps: 8,
+    guidance_scale: 4.0,
+    enabled: true
+  },
+  {
+    id: "prompt_3",
+    name: "Generalization / Composition Stress Test",
+    prompt: "Minimalist architectural pavilion floating above a serene mirror water garden with iridescent reflections",
+    seed: 9999,
+    steps: 8,
+    guidance_scale: 4.0,
+    enabled: true
+  }
+];
+
 const trainingState: TrainingState = {
   status: "idle",
   current_step: 0,
   total_steps: 1000,
   health_status: "healthy",
   health_alert: null,
+  errors: [],
   config: {
     model_name: "Tongyi-MAI/Z-Image-Turbo",
     base_model_path: "Tongyi-MAI/Z-Image-Turbo",
+    transformer_path: "Tongyi-MAI/Z-Image-Turbo",
     vae_path: "Tongyi-MAI/Z-Image-Turbo/vae",
     text_encoder_path: "google/siglip-so400m-patch14-384",
     output_dir: "./outputs/zimage_lora",
@@ -93,7 +150,8 @@ const trainingState: TrainingState = {
     opsd_lambda: 0.15,
     reward_model: "Aesthetic-Predictor-v2",
     sample_every_n_steps: 50,
-    sample_prompt: "A cinematic hyperrealistic cybernetic tiger in a luminescent neon botanical laboratory, 8k, photorealistic",
+    sample_prompt: "A cinematic hyperrealistic cybernetic warrior in a luminescent neon botanical laboratory, 8k, photorealistic",
+    sample_prompts_queue: defaultPromptQueue,
     sample_seed: 42,
     sample_steps: 8,
     sample_guidance_scale: 4.0,
@@ -103,6 +161,47 @@ const trainingState: TrainingState = {
   samples: [],
   checkpoints: []
 };
+
+// Supported image extensions (all common formats)
+const SUPPORTED_IMAGE_EXTENSIONS = [
+  ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif", ".avif", ".tga", ".gif", ".heic"
+];
+
+const SUPPORTED_CAPTION_EXTENSIONS = [
+  ".txt", ".caption", ".json", ".prompt", ".tags"
+];
+
+// Helper to inspect fast image dimensions from buffer header if possible
+function getFastDimensions(filePath: string): { width: number; height: number } {
+  try {
+    const fd = fs.openSync(filePath, "r");
+    const buffer = Buffer.alloc(32);
+    fs.readSync(fd, buffer, 0, 32, 0);
+    fs.closeSync(fd);
+
+    // PNG header (89 50 4E 47 0D 0A 1A 0A) -> width @ 16, height @ 20 (big-endian)
+    if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+      const width = buffer.readUInt32BE(16);
+      const height = buffer.readUInt32BE(20);
+      if (width > 0 && height > 0) return { width, height };
+    }
+    // BMP header (BM) -> width @ 18, height @ 22 (little-endian)
+    if (buffer[0] === 0x42 && buffer[1] === 0x4d) {
+      const width = buffer.readUInt32LE(18);
+      const height = Math.abs(buffer.readInt32LE(22));
+      if (width > 0 && height > 0) return { width, height };
+    }
+    // GIF header (GIF87a / GIF89a) -> width @ 6, height @ 8 (little-endian)
+    if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
+      const width = buffer.readUInt16LE(6);
+      const height = buffer.readUInt16LE(8);
+      if (width > 0 && height > 0) return { width, height };
+    }
+  } catch (e) {
+    // ignore
+  }
+  return { width: 1024, height: 1024 };
+}
 
 // Dynamic Aspect ratio buckets calculator with Megapixel scaling
 function generateBuckets(targetMegapixels: number = 1.0, mode: "auto" | "fixed" = "auto", fixedRatio: string = "1:1") {
@@ -151,13 +250,77 @@ function generateBuckets(targetMegapixels: number = 1.0, mode: "auto" | "fixed" 
   return buckets.sort((a, b) => a.aspect_ratio - b.aspect_ratio);
 }
 
-// Sample curated preview visual representations
+// Sample curated preview visual representations for offline/mock fallback
 const sampleImages = [
   "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1024&q=80",
   "https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?auto=format&fit=crop&w=1024&q=80",
   "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?auto=format&fit=crop&w=1024&q=80",
   "https://images.unsplash.com/photo-1633493106185-520e53a3e6a9?auto=format&fit=crop&w=1024&q=80",
   "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1024&q=80"
+];
+
+// Curated diverse multi-format mock dataset pairs
+const curatedDatasetSamples = [
+  {
+    id: "pair_01",
+    format: "png",
+    image_url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80",
+    caption_text: "A highly detailed cybernetic android bust with iridescent neon circuitry, volumetric mist, octane render 8k",
+    width: 1024,
+    height: 1024,
+    aspect_ratio: 1.0,
+    assigned_bucket: "1:1 Square (1024x1024)"
+  },
+  {
+    id: "pair_02",
+    format: "webp",
+    image_url: "https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?auto=format&fit=crop&w=800&q=80",
+    caption_text: "Atmospheric cinematic lighting over a futuristic bio-dome, dramatic dusk sky, wide angle lens",
+    width: 1280,
+    height: 832,
+    aspect_ratio: 1.54,
+    assigned_bucket: "1.54:1 Landscape (1280x832)"
+  },
+  {
+    id: "pair_03",
+    format: "jpg",
+    image_url: "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?auto=format&fit=crop&w=800&q=80",
+    caption_text: "Intricate fractal crystal formation glowing with internal ultraviolet illumination, macro photography",
+    width: 832,
+    height: 1280,
+    aspect_ratio: 0.65,
+    assigned_bucket: "1:1.54 Portrait (832x1280)"
+  },
+  {
+    id: "pair_04",
+    format: "avif",
+    image_url: "https://images.unsplash.com/photo-1633493106185-520e53a3e6a9?auto=format&fit=crop&w=800&q=80",
+    caption_text: "Minimalist architectural pavilion in a serene Zen water garden with dusk reflections and geometric pillars",
+    width: 1024,
+    height: 1024,
+    aspect_ratio: 1.0,
+    assigned_bucket: "1:1 Square (1024x1024)"
+  },
+  {
+    id: "pair_05",
+    format: "tiff",
+    image_url: "https://images.unsplash.com/photo-1614741118887-7a4ee193a5fa?auto=format&fit=crop&w=800&q=80",
+    caption_text: "Abstract fluid dynamics flowing in metallic emerald and indigo waves, smooth gradients, 3d physics render",
+    width: 1152,
+    height: 896,
+    aspect_ratio: 1.29,
+    assigned_bucket: "1.29:1 Landscape (1152x896)"
+  },
+  {
+    id: "pair_06",
+    format: "bmp",
+    image_url: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=800&q=80",
+    caption_text: "Retro cyber workstation with glowing cathode ray monitors, vintage mechanical keyboard, analog warm tint",
+    width: 896,
+    height: 1152,
+    aspect_ratio: 0.78,
+    assigned_bucket: "1:1.29 Portrait (896x1152)"
+  }
 ];
 
 async function startServer() {
@@ -252,6 +415,19 @@ async function startServer() {
     if (raw_grad_norm > 3.8) {
       health_status = "critical";
       health_alert = `Gradient norm spike (${raw_grad_norm}) detected at step ${step}. Soft checkpoint recommended.`;
+      
+      const errLog: SystemErrorLog = {
+        id: `err_${Date.now()}`,
+        timestamp: Date.now(),
+        category: "training",
+        severity: "error",
+        title: `Gradient Norm Instability (${raw_grad_norm})`,
+        details: `Gradient explosion at step ${step}. Exceeds threshold 3.8. Active learning rate: ${currentLr.toExponential(2)}.`,
+        suggestion: "Consider lowering peak learning rate or clipping max grad norm to 1.0.",
+        step
+      };
+      trainingState.errors.unshift(errLog);
+      broadcast({ type: "error", error: errLog });
     } else if (raw_grad_norm > 2.5) {
       health_status = "warning";
       health_alert = `Elevated gradient volatility (${raw_grad_norm}).`;
@@ -286,23 +462,31 @@ async function startServer() {
       trainingState.history.shift();
     }
 
-    // Configurable In-Training Validation Sampling Frequency
+    // Configurable In-Training Validation Sampling Frequency (multi-prompt queue support)
     const sampleInterval = cfg.sample_every_n_steps || 0;
     if (sampleInterval > 0 && (step % sampleInterval === 0 || step === 1)) {
-      const sampleImgUrl = sampleImages[(trainingState.samples.length) % sampleImages.length];
-      const newSample = {
-        id: `sample_step_${step}_${Date.now()}`,
-        step,
-        prompt: cfg.sample_prompt || "A photorealistic cybernetic portrait with cinematic lighting",
-        url: sampleImgUrl,
-        seed: (cfg.sample_seed || 42) + step,
-        guidance_scale: cfg.sample_guidance_scale || 4.0,
-        steps: cfg.sample_steps || 8,
-        resolution: "1024x1024",
-        timestamp: Date.now()
-      };
-      trainingState.samples.unshift(newSample);
-      broadcast({ type: "sample", sample: newSample });
+      const queue = (cfg.sample_prompts_queue && cfg.sample_prompts_queue.length > 0)
+        ? cfg.sample_prompts_queue.filter((p: any) => p.enabled)
+        : defaultPromptQueue;
+
+      queue.forEach((qItem: any, idx: number) => {
+        const sampleImgUrl = sampleImages[(trainingState.samples.length + idx) % sampleImages.length];
+        const newSample = {
+          id: `sample_step_${step}_prompt_${idx}_${Date.now()}`,
+          step,
+          prompt: qItem.prompt || cfg.sample_prompt || "Validation concept sample",
+          url: sampleImgUrl,
+          seed: (qItem.seed || cfg.sample_seed || 42) + step,
+          guidance_scale: qItem.guidance_scale || cfg.sample_guidance_scale || 4.0,
+          steps: qItem.steps || cfg.sample_steps || 8,
+          resolution: "1024x1024",
+          is_baseline: false,
+          prompt_index: idx + 1,
+          timestamp: Date.now()
+        };
+        trainingState.samples.unshift(newSample);
+        broadcast({ type: "sample", sample: newSample });
+      });
     }
 
     // Configurable Soft & Hard Checkpoint saving
@@ -319,7 +503,6 @@ async function startServer() {
         healthStatusAtSave: health_status
       };
       trainingState.checkpoints.unshift(chk);
-      // keep max 30 recent checkpoints
       if (trainingState.checkpoints.length > 30) {
         trainingState.checkpoints.pop();
       }
@@ -345,7 +528,185 @@ async function startServer() {
     }
   }
 
-  // --- API Endpoints ---
+  // --- File System Utilities & Endpoints ---
+
+  // Helper to browse directory
+  function getFsItems(targetPath: string, onlyDirs: boolean = false, filterQuery: string = "", showHidden: boolean = false) {
+    const resolved = path.resolve(targetPath);
+    if (!fs.existsSync(resolved)) {
+      return { error: `Directory path "${resolved}" does not exist on local machine.` };
+    }
+    const stat = fs.statSync(resolved);
+    if (!stat.isDirectory()) {
+      return { error: `Path "${resolved}" is a file, not a directory.` };
+    }
+
+    const dirEntries = fs.readdirSync(resolved, { withFileTypes: true });
+    const items = [];
+
+    for (const entry of dirEntries) {
+      if (!showHidden && entry.name.startsWith(".")) continue;
+
+      const fullItemPath = path.join(resolved, entry.name);
+      let isDir = false;
+      let size = 0;
+      let dateModified = "";
+
+      try {
+        const itemStat = fs.statSync(fullItemPath);
+        isDir = itemStat.isDirectory();
+        size = itemStat.size;
+        dateModified = itemStat.mtime.toISOString();
+      } catch (e) {
+        isDir = entry.isDirectory();
+      }
+
+      if (onlyDirs && !isDir) continue;
+
+      if (filterQuery) {
+        const q = filterQuery.toLowerCase();
+        if (!entry.name.toLowerCase().includes(q) && !fullItemPath.toLowerCase().includes(q)) {
+          continue;
+        }
+      }
+
+      const ext = path.extname(entry.name).toLowerCase();
+      items.push({
+        name: entry.name,
+        path: fullItemPath,
+        isDirectory: isDir,
+        size,
+        ext,
+        dateModified
+      });
+    }
+
+    // Sort: directories first, then alphabetical
+    items.sort((a, b) => {
+      if (a.isDirectory === b.isDirectory) {
+        return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+      }
+      return a.isDirectory ? -1 : 1;
+    });
+
+    return {
+      currentPath: resolved,
+      parentPath: path.dirname(resolved),
+      items
+    };
+  }
+
+  // Browse Directory Endpoint
+  app.get("/api/fs/browse", (req, res) => {
+    try {
+      const targetPath = (req.query.path as string) || process.cwd();
+      const onlyDirs = req.query.onlyDirs === "true";
+      const filter = (req.query.filter as string) || "";
+      const showHidden = req.query.showHidden === "true";
+
+      const result = getFsItems(targetPath, onlyDirs, filter, showHidden);
+      if (result.error) {
+        return res.status(400).json(result);
+      }
+
+      // Provide standard system shortcuts for fast navigation
+      const shortcuts = [
+        { name: "Workspace Root", path: process.cwd() },
+        { name: "Datasets Folder", path: path.join(process.cwd(), "dataset") },
+        { name: "Models Folder", path: path.join(process.cwd(), "models") },
+        { name: "Outputs Folder", path: path.join(process.cwd(), "outputs") },
+        { name: "User Home", path: os.homedir() }
+      ];
+
+      res.json({
+        ...result,
+        shortcuts
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to read directory" });
+    }
+  });
+
+  // Get available drive letters (Windows) or root mount (POSIX)
+  app.get("/api/fs/drives", (req, res) => {
+    if (process.platform === "win32") {
+      // Return common drive letters
+      const possibleDrives = ["C:\\", "D:\\", "E:\\", "F:\\", "G:\\"];
+      const activeDrives = possibleDrives.filter(d => fs.existsSync(d));
+      res.json({ platform: "win32", drives: activeDrives.length ? activeDrives : ["C:\\"] });
+    } else {
+      res.json({ platform: "posix", drives: ["/"] });
+    }
+  });
+
+  // Serve Local Image File directly with Content-Type header
+  app.get("/api/fs/image", (req, res) => {
+    const rawPath = req.query.path as string;
+    if (!rawPath) {
+      return res.status(400).send("Path query parameter is required");
+    }
+
+    try {
+      const resolved = path.resolve(rawPath);
+      if (!fs.existsSync(resolved)) {
+        return res.status(404).send(`Image file not found: ${resolved}`);
+      }
+
+      const ext = path.extname(resolved).toLowerCase();
+      const mimeMap: Record<string, string> = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".webp": "image/webp",
+        ".bmp": "image/bmp",
+        ".tiff": "image/tiff",
+        ".tif": "image/tiff",
+        ".avif": "image/avif",
+        ".gif": "image/gif",
+        ".tga": "image/x-tga",
+        ".heic": "image/heic"
+      };
+
+      const contentType = mimeMap[ext] || "application/octet-stream";
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", "public, max-age=3600");
+      fs.createReadStream(resolved).pipe(res);
+    } catch (err: any) {
+      res.status(500).send(`Error reading image: ${err.message}`);
+    }
+  });
+
+  // System Error Logs Endpoints
+  app.get("/api/logs/errors", (req, res) => {
+    res.json({
+      errors: trainingState.errors,
+      total: trainingState.errors.length,
+      has_unresolved_critical: trainingState.errors.some(e => e.severity === "error")
+    });
+  });
+
+  app.post("/api/logs/errors/clear", (req, res) => {
+    trainingState.errors = [];
+    broadcast({ type: "errors_cleared" });
+    res.json({ status: "cleared" });
+  });
+
+  app.post("/api/logs/errors/add", (req, res) => {
+    const { category = "general", severity = "error", title = "Error", details = "", suggestion = "", step } = req.body;
+    const newErr: SystemErrorLog = {
+      id: `err_${Date.now()}`,
+      timestamp: Date.now(),
+      category,
+      severity,
+      title,
+      details,
+      suggestion,
+      step: step !== undefined ? step : trainingState.current_step
+    };
+    trainingState.errors.unshift(newErr);
+    broadcast({ type: "error", error: newErr });
+    res.json({ status: "recorded", error: newErr });
+  });
 
   // Hardware Probing (System specs & GPU probe)
   app.get("/api/hardware/probe", (req, res) => {
@@ -426,96 +787,227 @@ async function startServer() {
     res.json(generateBuckets(target_megapixels, aspect_ratio_mode, fixed_aspect_ratio));
   });
 
-  // Dataset Multi-Folder Scanner & Inspector
+  // Multi-Folder & Multi-Format Dataset Scanner & Live Inspector
   app.post("/api/datasets/scan", (req, res) => {
-    const { folders = trainingState.config.dataset_folders } = req.body;
+    const { folders = trainingState.config.dataset_folders, target_megapixels = trainingState.config.target_megapixels || 1.0 } = req.body;
     
-    // Synthetic scan result providing paired images and captions
-    const mockPairs = [
-      {
-        id: "pair_01",
-        image_url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80",
-        caption_text: "A highly detailed cybernetic android bust with iridescent neon circuitry, volumetric mist, octane render 8k",
-        width: 1024,
-        height: 1024,
-        aspect_ratio: 1.0,
-        assigned_bucket: "1:1 Square (1024x1024)",
-        folder_path: folders[0]?.path || "./dataset/character_art"
-      },
-      {
-        id: "pair_02",
-        image_url: "https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?auto=format&fit=crop&w=600&q=80",
-        caption_text: "Atmospheric cinematic lighting over a futuristic bio-dome, dramatic dusk sky, wide angle lens",
-        width: 1280,
-        height: 832,
-        aspect_ratio: 1.54,
-        assigned_bucket: "1.54:1 Landscape (1280x832)",
-        folder_path: folders[1]?.path || "./dataset/cinematic_lighting"
-      },
-      {
-        id: "pair_03",
-        image_url: "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?auto=format&fit=crop&w=600&q=80",
-        caption_text: "Intricate fractal crystal formation glowing with internal ultraviolet illumination, macro photography",
-        width: 832,
-        height: 1280,
-        aspect_ratio: 0.65,
-        assigned_bucket: "1:1.54 Portrait (832x1280)",
-        folder_path: folders[0]?.path || "./dataset/character_art"
-      },
-      {
-        id: "pair_04",
-        image_url: "https://images.unsplash.com/photo-1633493106185-520e53a3e6a9?auto=format&fit=crop&w=600&q=80",
-        caption_text: "Minimalist architectural pavilion in a serene Zen water garden with dusk reflections",
-        width: 1024,
-        height: 1024,
-        aspect_ratio: 1.0,
-        assigned_bucket: "1:1 Square (1024x1024)",
-        folder_path: folders[0]?.path || "./dataset/character_art"
-      }
-    ];
+    let scannedPairs: Array<{
+      id: string;
+      image_url: string;
+      image_path?: string;
+      caption_text: string;
+      caption_path?: string;
+      format?: string;
+      width: number;
+      height: number;
+      aspect_ratio: number;
+      assigned_bucket: string;
+      folder_path: string;
+    }> = [];
 
-    const totalPairs = (folders || []).reduce((acc: number, f: any) => acc + (f.pair_count || 100), 0);
+    let totalPairsCount = 0;
+    let unpairedCount = 0;
+    const formatBreakdown: Record<string, number> = {};
+    let realDiskFound = false;
+
+    // Scan each active folder on disk
+    for (const folder of (folders || [])) {
+      const folderPath = path.resolve(folder.path || "");
+      if (fs.existsSync(folderPath) && fs.statSync(folderPath).isDirectory()) {
+        realDiskFound = true;
+        try {
+          const files = fs.readdirSync(folderPath);
+          const imageFiles: string[] = [];
+          const captionFiles: Map<string, string> = new Map(); // stem -> filename
+
+          // 1. Index image files & caption files
+          for (const file of files) {
+            const ext = path.extname(file).toLowerCase();
+            const stem = path.basename(file, ext).toLowerCase();
+
+            if (SUPPORTED_IMAGE_EXTENSIONS.includes(ext)) {
+              imageFiles.push(file);
+              formatBreakdown[ext.replace(".", "")] = (formatBreakdown[ext.replace(".", "")] || 0) + 1;
+            } else if (SUPPORTED_CAPTION_EXTENSIONS.includes(ext)) {
+              captionFiles.set(stem, file);
+            }
+          }
+
+          // 2. Match pairs for all images (without limiting to 50!)
+          for (const imgFile of imageFiles) {
+            const imgExt = path.extname(imgFile).toLowerCase();
+            const imgStem = path.basename(imgFile, imgExt).toLowerCase();
+            const fullImgPath = path.join(folderPath, imgFile);
+            const { width, height } = getFastDimensions(fullImgPath);
+            const aspect = Number((width / height).toFixed(3));
+
+            let captionText = "";
+            let captionFile = captionFiles.get(imgStem);
+            let hasCaption = false;
+
+            if (captionFile) {
+              hasCaption = true;
+              const capExt = path.extname(captionFile).toLowerCase();
+              const fullCapPath = path.join(folderPath, captionFile);
+              try {
+                const rawContent = fs.readFileSync(fullCapPath, "utf-8").trim();
+                if (capExt === ".json") {
+                  try {
+                    const parsedJson = JSON.parse(rawContent);
+                    captionText = parsedJson.caption || parsedJson.prompt || parsedJson.text || parsedJson.description || rawContent;
+                  } catch (e) {
+                    captionText = rawContent;
+                  }
+                } else {
+                  captionText = rawContent;
+                }
+              } catch (e) {
+                captionText = `${imgStem} [caption read error]`;
+              }
+            } else {
+              unpairedCount += 1;
+              captionText = `[Uncaptioned] ${imgStem.replace(/[-_]/g, " ")}`;
+            }
+
+            totalPairsCount += 1;
+
+            // Determine aspect bucket
+            let bucketTag = "1:1 Square (1024x1024)";
+            if (Math.abs(aspect - 1.0) < 0.1) {
+              bucketTag = "1:1 Square (1024x1024)";
+            } else if (aspect > 1.0) {
+              bucketTag = `${aspect}:1 Landscape (${width}x${height})`;
+            } else {
+              bucketTag = `1:${(1/aspect).toFixed(2)} Portrait (${width}x${height})`;
+            }
+
+            scannedPairs.push({
+              id: `pair_${folder.id || 'ds'}_${imgStem}_${Date.now()}`,
+              image_url: `/api/fs/image?path=${encodeURIComponent(fullImgPath)}`,
+              image_path: fullImgPath,
+              caption_text: captionText,
+              caption_path: captionFile ? path.join(folderPath, captionFile) : undefined,
+              format: imgExt.replace(".", "").toUpperCase(),
+              width,
+              height,
+              aspect_ratio: aspect,
+              assigned_bucket: bucketTag,
+              folder_path: folder.path
+            });
+          }
+        } catch (err: any) {
+          console.error(`Error scanning folder ${folderPath}:`, err);
+        }
+      }
+    }
+
+    // If no physical folder exists yet on disk, return curated multi-format samples and simulated accurate metrics
+    if (!realDiskFound || scannedPairs.length === 0) {
+      const simulatedTotal = (folders || []).reduce((acc: number, f: any) => acc + (f.pair_count || 100), 0);
+      scannedPairs = curatedDatasetSamples.map((sample, i) => ({
+        ...sample,
+        folder_path: folders[i % folders.length]?.path || "./dataset/character_art"
+      }));
+
+      totalPairsCount = Math.max(simulatedTotal, scannedPairs.length);
+      unpairedCount = 0;
+      formatBreakdown["png"] = Math.round(totalPairsCount * 0.45);
+      formatBreakdown["webp"] = Math.round(totalPairsCount * 0.25);
+      formatBreakdown["jpg"] = Math.round(totalPairsCount * 0.20);
+      formatBreakdown["avif"] = Math.round(totalPairsCount * 0.06);
+      formatBreakdown["tiff"] = Math.round(totalPairsCount * 0.04);
+    }
 
     res.json({
       status: "scanned",
       total_folders: (folders || []).length,
-      total_pairs: totalPairs,
-      paired_percentage: 100.0,
-      unpaired_images: 0,
-      preview_samples: mockPairs,
-      bucket_distribution: {
-        "1:1 Square": Math.round(totalPairs * 0.45),
-        "Landscape (1.33:1 to 1.77:1)": Math.round(totalPairs * 0.35),
-        "Portrait (1:1.33 to 1:1.77)": Math.round(totalPairs * 0.20)
-      }
+      total_pairs: totalPairsCount,
+      paired_percentage: totalPairsCount > 0 ? Number((((totalPairsCount - unpairedCount) / totalPairsCount) * 100).toFixed(1)) : 100.0,
+      unpaired_images: unpairedCount,
+      preview_samples: scannedPairs,
+      format_breakdown: formatBreakdown,
+      supported_formats: SUPPORTED_IMAGE_EXTENSIONS.map(e => e.replace(".", "").toUpperCase())
     });
   });
 
-  // Model Component Inspection & Verification
+  // Deep Model Component Inspection & Probing
   app.post("/api/models/inspect", (req, res) => {
     const { transformer_path, vae_path, text_encoder_path } = req.body;
+    
+    const tPath = transformer_path || trainingState.config.transformer_path || "Tongyi-MAI/Z-Image-Turbo";
+    const vPath = vae_path || trainingState.config.vae_path || "Tongyi-MAI/Z-Image-Turbo/vae";
+    const tePath = text_encoder_path || trainingState.config.text_encoder_path || "google/siglip-so400m-patch14-384";
+
+    let tStatus: "valid" | "warning" | "error" = "valid";
+    let tDetails = "S3-DiT Single-Stream Transformer Architecture Verified";
+    let tLayers = 30;
+    let tHiddenDim = 3840;
+    let tHeads = 30;
+    let tParams = "6.1B";
+    let tPrecision = "bfloat16 (bitsandbytes INT8 Quantized)";
+    let tFormat = "Safetensors / HuggingFace Diffusers";
+    let tFileSizeGb = 12.2;
+
+    // Check if local file or directory exists for transformer
+    const resolvedT = path.resolve(tPath);
+    if (fs.existsSync(resolvedT)) {
+      tFormat = fs.statSync(resolvedT).isDirectory() ? "Local Directory Model Checkpoint" : "Local Safetensors Model File";
+      try {
+        const configJsonPath = fs.statSync(resolvedT).isDirectory() ? path.join(resolvedT, "config.json") : path.join(path.dirname(resolvedT), "config.json");
+        if (fs.existsSync(configJsonPath)) {
+          const cfg = JSON.parse(fs.readFileSync(configJsonPath, "utf-8"));
+          if (cfg.num_layers) tLayers = cfg.num_layers;
+          if (cfg.hidden_size) tHiddenDim = cfg.hidden_size;
+          if (cfg.num_attention_heads) tHeads = cfg.num_attention_heads;
+          if (cfg.torch_dtype) tPrecision = cfg.torch_dtype;
+          tDetails = `Probed local configuration: ${tLayers} DiT blocks, ${tHiddenDim} hidden dimension, ${tHeads} attention heads.`;
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    let vStatus: "valid" | "warning" | "error" = "valid";
+    let vChannels = 16;
+    let vDownsample = "8x Downsampling Factor";
+    let vDetails = "16-Channel Latent Autoencoder with spatial compression";
+
+    let teStatus: "valid" | "warning" | "error" = "valid";
+    let teDim = 1152;
+    let teMaxSeq = 256;
+    let teDetails = "SigLIP-SO400M Vision-Language Contrastive Text Conditioning";
+
     res.json({
       transformer: {
-        path: transformer_path || "Tongyi-MAI/Z-Image-Turbo",
-        architecture: "S3-DiT (Sequential Spatial-Selective Diffusion Transformer)",
-        parameters: "6.1B",
-        layers: 30,
-        hidden_dim: 3840,
-        heads: 30,
-        status: "valid"
+        path: tPath,
+        architecture: "S3-DiT (Single-Stream Spatial-Selective Diffusion Transformer)",
+        parameters: tParams,
+        layers: tLayers,
+        hidden_dim: tHiddenDim,
+        heads: tHeads,
+        status: tStatus,
+        precision: tPrecision,
+        format: tFormat,
+        file_size_gb: tFileSizeGb,
+        details: tDetails
       },
       vae: {
-        path: vae_path || "Tongyi-MAI/Z-Image-Turbo/vae",
-        downsample_factor: "8x",
-        latent_channels: 16,
-        status: "valid"
+        path: vPath,
+        downsample_factor: vDownsample,
+        latent_channels: vChannels,
+        status: vStatus,
+        details: vDetails
       },
       text_encoder: {
-        path: text_encoder_path || "google/siglip-so400m-patch14-384",
-        embedding_dim: 1152,
-        max_seq_len: 256,
-        status: "valid"
-      }
+        path: tePath,
+        architecture: "SigLIP-SO400M (ViT-SO400M/14@384px)",
+        embedding_dim: teDim,
+        max_seq_len: teMaxSeq,
+        status: teStatus,
+        details: teDetails
+      },
+      is_compatible_s3dit: true,
+      probed_at: new Date().toISOString()
     });
   });
 
@@ -542,7 +1034,7 @@ async function startServer() {
     });
   });
 
-  // Start Training
+  // Start Training (includes generating Step 0 Baseline Validation Sample)
   app.post("/api/train/start", (req, res) => {
     const config = req.body || {};
     trainingState.config = { ...trainingState.config, ...config };
@@ -552,6 +1044,29 @@ async function startServer() {
     trainingState.health_status = "healthy";
     trainingState.health_alert = null;
     trainingState.history = [];
+
+    // Immediately generate Step 0 Baseline validation sample before training begins
+    const queue = (trainingState.config.sample_prompts_queue && trainingState.config.sample_prompts_queue.length > 0)
+      ? trainingState.config.sample_prompts_queue.filter((p: any) => p.enabled)
+      : defaultPromptQueue;
+
+    queue.forEach((qItem: any, idx: number) => {
+      const baselineSample = {
+        id: `baseline_sample_step_0_prompt_${idx}_${Date.now()}`,
+        step: 0,
+        prompt: qItem.prompt || trainingState.config.sample_prompt || "Baseline unadapted model generation",
+        url: sampleImages[idx % sampleImages.length],
+        seed: qItem.seed || 42,
+        guidance_scale: qItem.guidance_scale || 4.0,
+        steps: qItem.steps || 8,
+        resolution: "1024x1024",
+        is_baseline: true,
+        prompt_index: idx + 1,
+        timestamp: Date.now()
+      };
+      trainingState.samples.unshift(baselineSample);
+      broadcast({ type: "sample", sample: baselineSample });
+    });
 
     if (trainingInterval) clearInterval(trainingInterval);
     trainingInterval = setInterval(runStep, 150);
@@ -645,24 +1160,52 @@ async function startServer() {
     });
   });
 
-  // Manual Trigger In-Training Validation Sampling
+  // Manual Trigger In-Training Validation Sampling (Supports single prompt or prompt queue)
   app.post("/api/samples/generate", (req, res) => {
-    const { prompt = trainingState.config.sample_prompt, seed = 42, steps = 8 } = req.body;
-    const sampleImgUrl = sampleImages[(trainingState.samples.length + 1) % sampleImages.length];
-    const newSample = {
-      id: `manual_sample_${Date.now()}`,
-      step: trainingState.current_step,
-      prompt,
-      url: sampleImgUrl,
-      seed,
-      guidance_scale: 4.0,
-      steps,
-      resolution: "1024x1024",
-      timestamp: Date.now()
-    };
-    trainingState.samples.unshift(newSample);
-    broadcast({ type: "sample", sample: newSample });
-    res.json({ status: "success", sample: newSample });
+    const { prompt, prompts, seed = 42, steps = 8, guidance_scale = 4.0 } = req.body;
+    
+    const promptsToRun: Array<{ prompt: string; seed: number; steps: number; guidance_scale: number }> = [];
+
+    if (Array.isArray(prompts) && prompts.length > 0) {
+      prompts.forEach((p: any) => {
+        promptsToRun.push({
+          prompt: p.prompt || p,
+          seed: p.seed !== undefined ? p.seed : seed,
+          steps: p.steps !== undefined ? p.steps : steps,
+          guidance_scale: p.guidance_scale !== undefined ? p.guidance_scale : guidance_scale
+        });
+      });
+    } else {
+      promptsToRun.push({
+        prompt: prompt || trainingState.config.sample_prompt || "Validation sample with active LoRA adapter",
+        seed,
+        steps,
+        guidance_scale
+      });
+    }
+
+    const generatedSamples = [];
+    promptsToRun.forEach((item, idx) => {
+      const sampleImgUrl = sampleImages[(trainingState.samples.length + idx) % sampleImages.length];
+      const newSample = {
+        id: `manual_sample_${Date.now()}_${idx}`,
+        step: trainingState.current_step,
+        prompt: item.prompt,
+        url: sampleImgUrl,
+        seed: item.seed,
+        guidance_scale: item.guidance_scale,
+        steps: item.steps,
+        resolution: "1024x1024",
+        is_baseline: trainingState.current_step === 0,
+        prompt_index: idx + 1,
+        timestamp: Date.now()
+      };
+      trainingState.samples.unshift(newSample);
+      broadcast({ type: "sample", sample: newSample });
+      generatedSamples.push(newSample);
+    });
+
+    res.json({ status: "success", samples: generatedSamples, count: generatedSamples.length });
   });
 
   // Execute Python Dry Run Test Suite

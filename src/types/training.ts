@@ -53,10 +53,78 @@ export interface DatasetFolder {
   enabled: boolean;
 }
 
+export interface SamplePromptItem {
+  id: string;
+  name?: string;
+  prompt: string;
+  seed: number;
+  steps?: number;
+  guidance_scale?: number;
+  enabled: boolean;
+}
+
+export interface SystemErrorLog {
+  id: string;
+  timestamp: number;
+  category: 'cuda_oom' | 'dataset' | 'model' | 'training' | 'process' | 'general';
+  severity: 'error' | 'warning' | 'info';
+  title: string;
+  details: string;
+  suggestion?: string;
+  step?: number;
+}
+
+export interface FsItem {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  size?: number;
+  ext?: string;
+  dateModified?: string;
+}
+
+export interface ModelProbedSpecs {
+  transformer: {
+    path: string;
+    architecture: string;
+    parameters: string;
+    layers: number;
+    hidden_dim: number;
+    heads: number;
+    status: 'valid' | 'warning' | 'error';
+    precision?: string;
+    format?: string;
+    file_size_gb?: number;
+    details?: string;
+  };
+  vae: {
+    path: string;
+    downsample_factor: string;
+    latent_channels: number;
+    status: 'valid' | 'warning' | 'error';
+    format?: string;
+    details?: string;
+  };
+  text_encoder: {
+    path: string;
+    architecture?: string;
+    embedding_dim: number;
+    max_seq_len: number;
+    status: 'valid' | 'warning' | 'error';
+    format?: string;
+    details?: string;
+  };
+  probed_at?: string;
+  is_compatible_s3dit?: boolean;
+}
+
 export interface ScannedDatasetPair {
   id: string;
   image_url: string;
+  image_path?: string;
   caption_text: string;
+  caption_path?: string;
+  format?: string;
   width: number;
   height: number;
   aspect_ratio: number;
@@ -103,6 +171,7 @@ export interface TrainingConfigState {
   reward_model: string;
   sample_every_n_steps: number;
   sample_prompt: string;
+  sample_prompts_queue?: SamplePromptItem[];
   sample_seed: number;
   sample_steps: number;
   sample_guidance_scale?: number;
@@ -146,3 +215,26 @@ export interface HealthAdvice {
   message: string;
   recommendation?: string;
 }
+
+export interface FsItem {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  type?: 'folder' | 'file';
+  size?: number;
+  ext?: string;
+  dateModified?: string;
+  image_count?: number;
+  caption_count?: number;
+}
+
+export interface FsBrowseResult {
+  currentPath: string;
+  parentPath: string;
+  items: FsItem[];
+  shortcuts?: { name: string; path: string; icon?: string }[];
+  drives?: string[];
+  error?: string;
+}
+
+
