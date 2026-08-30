@@ -1,0 +1,16 @@
+{
+  "testaccount": {
+    "userId": "77cfb301-78a1-479f-99b6-375f7e8714d6",
+    "username": "TestAccount",
+    "salt": "37df86fd388816667abb61f57cb11c17",
+    "hash": "41131741d35a61f9dbf78b6b0e10a11a1c857bcdc968b8e9839faacc069468e4afa53e7a1899fff913e48464870d95f8aa8ade876e579a487a36acd2f3f8d86b",
+    "createdAt": "2026-08-26T18:44:05.604Z"
+  },
+  "destinyfaux": {
+    "userId": "773ee4ad-5fb6-4905-bd80-32380117f856",
+    "username": "Destinyfaux",
+    "salt": "b902f1d8534929d644124a25e78f5048",
+    "hash": "4ccb00dff530b4851a5ad27b277fc9ff3b2ad36cc939540e756e7ef7f29ffb315f91b7ecdd6d4aa4ddadd189e41c560188239d10b9234a80d8f9a928ed374d56",
+    "createdAt": "2026-08-26T23:32:21.766Z"
+  }
+}
