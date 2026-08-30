@@ -90,7 +90,7 @@ export default function App() {
     sample_steps: 8,
     amp_enabled: true,
     amp_dtype: 'bfloat16',
-    soft_checkpoint_every_n_steps: 50,
+    soft_checkpoint_every_n_steps: 250,
     target_megapixels: 1.0,
     aspect_mode: 'auto',
     fixed_ratio: '1:1',

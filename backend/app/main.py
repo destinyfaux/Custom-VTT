@@ -16,6 +16,7 @@ from app.core.model_builder import resolve_peft_targets, compute_adapter_paramet
 from app.core.merger import merge_deturbo_adapter
 from app.core.cacher import extract_and_cache_dataset
 from app.inference.sampler import run_fast_validation_sampling
+from fastapi.responses import RedirectResponse
 
 app = FastAPI(title="Z-Image Studio API", version="1.0.0")
 
@@ -57,6 +58,17 @@ class ConnectionManager:
                 pass
 
 manager = ConnectionManager()
+
+@app.get("/")
+def read_root():
+    # Redirect visitors to the React UI or return a status JSON
+    return {
+        "status": "online",
+        "service": "Z-Image Studio Backend",
+        "frontend_ui": "http://localhost:3000",
+        "api_docs": "http://127.0.0.1:8000/docs",
+        "hardware": "RTX 3080 (12GB) Ampere 8-Bit BNB"
+    }
 
 @app.get("/api/hardware")
 def get_hardware_invariants():

@@ -275,9 +275,10 @@ export const TrainingConfigPanel: React.FC<TrainingConfigPanelProps> = ({
             onChange={(e) => onChange({ soft_checkpoint_every_n_steps: Number(e.target.value) })}
             className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
           >
-            <option value={25}>Every 25 steps (Max Granularity)</option>
-            <option value={50}>Every 50 steps (Standard)</option>
-            <option value={100}>Every 100 steps</option>
+            <option value={100}>Every 100 steps (Excessive)</option>
+            <option value={250}>Every 250 steps (Max Granularity)</option>
+            <option value={500}>Every 500 steps (Standard)</option>
+            <option value={1000}>Every 1000 steps (Conservative)</option>
           </select>
         </div>
 
