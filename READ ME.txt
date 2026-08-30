@@ -1,0 +1,91 @@
+INSTRUCTIONS 
+
+To start the VTT simply create a .bat file:
+
+____________________________________________
+@echo off
+title Custom VTT Launcher
+echo =======================================
+echo    Starting Custom VTT Environment
+echo =======================================
+
+:: Start the Node Server in a new window
+echo Starting Backend Server (Port 3001)...
+cd server
+start "VTT Backend Server" cmd /k "node server.js"
+cd ..
+
+:: Start the Vite Client in a new window
+echo Starting Frontend Client (Port 5173)...
+cd client
+start "VTT Frontend Client" cmd /k "npm run dev"
+cd ..
+
+echo.
+echo Both servers have been launched in separate windows!
+echo You can close this window.
+pause
+____________________________________________
+
+Copy this and make a new file named "start-vtt.bat" and paste the contents into that .bat
+
+To add custom content go into the server folder and open up the assets dir.
+"custom-vtt\server\assets"
+
+In this dir/folder 📂 you will see a series of folders where you can place your custom content.
+
+- handouts
+- maps
+- music
+- sfx
+- stamps
+- tokens
+
+In each of these folders you'll place the appropriate files, some directories contain additional "READ ME" files detailing what types of files you can be used.
+
+*Additionally brief descriptions of the tools are included.
+
+The VTT was designed to be simple and straight forward, generally clicking around and exploring the tools will make it clear on how everything works. 
+I designed the VTT to be user friendly and expandable, meaning you can contribute your own code to expand features or add additional content.
+
+IMPORTANT!
+
+The folder path the srd_data.json is located in "custom-vtt\client\src\data"
+
+This srd contains over 15+ books worth of content for character creation. It should only be used for expanding character driven content (Races, classes, items, spells, etc.) 
+It was NOT designed to include monster data or npc data. However I might add a monster_srd.json in the future to auto-build monster tokens.
+
+WHAT THIS VTT DOES NOT DO:
+
+* Auto calculate/apply damage to monsters and players
+* Handle complex spells and cantrips
+* Automate combat (Actions are player and DM driven)
+
+WHAT THIS VTT DOES DO:
+
+* Automate character creation (Handles building the character sheet)
+* Auto populate fields via search or drop downs for quickly making a character
+* Auto applies FEATS+SKILLS
+* Automatically handles leveling up and applying bonuses to stats and skills
+* Changes core stats + skills natively on race, class and background selections
+* Calculates AC, DC, HP
+* Updates Passives (Perception, Insight and Investigation)
+* Allows player to track actions, bonus actions and reactions (Adds additional slots based on class and level)
+* Allows player to easily manage inventory via search features (pulled from the srd)
+* Easy to add spells (pulled from the srd)
+* Has tabs for appearance and character journals
+* Includes chat/combat logs
+* Tracks combat initiatives w/ combat carousel for handling combat turns (This is manual)
+* Features a dice roller with all standard dice
+* Has build in audio player (Uses custom content)
+* Has a map area for game play and traversal
+* FOG OF WAR + LOS
+* DM can request saving throws from players at will (via right clicking on tokens)
+* DM can inspect players character sheets at will
+* Map builder has placeable gradient lights + custom stamps
+* Map builder includes easy wall placement
+* DM can make unlimited maps and save them to be used later
+* Token traversal includes movement helper (Ruler tool is activated when tokens are dragged and dropped showing you how far a token is being moved)
+* Maps are auto saved in the backend (saves on map changes - placing walls, lights, notes)
+* Note placement tool (for DM notes) these can be placed directly on the map and are hidden from players
+* DM login and player login (every user is assigned a UUID and always connect to previously made characters)
