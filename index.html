@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function() {
+        try {
+          var origFetch = window.fetch;
+          if (typeof origFetch === 'function') {
+            var boundFetch = origFetch.bind(window);
+            var current = boundFetch;
+            try {
+              Object.defineProperty(window, 'fetch', {
+                get: function() {
+                  return current;
+                },
+                set: function(fn) {
+                  current = typeof fn === 'function' ? fn : boundFetch;
+                },
+                configurable: true,
+                enumerable: true
+              });
+            } catch (e1) {
+              try {
+                Object.defineProperty(Window.prototype, 'fetch', {
+                  get: function() {
+                    return current;
+                  },
+                  set: function(fn) {
+                    current = typeof fn === 'function' ? fn : boundFetch;
+                  },
+                  configurable: true,
+                  enumerable: true
+                });
+              } catch (e2) {}
+            }
+          }
+        } catch (err) {
+          // ignore
+        }
+      })();
+    </script>
+    <title>Z-Image Studio</title>
+    <meta name="description" content="Specialized S3-DiT & Diffusion Transformer Training Suite for Tongyi-MAI/Z-Image 6B and Z-Image-Turbo with LoRA/LoKr PEFT, DiffusionOPSD reward alignment, and real-time RTX 3080 12GB VRAM optimization." />
+    <meta property="og:title" content="Z-Image Studio" />
+    <meta property="og:description" content="Specialized S3-DiT & Diffusion Transformer Training Suite for Tongyi-MAI/Z-Image 6B and Z-Image-Turbo with LoRA/LoKr PEFT, DiffusionOPSD reward alignment, and real-time RTX 3080 12GB VRAM optimization." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-slate-950 text-slate-100 font-sans antialiased selection:bg-indigo-500/30 selection:text-indigo-200">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
