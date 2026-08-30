@@ -1,0 +1,10 @@
+HAND OUT SYSTEM:
+
+Designed principle/Intended usage:
+
+The handout system pushes images/videos to player screens and handle some back end things to remove them from the viewport.
+The DM is able to select image/video files for playback on client windows, via a button in the VTT with a media browser. 
+This is meant to mimic a table-top setting where a DM would show their players things like puzzles, clues, scenes etc. 
+This is great for showing players cutscenes, NPCs, Monsters, you name it! 
+
+The more creative you are, the more you can maximize this tool!
