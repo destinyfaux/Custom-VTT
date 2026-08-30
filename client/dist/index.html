@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Custom VTT</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <style>
+      /* Root variables for dynamic scaling and themes */
+      :root {
+        --ui-font-scale: 1;
+        /* Dark theme defaults (current look) */
+        --bg-dark: #0b0c10;
+        --bg-panel: #1a1c23;
+        --bg-card: #252833;
+        --border-dark: #3a3f4b;
+        --text-light: #f0f0f0;
+        --text-muted: #a0a5b5;
+        --accent-gold: #e6b422;
+      }
+
+      /* Light theme – will be applied via data-theme="light" on html */
+      [data-theme="light"] {
+        --bg-dark: #f8f9fa;
+        --bg-panel: #ffffff;
+        --bg-card: #e9ecef;
+        --border-dark: #ced4da;
+        --text-light: #212529;
+        --text-muted: #6c757d;
+        --accent-gold: #b8860b;
+      }
+
+      /* Apply font scaling to all UI text */
+      body, button, input, select, textarea, .sidebar, .chat, .token-tray, .dm-tools, .character-sheet {
+        font-size: calc(1rem * var(--ui-font-scale));
+      }
+
+      /* Keep canvas-rendered text (token labels, ruler, etc.) independent – they are drawn with canvas API, not CSS */
+    </style>
+    <script type="module" crossorigin src="/assets/index-Bna0-mTJ.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-pgkY8S_w.css">
+  </head>
+  <body class="bg-gray-900 text-gray-100 min-h-screen" style="background-color: var(--bg-dark); color: var(--text-light);">
+    <div id="root"></div>
+  </body>
+</html>
