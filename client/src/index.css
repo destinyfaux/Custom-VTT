@@ -1,0 +1,321 @@
+/* client/src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   VTT UI Font Scaling & Theme Variables
+   ============================================ */
+:root {
+    --ui-font-scale: 1;
+
+    /* Base Default theme (Obsidian / Gold) */
+    --color-bg-dark: #0b0c10;
+    --color-bg-panel: #14161c;
+    --color-bg-card: #1c1f2a;
+    --color-border-dark: #2a2e3a;
+    --color-text-light: #f0f2f5;
+    --color-text-muted: #9ca3af;
+    --color-accent-gold: #e6b422;
+
+    /* Light (Parchment) */
+    --color-bg-dark-light: #f6efe7;
+    --color-bg-panel-light: #fcf8f2;
+    --color-bg-card-light: #f2e7d8;
+    --color-border-dark-light: #cdb89a;
+    --color-text-light-light: #2f2417;
+    --color-text-muted-light: #6e5f46;
+    --color-accent-gold-light: #9b6a16;
+
+    /* Map (Forest / Overland) */
+    --color-bg-dark-map: #232d22;
+    --color-bg-panel-map: #354b35;
+    --color-bg-card-map: #49623f;
+    --color-border-dark-map: #6e7d53;
+    --color-text-light-map: #f0ead2;
+    --color-text-muted-map: #bead7d;
+    --color-accent-gold-map: #cea856;
+
+    /* Ominous (Gloom / Blood Horror) */
+    --color-bg-dark-ominous: #120d10;
+    --color-bg-panel-ominous: #20151b;
+    --color-bg-card-ominous: #2d2026;
+    --color-border-dark-ominous: #5b3a3f;
+    --color-text-light-ominous: #f0e2d6;
+    --color-text-muted-ominous: #b08b6d;
+    --color-accent-gold-ominous: #8e3d24;
+
+    /* Cute (🌸 Sakura / Pastel) */
+    --color-bg-dark-cute: #1f1422;
+    --color-bg-panel-cute: #2b1c2e;
+    --color-bg-card-cute: #3b253f;
+    --color-border-dark-cute: #7a426f;
+    --color-text-light-cute: #fdf2f8;
+    --color-text-muted-cute: #d8b4e2;
+    --color-accent-gold-cute: #f472b6;
+
+    /* Arcane (🌌 Astral Midnight / Cyan Ether) */
+    --color-bg-dark-arcane: #090d16;
+    --color-bg-panel-arcane: #101726;
+    --color-bg-card-arcane: #192238;
+    --color-border-dark-arcane: #2d3f66;
+    --color-text-light-arcane: #e0f2fe;
+    --color-text-muted-arcane: #7dd3fc;
+    --color-accent-gold-arcane: #38bdf8;
+
+    /* Forge (🔥 Molten Ember / Smoldering Slate) */
+    --color-bg-dark-forge: #17110e;
+    --color-bg-panel-forge: #241914;
+    --color-bg-card-forge: #33231c;
+    --color-border-dark-forge: #663d2c;
+    --color-text-light-forge: #fef3c7;
+    --color-text-muted-forge: #d97706;
+    --color-accent-gold-forge: #f97316;
+
+    /* Cyber (⚡ High-Contrast Laser Neon) */
+    --color-bg-dark-cyber: #050508;
+    --color-bg-panel-cyber: #0d0f18;
+    --color-bg-card-cyber: #141824;
+    --color-border-dark-cyber: #22d3ee;
+    --color-text-light-cyber: #f0fdf4;
+    --color-text-muted-cyber: #67e8f9;
+    --color-accent-gold-cyber: #06b6d4;
+
+    /* Abyss (🌊 Oceanic Trench / Bioluminescent Teal) */
+    --color-bg-dark-abyss: #071518;
+    --color-bg-panel-abyss: #0d2226;
+    --color-bg-card-abyss: #133238;
+    --color-border-dark-abyss: #1e5963;
+    --color-text-light-abyss: #ecfeff;
+    --color-text-muted-abyss: #5eead4;
+    --color-accent-gold-abyss: #14b8a6;
+
+    --bg-dark: #0b0c10;
+    --bg-panel: #1a1c23;
+    --bg-card: #252832;
+    --border-dark: #2d303a;
+    --text-light: #f0f2f5;
+    --text-muted: #9ca3af;
+    --accent-gold: #e6b422;
+}
+
+:root[data-theme="light"] {
+    --color-bg-dark: var(--color-bg-dark-light);
+    --color-bg-panel: var(--color-bg-panel-light);
+    --color-bg-card: var(--color-bg-card-light);
+    --color-border-dark: var(--color-border-dark-light);
+    --color-text-light: var(--color-text-light-light);
+    --color-text-muted: var(--color-text-muted-light);
+    --color-accent-gold: var(--color-accent-gold-light);
+}
+
+:root[data-theme="map"] {
+    --color-bg-dark: var(--color-bg-dark-map);
+    --color-bg-panel: var(--color-bg-panel-map);
+    --color-bg-card: var(--color-bg-card-map);
+    --color-border-dark: var(--color-border-dark-map);
+    --color-text-light: var(--color-text-light-map);
+    --color-text-muted: var(--color-text-muted-map);
+    --color-accent-gold: var(--color-accent-gold-map);
+}
+
+:root[data-theme="ominous"] {
+    --color-bg-dark: var(--color-bg-dark-ominous);
+    --color-bg-panel: var(--color-bg-panel-ominous);
+    --color-bg-card: var(--color-bg-card-ominous);
+    --color-border-dark: var(--color-border-dark-ominous);
+    --color-text-light: var(--color-text-light-ominous);
+    --color-text-muted: var(--color-text-muted-ominous);
+    --color-accent-gold: var(--color-accent-gold-ominous);
+}
+
+:root[data-theme="cute"] {
+    --color-bg-dark: var(--color-bg-dark-cute);
+    --color-bg-panel: var(--color-bg-panel-cute);
+    --color-bg-card: var(--color-bg-card-cute);
+    --color-border-dark: var(--color-border-dark-cute);
+    --color-text-light: var(--color-text-light-cute);
+    --color-text-muted: var(--color-text-muted-cute);
+    --color-accent-gold: var(--color-accent-gold-cute);
+}
+
+:root[data-theme="arcane"] {
+    --color-bg-dark: var(--color-bg-dark-arcane);
+    --color-bg-panel: var(--color-bg-panel-arcane);
+    --color-bg-card: var(--color-bg-card-arcane);
+    --color-border-dark: var(--color-border-dark-arcane);
+    --color-text-light: var(--color-text-light-arcane);
+    --color-text-muted: var(--color-text-muted-arcane);
+    --color-accent-gold: var(--color-accent-gold-arcane);
+}
+
+:root[data-theme="forge"] {
+    --color-bg-dark: var(--color-bg-dark-forge);
+    --color-bg-panel: var(--color-bg-panel-forge);
+    --color-bg-card: var(--color-bg-card-forge);
+    --color-border-dark: var(--color-border-dark-forge);
+    --color-text-light: var(--color-text-light-forge);
+    --color-text-muted: var(--color-text-muted-forge);
+    --color-accent-gold: var(--color-accent-gold-forge);
+}
+
+:root[data-theme="cyber"] {
+    --color-bg-dark: var(--color-bg-dark-cyber);
+    --color-bg-panel: var(--color-bg-panel-cyber);
+    --color-bg-card: var(--color-bg-card-cyber);
+    --color-border-dark: var(--color-border-dark-cyber);
+    --color-text-light: var(--color-text-light-cyber);
+    --color-text-muted: var(--color-text-muted-cyber);
+    --color-accent-gold: var(--color-accent-gold-cyber);
+}
+
+:root[data-theme="abyss"] {
+    --color-bg-dark: var(--color-bg-dark-abyss);
+    --color-bg-panel: var(--color-bg-panel-abyss);
+    --color-bg-card: var(--color-bg-card-abyss);
+    --color-border-dark: var(--color-border-dark-abyss);
+    --color-text-light: var(--color-text-light-abyss);
+    --color-text-muted: var(--color-text-muted-abyss);
+    --color-accent-gold: var(--color-accent-gold-abyss);
+}
+
+/* Apply font scaling to all UI text elements */
+body,
+.sidebar,
+.chat,
+button,
+input,
+select,
+textarea,
+.token-tray,
+.dm-tools,
+.character-sheet,
+.modal-content,
+.card,
+.list-item,
+.btn-primary,
+.btn-secondary,
+.btn-gold {
+    font-size: calc(1rem * var(--ui-font-scale));
+}
+
+/* Keep small text classes consistent */
+.text-xs { font-size: calc(0.75rem * var(--ui-font-scale)); }
+.text-sm { font-size: calc(0.875rem * var(--ui-font-scale)); }
+.text-base { font-size: calc(1rem * var(--ui-font-scale)); }
+.text-lg { font-size: calc(1.125rem * var(--ui-font-scale)); }
+.text-xl { font-size: calc(1.25rem * var(--ui-font-scale)); }
+
+/* Background colors using CSS variables (optional – keeps them consistent if theme toggles) */
+body {
+  background-color: var(--color-bg-dark, var(--bg-dark));
+  color: var(--color-text-light, var(--text-light));
+}
+
+/* ─── SRD Manager global styles ─── */
+@layer base {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-800;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-600 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-500;
+  }
+}
+
+@layer components {
+  .form-input {
+    @apply w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-100
+           focus:outline-none focus:ring-2 focus:ring-srd-500 focus:border-transparent
+           placeholder-gray-400 transition-colors;
+  }
+
+  .form-select {
+    @apply w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-100
+           focus:outline-none focus:ring-2 focus:ring-srd-500 focus:border-transparent
+           transition-colors;
+  }
+
+  .form-checkbox {
+    @apply w-4 h-4 bg-gray-700 border-gray-600 rounded text-srd-500
+           focus:ring-srd-500 focus:ring-offset-gray-800;
+  }
+
+  .btn-primary {
+    @apply px-4 py-2 bg-srd-600 hover:bg-srd-700 text-white rounded font-medium
+           transition-colors focus:outline-none focus:ring-2 focus:ring-srd-500
+           focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50
+           disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded font-medium
+           transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400
+           focus:ring-offset-2 focus:ring-offset-gray-900;
+  }
+
+  .btn-danger {
+    @apply px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-medium
+           transition-colors focus:outline-none focus:ring-2 focus:ring-red-500
+           focus:ring-offset-2 focus:ring-offset-gray-900;
+  }
+
+  .btn-success {
+    @apply px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium
+           transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500
+           focus:ring-offset-2 focus:ring-offset-gray-900;
+  }
+
+  .btn-gold {
+    @apply px-4 py-2 bg-dnd-gold hover:bg-yellow-500 text-gray-900 rounded font-bold
+           transition-colors focus:outline-none focus:ring-2 focus:ring-dnd-gold
+           focus:ring-offset-2 focus:ring-offset-gray-900;
+  }
+
+  .card {
+    @apply bg-gray-800 border border-gray-700 rounded-lg p-4 shadow-lg;
+  }
+
+  .card-header {
+    @apply text-lg font-bold text-srd-300 border-b border-gray-700 pb-2 mb-3;
+  }
+
+  .section-label {
+    @apply block text-sm font-semibold text-gray-300 mb-1;
+  }
+
+  .field-group {
+    @apply mb-4;
+  }
+
+  .nested-card {
+    @apply bg-gray-750 border border-gray-600 rounded-lg p-3 ml-2;
+  }
+
+  .tab-active {
+    @apply bg-srd-600 text-white;
+  }
+
+  .tab-inactive {
+    @apply bg-gray-700 text-gray-300 hover:bg-gray-600;
+  }
+
+  .list-item {
+    @apply flex items-center justify-between px-3 py-2 bg-gray-800 border border-gray-700
+           rounded hover:border-srd-500 transition-colors cursor-pointer;
+  }
+
+  .list-item-active {
+    @apply flex items-center justify-between px-3 py-2 bg-srd-900 border border-srd-500
+           rounded transition-colors cursor-pointer;
+  }
+}
