@@ -19,10 +19,11 @@ import {
   Info,
   Radio,
   FolderOpen,
-  Box
+  Box,
+  AlertTriangle
 } from 'lucide-react';
 import { useTrainingWebSocket } from './services/websocket';
-import { TrainingConfigState, PeftEstimate, HardwareInfo, AspectBucket, DatasetFolder } from './types/training';
+import { TrainingConfigState, PeftEstimate, HardwareInfo, AspectBucket, DatasetFolder, SystemErrorLog } from './types/training';
 import { LayerMatrix } from './components/LayerMatrix';
 import { MetricsDashboard } from './components/MetricsDashboard';
 import { SampleGallery } from './components/SampleGallery';
@@ -34,6 +35,7 @@ import { DryRunModal } from './components/DryRunModal';
 import { CheckpointsDrawer } from './components/CheckpointsDrawer';
 import { DatasetManager } from './components/DatasetManager';
 import { ModelComponentsCard } from './components/ModelComponentsCard';
+import { SystemErrorTracker } from './components/SystemErrorTracker';
 
 export default function App() {
   const {
@@ -48,11 +50,14 @@ export default function App() {
   } = useTrainingWebSocket();
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'datasets' | 'models' | 'layers' | 'buckets' | 'opsd' | 'hardware'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'datasets' | 'models' | 'layers' | 'buckets' | 'opsd' | 'hardware' | 'errors'>('dashboard');
 
   // Modals & Drawers
   const [isDryRunOpen, setIsDryRunOpen] = useState(false);
   const [isCheckpointsOpen, setIsCheckpointsOpen] = useState(false);
+
+  // System Errors State
+  const [errors, setErrors] = useState<SystemErrorLog[]>([]);
 
   // Configuration State
   const [config, setConfig] = useState<TrainingConfigState>({
@@ -101,6 +106,41 @@ export default function App() {
   const [hardware, setHardware] = useState<HardwareInfo | null>(null);
   const [buckets, setBuckets] = useState<AspectBucket[]>([]);
 
+  // Fetch error logs
+  const fetchErrors = async () => {
+    try {
+      const res = await fetch('/api/logs/errors');
+      if (res.ok) {
+        const data = await res.json();
+        setErrors(data.errors || []);
+      }
+    } catch (err) {
+      console.error('Error fetching system logs:', err);
+    }
+  };
+
+  const handleClearErrors = async () => {
+    try {
+      await fetch('/api/logs/errors', { method: 'DELETE' });
+      setErrors([]);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleSimulateError = async (category: "cuda_oom" | "dataset" | "model" | "training") => {
+    try {
+      await fetch('/api/logs/errors/simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category })
+      });
+      fetchErrors();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   // Fetch initial data
   const fetchHardware = async () => {
     try {
@@ -125,6 +165,10 @@ export default function App() {
   useEffect(() => {
     fetchHardware();
     fetchBuckets(config.target_megapixels || 1.0);
+    fetchErrors();
+
+    const errorPollInterval = setInterval(fetchErrors, 3000);
+    return () => clearInterval(errorPollInterval);
   }, []);
 
   // Update PEFT parameter estimate whenever targeting or adapter changes
@@ -239,9 +283,9 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans">
       {/* Top Header */}
-      <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 lg:px-8 py-3 shadow-md">
+      <header className="sticky top-0 z-40 bg-neutral-900/90 backdrop-blur-md border-b border-neutral-800 px-4 lg:px-8 py-3 shadow-md">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
           {/* Brand & Model Identity */}
           <div className="flex items-center gap-3">
@@ -263,7 +307,7 @@ export default function App() {
                   AMP {config.amp_dtype || 'bfloat16'}
                 </span>
               </div>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-neutral-400">
                 Specialized S3-DiT LoRA/LoKr Suite & DiffusionOPSD Reward Alignment
               </p>
             </div>
@@ -271,16 +315,16 @@ export default function App() {
 
           {/* Target Hardware Guardrail Indicator */}
           <div className="hidden md:flex items-center gap-2 text-xs">
-            <div className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 flex items-center gap-2">
+            <div className="bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-1.5 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-slate-300 font-mono">{hardware?.gpu_name?.split(' ')[1] || 'RTX'} 3080 12GB</span>
-              <span className="text-slate-500">|</span>
+              <span className="text-neutral-300 font-mono">{hardware?.gpu_name?.split(' ')[1] || 'RTX'} 3080 12GB</span>
+              <span className="text-neutral-500">|</span>
               <span className="text-cyan-300 font-mono">Budget ≤ 10.8 GB</span>
             </div>
 
-            <div className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 flex items-center gap-1.5">
+            <div className="bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-1.5 flex items-center gap-1.5">
               <Radio className={`w-3.5 h-3.5 ${isConnected ? 'text-emerald-400' : 'text-rose-400'}`} />
-              <span className="text-[11px] text-slate-400 font-mono">
+              <span className="text-[11px] text-neutral-400 font-mono">
                 {isConnected ? 'IPC Telemetry Live' : 'Connecting...'}
               </span>
             </div>
@@ -292,7 +336,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setIsDryRunOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition-colors shadow-sm"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 rounded-lg transition-colors shadow-sm"
               title="Validate S3-DiT Graph Execution without GPU"
             >
               <Terminal className="w-3.5 h-3.5 text-indigo-400" />
@@ -303,11 +347,11 @@ export default function App() {
             <button
               type="button"
               onClick={() => setIsCheckpointsOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition-colors shadow-sm"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 rounded-lg transition-colors shadow-sm"
             >
               <Save className="w-3.5 h-3.5 text-emerald-400" />
               <span className="hidden sm:inline">Checkpoints</span>
-              <span className="font-mono text-[10px] px-1.5 rounded bg-slate-700 text-slate-300">
+              <span className="font-mono text-[10px] px-1.5 rounded bg-neutral-700 text-neutral-300">
                 {checkpoints.length}
               </span>
             </button>
@@ -365,98 +409,123 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Tab Navigation */}
-      <div className="bg-slate-900/60 border-b border-slate-800/80 px-4 lg:px-8">
-        <div className="max-w-7xl mx-auto flex items-center gap-2 overflow-x-auto py-2">
+      {/* Main Tab Navigation with Clean Responsive Wrap (No forced horizontal scrollbar) */}
+      <div className="bg-neutral-900/60 border-b border-neutral-800/80 px-4 lg:px-8">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center gap-1.5 py-2">
           <button
             type="button"
             onClick={() => setActiveTab('dashboard')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
               activeTab === 'dashboard'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50'
             }`}
           >
-            <Activity className="w-4 h-4" />
+            <Activity className="w-3.5 h-3.5" />
             Training & Telemetry
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('datasets')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
               activeTab === 'datasets'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50'
             }`}
           >
-            <FolderOpen className="w-4 h-4" />
+            <FolderOpen className="w-3.5 h-3.5" />
             Dataset & Captions ({config.dataset_folders?.length || 0})
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('models')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
               activeTab === 'models'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50'
             }`}
           >
-            <Box className="w-4 h-4" />
+            <Box className="w-3.5 h-3.5" />
             Model & Backbones
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('layers')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
               activeTab === 'layers'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50'
             }`}
           >
-            <Layers className="w-4 h-4" />
+            <Layers className="w-3.5 h-3.5" />
             Layer Matrix (30 Blocks)
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('buckets')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
               activeTab === 'buckets'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50'
             }`}
           >
-            <LayoutGrid className="w-4 h-4" />
+            <LayoutGrid className="w-3.5 h-3.5" />
             Aspect Bucketing ({config.target_megapixels || 1.0} MP)
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('opsd')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
               activeTab === 'opsd'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50'
             }`}
           >
-            <Award className="w-4 h-4" />
+            <Award className="w-3.5 h-3.5" />
             DiffusionOPSD & Schedulers
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('hardware')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
               activeTab === 'hardware'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50'
             }`}
           >
-            <ShieldCheck className="w-4 h-4" />
+            <ShieldCheck className="w-3.5 h-3.5" />
             Hardware Diagnostics
+          </button>
+
+          {/* System Health & Errors Tab */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('errors')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
+              activeTab === 'errors'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                : errors.some(e => e.severity === 'error')
+                ? 'text-rose-400 bg-rose-950/40 border border-rose-800/60'
+                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50'
+            }`}
+          >
+            <AlertTriangle className={`w-3.5 h-3.5 ${errors.length > 0 ? 'text-amber-400' : 'text-neutral-400'}`} />
+            System Errors & Diagnostics
+            {errors.length > 0 && (
+              <span className={`text-[10px] font-mono px-1.5 rounded-full ${
+                errors.some(e => e.severity === 'error')
+                  ? 'bg-rose-500 text-white'
+                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+              }`}>
+                {errors.length}
+              </span>
+            )}
           </button>
         </div>
       </div>
@@ -493,6 +562,8 @@ export default function App() {
               samples={samples}
               onGenerateManual={handleManualSample}
               currentStep={currentStep}
+              sampleInterval={config.sample_every_n_steps || 250}
+              onChangeSampleInterval={(interval) => updateConfig({ sample_every_n_steps: interval })}
             />
           </div>
         )}
@@ -600,13 +671,24 @@ export default function App() {
             />
           </div>
         )}
+
+        {/* Tab 8: System Health & Error Diagnostics */}
+        {activeTab === 'errors' && (
+          <div className="space-y-6">
+            <SystemErrorTracker
+              errors={errors}
+              onClearErrors={handleClearErrors}
+              onSimulateError={handleSimulateError}
+            />
+          </div>
+        )}
       </main>
 
       {/* Footer */}
-      <footer className="bg-slate-900 border-t border-slate-800 px-4 lg:px-8 py-3 text-xs text-slate-500">
+      <footer className="bg-neutral-900 border-t border-neutral-800 px-4 lg:px-8 py-3 text-xs text-neutral-500">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-slate-400">Z-Image Studio</span>
+            <span className="font-semibold text-neutral-400">Z-Image Studio</span>
             <span>·</span>
             <span>Single-Stream Diffusion Transformer (S3-DiT 30-Block Architecture)</span>
           </div>
@@ -637,3 +719,4 @@ export default function App() {
     </div>
   );
 }
+
