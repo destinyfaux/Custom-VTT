@@ -10,7 +10,7 @@ import asyncio
 import json
 import os
 
-from app.config import TrainingConfig, HardwareSpecs
+from backend.app.config import TrainingConfig, HardwareSpecs
 from app.core.bucketing import build_aspect_buckets, get_target_bucket
 from app.core.model_builder import resolve_peft_targets, compute_adapter_parameter_estimate
 from app.core.merger import merge_deturbo_adapter

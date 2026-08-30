@@ -86,7 +86,7 @@ class TestZImageTrainingPipeline(unittest.TestCase):
                 out = model(x)
                 loss = out.sum()
             
-            scaler = GradScaler(enabled=(device == "cuda"))
+            scaler = torch.amp.GradScaler('cuda', enabled=(device == "cuda"))
             scaler.scale(loss).backward()
             scaler.step(torch.optim.Adam(model.parameters(), lr=1e-4))
             scaler.update()
