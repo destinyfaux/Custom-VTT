@@ -2852,7 +2852,22 @@ async function startServer() {
   // Vite middleware in dev / Static files in production
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        watch: process.env.DISABLE_HMR === 'true' ? null : {
+          ignored: [
+            '**/config/**',
+            '**/presets/**',
+            '**/cache/**',
+            '**/outputs/**',
+            '**/logs/**',
+            '**/dataset_cache/**',
+            '**/models/**',
+            '**/*.json',
+            '**/*.txt'
+          ]
+        }
+      },
       appType: "spa"
     });
     app.use(vite.middlewares);

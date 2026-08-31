@@ -57,8 +57,27 @@ export default function App() {
     setCurrentStatus
   } = useTrainingWebSocket();
 
-  // Active Tab
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'datasets' | 'models' | 'layers' | 'buckets' | 'opsd' | 'hardware' | 'errors'>('dashboard');
+  // Active Tab with LocalStorage persistence to prevent resetting on page reload
+  const [activeTab, setActiveTabState] = useState<'dashboard' | 'datasets' | 'models' | 'layers' | 'buckets' | 'opsd' | 'hardware' | 'errors'>(() => {
+    try {
+      const saved = localStorage.getItem('zimage_active_tab');
+      if (saved && ['dashboard', 'datasets', 'models', 'layers', 'buckets', 'opsd', 'hardware', 'errors'].includes(saved)) {
+        return saved as any;
+      }
+    } catch (e) {
+      // Ignore localStorage read errors
+    }
+    return 'dashboard';
+  });
+
+  const setActiveTab = (tab: 'dashboard' | 'datasets' | 'models' | 'layers' | 'buckets' | 'opsd' | 'hardware' | 'errors') => {
+    setActiveTabState(tab);
+    try {
+      localStorage.setItem('zimage_active_tab', tab);
+    } catch (e) {
+      // Ignore localStorage write errors
+    }
+  };
 
   // Modals & Drawers
   const [isDryRunOpen, setIsDryRunOpen] = useState(false);
