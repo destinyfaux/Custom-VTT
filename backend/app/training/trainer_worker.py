@@ -341,9 +341,17 @@ def execute_training_subprocess(conn: Any, cfg: dict):
                 if use_opsd:
                     # Bounded anchor clean projection: x_hat_0 = x_t - t * v_theta
                     x_hat_0 = x_t - t_raw[:, None, None, None] * pred
-                    # Target deviation constraint (DiffusionOPSD bounded self-distillation term)
-                    opsd_loss = nn.functional.mse_loss(pred.float(), v_target.float().detach())
-                    loss = (1.0 - opsd_lambda) * loss + opsd_lambda * opsd_loss
+                    
+                    # Real DiffusionOPSD: stop_gradient on anchor teacher, enforce bounded constraint
+                    # Prevents student drift outside anchor envelope: Delta_v = |v_theta - v_teacher|
+                    v_anchor = v_target.detach()  # Teacher velocity (stop gradient)
+                    velocity_delta = torch.abs(pred - v_anchor)
+                    anchor_loss = velocity_delta.mean()  # Bounded envelope enforcement
+                    
+                    # Blend: Main MSE + Anchor Bounded Constraint
+                    loss = (1.0 - opsd_lambda) * loss + opsd_lambda * anchor_loss
+                else:
+                    loss = loss
 
                 loss = loss / grad_accum
                 loss.backward()

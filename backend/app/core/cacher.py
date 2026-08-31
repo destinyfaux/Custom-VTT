@@ -105,13 +105,16 @@ def extract_and_cache_dataset(
                         })
 
     if not discovered_pairs:
-        # Check if fallback sample can be created
-        print(f"[Cacher] No images in folder list {folders}. Creating default template cache record.")
-        discovered_pairs = [{
-            "image_path": "./dataset/sample_001.png",
-            "caption": "A cinematic photo of a cybernetic tiger in a luminescent laboratory, 8k",
-            "format": "PNG"
-        }]
+        # Log error instead of silently creating fake cache
+        error_msg = f"No images found in dataset folders: {[f.get('path') for f in folders]}"
+        GLOBAL_DIAGNOSTICS.log(
+            category="dataset",
+            severity="error",
+            title="No Dataset Images Discovered",
+            details=error_msg,
+            suggestion="Ensure dataset folder(s) contain PNG, JPG, JPEG, WEBP, BMP, AVIF, or TIFF images. Check folder permissions and paths."
+        )
+        raise FileNotFoundError(error_msg)
 
     buckets = build_aspect_buckets(target_area=int(target_megapixels * 1024 * 1024))
     total = len(discovered_pairs)
@@ -140,10 +143,9 @@ def extract_and_cache_dataset(
                     img_res = img.resize((bw, bh), Image.Resampling.BICUBIC)
 
                     # Transform [-1.0, 1.0]
-                    img_t = torch.from_numpy(
-                        (torch.ByteTensor(torch.ByteStorage.from_buffer(img_res.tobytes()))
-                         .view(bh, bw, 3).numpy().transpose((2, 0, 1)))
-                    ).float().div(127.5).sub(1.0).unsqueeze(0).to(device, dtype=torch.bfloat16)
+                    import numpy as np
+                    img_array = np.array(img_res).transpose((2, 0, 1)).astype(np.float32)
+                    img_t = torch.from_numpy(img_array).div(127.5).sub(1.0).unsqueeze(0).to(device, dtype=torch.bfloat16)
 
                     # Encode Latents (16 Channels)
                     lat = vae.encode(img_t).latent_dist.sample()

@@ -72,6 +72,17 @@ class SystemDiagnostics:
     def get_logs(self) -> List[Dict[str, Any]]:
         return self.logs
 
+    def get_summary(self) -> Dict[str, Any]:
+        total = len(self.logs)
+        errors = sum(1 for x in self.logs if x.get("severity") == "error")
+        warnings = sum(1 for x in self.logs if x.get("severity") == "warning")
+        return {
+            "total_logs": total,
+            "error_count": errors,
+            "warning_count": warnings,
+            "has_critical": errors > 0
+        }
+
     def clear(self):
         self.logs.clear()
 

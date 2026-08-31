@@ -14,6 +14,17 @@ except ImportError:
     HAS_TORCH = False
     torch = None
 
+try:
+    from backend.app.core.diagnostics import GLOBAL_DIAGNOSTICS
+except ImportError:
+    try:
+        from app.core.diagnostics import GLOBAL_DIAGNOSTICS
+    except ImportError:
+        class DummyDiagnostics:
+            def log(self, *args, **kwargs): pass
+            def capture_exception(self, *args, **kwargs): pass
+        GLOBAL_DIAGNOSTICS = DummyDiagnostics()
+
 def run_fast_validation_sampling(
     prompt: str = "A cinematic photo of a cybernetic tiger in a luminescent laboratory, 8k",
     num_steps: int = 8,
@@ -21,6 +32,7 @@ def run_fast_validation_sampling(
     guidance_scale: float = 4.0,
     width: int = 1024,
     height: int = 1024,
+    step: int = 0,
     base_model_path: str = "Tongyi-MAI/Z-Image-Turbo",
     transformer_path: Optional[str] = None,
     vae_path: Optional[str] = None,
@@ -34,7 +46,8 @@ def run_fast_validation_sampling(
     """
     os.makedirs(output_dir, exist_ok=True)
     sample_id = f"sample_{int(time.time()*1000)}_s{seed}"
-    output_path = os.path.join(output_dir, f"{sample_id}.png")
+    filename = f"{sample_id}.png"
+    output_path = os.path.join(output_dir, filename)
     start_time = time.time()
 
     # Headless CPU / Sandbox fallback guard (Non-destructive)
@@ -55,13 +68,16 @@ def run_fast_validation_sampling(
                 f.write(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x04\x00\x00\x00\x04\x00\x08\x02\x00\x00\x00\xd6\x83\xaa\x0c\x00\x00\x00\x00IEND\xaeB`\x82")
 
         return {
-            "sample_id": sample_id,
+            "id": sample_id,
+            "step": step,
             "prompt": prompt,
-            "num_steps": num_steps,
+            "url": f"/outputs/samples/{filename}",
+            "file_path": output_path,
             "seed": seed,
             "guidance_scale": guidance_scale,
+            "steps": num_steps,
             "resolution": f"{width}x{height}",
-            "file_path": output_path,
+            "timestamp": int(time.time() * 1000),
             "generation_time_sec": round(time.time() - start_time, 2),
             "mode": "sandbox_cpu_fallback"
         }
@@ -70,12 +86,25 @@ def run_fast_validation_sampling(
     mode = "real_cuda_diffusion"
 
     try:
-        from diffusers import ZImagePipeline, DiffusionPipeline
-        print(f"[Sampler] Loading Z-Image Pipeline from: {model_src}...")
+        from diffusers import AutoencoderKL, ZImagePipeline, DiffusionPipeline
+        from transformers import AutoTokenizer, AutoModel
+        
+        print(f"[Sampler] Loading Z-Image Pipeline from base: {model_src}...")
+        
+        pipe_kwargs = {"torch_dtype": torch.bfloat16}
+        if vae_path and os.path.exists(vae_path):
+            sub_vae = "vae" if os.path.exists(os.path.join(vae_path, "vae")) else None
+            pipe_kwargs["vae"] = AutoencoderKL.from_pretrained(vae_path, subfolder=sub_vae, torch_dtype=torch.bfloat16)
+            
+        if text_encoder_path and os.path.exists(text_encoder_path):
+            sub_te = "text_encoder" if os.path.exists(os.path.join(text_encoder_path, "text_encoder")) else None
+            pipe_kwargs["text_encoder"] = AutoModel.from_pretrained(text_encoder_path, subfolder=sub_te, torch_dtype=torch.bfloat16, trust_remote_code=True)
+            pipe_kwargs["tokenizer"] = AutoTokenizer.from_pretrained(text_encoder_path, subfolder=sub_te)
+
         try:
-            pipe = ZImagePipeline.from_pretrained(model_src, torch_dtype=torch.bfloat16)
+            pipe = ZImagePipeline.from_pretrained(model_src, **pipe_kwargs)
         except Exception:
-            pipe = DiffusionPipeline.from_pretrained(model_src, torch_dtype=torch.bfloat16, trust_remote_code=True)
+            pipe = DiffusionPipeline.from_pretrained(model_src, trust_remote_code=True, **pipe_kwargs)
 
         pipe.to("cuda")
 
@@ -94,6 +123,9 @@ def run_fast_validation_sampling(
         )
         res.images[0].save(output_path)
 
+    except Exception as e:
+        GLOBAL_DIAGNOSTICS.capture_exception(e, category="model", title="Inference Sampler Failed")
+        raise
     finally:
         # Strict VRAM Evacuation Protocol
         if 'pipe' in locals():
@@ -103,15 +135,19 @@ def run_fast_validation_sampling(
             torch.cuda.empty_cache()
 
     return {
-        "sample_id": sample_id,
+        "id": sample_id,
+        "step": step,
         "prompt": prompt,
-        "num_steps": num_steps,
+        "url": f"/outputs/samples/{filename}",
+        "file_path": output_path,
         "seed": seed,
         "guidance_scale": guidance_scale,
+        "steps": num_steps,
         "resolution": f"{width}x{height}",
-        "file_path": output_path,
+        "timestamp": int(time.time() * 1000),
         "generation_time_sec": round(time.time() - start_time, 2),
         "mode": mode
     }
+
 
 
