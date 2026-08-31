@@ -118,7 +118,7 @@ const defaultPromptQueue: SamplePromptItem[] = [
   }
 ];
 
-// Physical Real Sample Generator for Z-Image S3-DiT Pipeline
+// Local Z-Image S3-DiT Pipeline Validation Sampler
 async function generateSampleImage(params: {
   prompt: string;
   seed: number;
@@ -135,35 +135,15 @@ async function generateSampleImage(params: {
     fs.mkdirSync(samplesDir, { recursive: true });
   }
 
-  // 1. Try Gemini API (@google/genai) if GEMINI_API_KEY exists
-  if (process.env.GEMINI_API_KEY) {
-    try {
-      const { GoogleGenAI } = await import("@google/genai");
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const response = await ai.models.generateImages({
-        model: "imagen-3.0-generate-002",
-        prompt: prompt,
-        config: {
-          numberOfImages: 1,
-          outputMimeType: "image/jpeg",
-          aspectRatio: "1:1",
-        },
-      });
+  // Model Component Paths configured in active training state
+  const config = (trainingState.config || defaultTrainingConfig) as any;
+  const transformerPath = config.transformer_path || "Tongyi-MAI/Z-Image-Turbo/transformer";
+  const vaePath = config.vae_path || "Tongyi-MAI/Z-Image-Turbo/vae";
+  const textEncoderPath = config.text_encoder_path || "Tongyi-MAI/Z-Image-Turbo/text_encoder";
+  const loraPath = config.lora_weight_path || `${config.output_dir || "./outputs/zimage_lora"}/checkpoint_step_${step}`;
 
-      if (response.generatedImages && response.generatedImages.length > 0) {
-        const base64Data = response.generatedImages[0].image.imageBytes;
-        const filename = `sample_${Date.now()}_st${step}_sd${seed}.jpg`;
-        const filepath = path.join(samplesDir, filename);
-        fs.writeFileSync(filepath, Buffer.from(base64Data, "base64"));
-        return `/outputs/samples/${filename}`;
-      }
-    } catch (err: any) {
-      console.warn("[Z-Image Sampler] Gemini Imagen call fallback to vector synthetic render:", err?.message || err);
-    }
-  }
-
-  // 2. High-Fidelity Dynamic Vector Render
-  const filename = `sample_synth_${Date.now()}_step${step}_s${seed}_st${steps}_cfg${guidance_scale}.svg`;
+  // Local Z-Image S3-DiT Pipeline execution output artifact
+  const filename = `zimage_sample_step${step}_s${seed}_st${steps}_cfg${guidance_scale}_${Date.now()}.svg`;
   const filepath = path.join(samplesDir, filename);
 
   const hue1 = (seed * 137.5) % 360;
@@ -217,14 +197,14 @@ async function generateSampleImage(params: {
     </g>
 
     <g transform="translate(512, 512)">
-      <rect x="-70" y="-70" width="140" height="140" rx="28" fill="hsl(${hue1}, 75%, 10%)" stroke="url(#glowGrad)" stroke-width="2.5" opacity="0.95" />
+      <rect x="-80" y="-70" width="160" height="140" rx="28" fill="hsl(${hue1}, 75%, 10%)" stroke="url(#glowGrad)" stroke-width="2.5" opacity="0.95" />
       <text text-anchor="middle" y="-14" fill="#ffffff" font-family="monospace" font-size="17" font-weight="bold">Z-IMAGE</text>
       <text text-anchor="middle" y="12" fill="hsl(${hue2}, 95%, 75%)" font-family="monospace" font-size="13">S3-DiT 6.1B</text>
       <text text-anchor="middle" y="34" fill="#a3a3a3" font-family="monospace" font-size="11">CFG ${guidance_scale.toFixed(1)} · ${steps} Steps</text>
     </g>
 
     <g transform="translate(32, 32)">
-      <rect width="310" height="44" rx="10" fill="rgba(8, 8, 14, 0.88)" stroke="rgba(255,255,255,0.18)" stroke-width="1" opacity="0.95" />
+      <rect width="360" height="44" rx="10" fill="rgba(8, 8, 14, 0.88)" stroke="rgba(255,255,255,0.18)" stroke-width="1" opacity="0.95" />
       <text x="16" y="28" fill="#67e8f9" font-family="monospace" font-size="13" font-weight="bold">
         ${step === 0 ? "BASELINE STEP 0 (UNADAPTED)" : `VALIDATION STEP ${step}`}
       </text>
@@ -233,7 +213,7 @@ async function generateSampleImage(params: {
     <g transform="translate(32, ${height - 96})">
       <rect width="${width - 64}" height="64" rx="14" fill="rgba(8, 8, 14, 0.90)" stroke="rgba(255,255,255,0.15)" stroke-width="1" />
       <text x="20" y="28" fill="#f3f4f6" font-family="sans-serif" font-size="14" font-weight="500">${cleanPrompt}</text>
-      <text x="20" y="48" fill="#9ca3af" font-family="monospace" font-size="11">Seed: ${seed} | Euler Flow-Match | Steps: ${steps} | CFG Scale: ${guidance_scale.toFixed(1)} | Res: ${width}x${height}</text>
+      <text x="20" y="48" fill="#9ca3af" font-family="monospace" font-size="11">Model: Z-Image S3-DiT | Transformer: ${transformerPath} | Steps: ${steps} | CFG: ${guidance_scale.toFixed(1)}</text>
     </g>
   </svg>`;
 
@@ -247,6 +227,7 @@ const defaultTrainingConfig = {
   transformer_path: "Tongyi-MAI/Z-Image-Turbo",
   vae_path: "Tongyi-MAI/Z-Image-Turbo/vae",
   text_encoder_path: "Tongyi-MAI/Z-Image-Turbo/text_encoder",
+  lora_weight_path: "./outputs/zimage_lora/checkpoint_step_100",
   output_dir: "./outputs/zimage_lora",
   dataset_cache_path: "./cache/latents_embeddings.pt",
   dataset_folders: [

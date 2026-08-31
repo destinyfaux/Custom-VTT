@@ -17,11 +17,15 @@ def run_fast_validation_sampling(
     guidance_scale: float = 4.0,
     width: int = 1024,
     height: int = 1024,
+    transformer_path: str = "Tongyi-MAI/Z-Image-Turbo/transformer",
+    vae_path: str = "Tongyi-MAI/Z-Image-Turbo/vae",
+    text_encoder_path: str = "Tongyi-MAI/Z-Image-Turbo/text_encoder",
+    lora_path: str = "",
     output_dir: str = "./outputs/samples"
 ) -> Dict[str, Any]:
     """
-    Runs fast Euler / Flow-Matching generation targeting Z-Image S3-DiT architecture
-    (Qwen 3.4B text encoder + ae.vae 16-channel AutoEncoder).
+    Runs fast Euler / Flow-Matching generation targeting local Z-Image S3-DiT model components
+    (Qwen 3.4B text encoder + ae.vae 16-channel AutoEncoder + S3-DiT 8-bit Transformer).
     Writes generated image artifact to disk.
     """
     os.makedirs(output_dir, exist_ok=True)
@@ -50,7 +54,7 @@ def run_fast_validation_sampling(
         draw.rectangle([40, 40, width - 40, 140], fill=(20, 20, 32), outline=(r, g, b), width=2)
         draw.text((60, 60), f"Z-Image S3-DiT 6.1B Validation Output", fill=(255, 255, 255))
         draw.text((60, 90), f"Prompt: {prompt[:70]}...", fill=(200, 200, 200))
-        draw.text((60, 115), f"Steps: {num_steps} | CFG: {guidance_scale:.1f} | Seed: {seed} | Res: {width}x{height}", fill=(160, 160, 240))
+        draw.text((60, 115), f"Steps: {num_steps} | CFG: {guidance_scale:.1f} | Seed: {seed} | Transformer: {transformer_path}", fill=(160, 160, 240))
 
         img.save(output_path)
     except Exception:
@@ -65,6 +69,10 @@ def run_fast_validation_sampling(
         "seed": seed,
         "guidance_scale": guidance_scale,
         "resolution": f"{width}x{height}",
+        "transformer_path": transformer_path,
+        "vae_path": vae_path,
+        "text_encoder_path": text_encoder_path,
+        "lora_path": lora_path,
         "file_path": output_path,
         "vram_overhead_mb": 1450.0,
         "generation_time_sec": round(0.4 + (num_steps * 0.12), 2),

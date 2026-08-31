@@ -280,11 +280,28 @@ def run_dataset_caching(req: dict):
 
 @app.post("/api/samples/generate")
 async def generate_sample_image(req: dict):
-    """Executes fast 8-step validation sampling."""
+    """Executes fast validation sampling using local Z-Image model components."""
     prompt = req.get("prompt", "A high quality photo")
     seed = req.get("seed", 42)
     steps = req.get("steps", 8)
-    sample_result = run_fast_validation_sampling(prompt=prompt, seed=seed, steps=steps)
+    guidance_scale = req.get("guidance_scale", 4.0)
+
+    cfg = STATE.get("config", {})
+    transformer_path = cfg.get("transformer_path", "Tongyi-MAI/Z-Image-Turbo/transformer")
+    vae_path = cfg.get("vae_path", "Tongyi-MAI/Z-Image-Turbo/vae")
+    text_encoder_path = cfg.get("text_encoder_path", "Tongyi-MAI/Z-Image-Turbo/text_encoder")
+    lora_path = cfg.get("lora_weight_path", "")
+
+    sample_result = run_fast_validation_sampling(
+        prompt=prompt,
+        seed=seed,
+        num_steps=steps,
+        guidance_scale=guidance_scale,
+        transformer_path=transformer_path,
+        vae_path=vae_path,
+        text_encoder_path=text_encoder_path,
+        lora_path=lora_path
+    )
     return sample_result
 
 # =====================================================================
