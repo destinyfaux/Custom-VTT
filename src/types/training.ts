@@ -162,6 +162,7 @@ export interface TrainingConfigState {
   transformer_path?: string;
   vae_path: string;
   text_encoder_path: string;
+  lora_weight_path?: string;
   output_dir: string;
   dataset_cache_path: string;
   dataset_folders: DatasetFolder[];
