@@ -83,6 +83,27 @@ export interface FsItem {
   dateModified?: string;
 }
 
+export interface OrphanFileItem {
+  name: string;
+  path: string;
+  folder: string;
+  format?: string;
+  size_mb?: number;
+  type: 'image' | 'caption';
+  reason: 'missing_caption' | 'missing_image';
+}
+
+export interface CacheProgress {
+  status: 'idle' | 'caching' | 'completed' | 'error';
+  current_step: number;
+  total_steps: number;
+  percent: number;
+  current_file?: string;
+  disk_path?: string;
+  size_mb?: number;
+  samples_cached?: number;
+}
+
 export interface ModelProbedSpecs {
   transformer: {
     path: string;
@@ -99,6 +120,7 @@ export interface ModelProbedSpecs {
   };
   vae: {
     path: string;
+    architecture?: string;
     downsample_factor: string;
     latent_channels: number;
     status: 'valid' | 'warning' | 'error';
@@ -108,6 +130,7 @@ export interface ModelProbedSpecs {
   text_encoder: {
     path: string;
     architecture?: string;
+    parameters?: string;
     embedding_dim: number;
     max_seq_len: number;
     status: 'valid' | 'warning' | 'error';
@@ -130,6 +153,7 @@ export interface ScannedDatasetPair {
   aspect_ratio: number;
   assigned_bucket: string;
   folder_path: string;
+  has_caption?: boolean;
 }
 
 export interface TrainingConfigState {
@@ -235,6 +259,179 @@ export interface FsBrowseResult {
   shortcuts?: { name: string; path: string; icon?: string }[];
   drives?: string[];
   error?: string;
+}
+
+export interface CacheProcessedFileItem {
+  id: string;
+  source_file: string;
+  source_path: string;
+  image_url?: string;
+  caption_preview: string;
+  caption_path?: string;
+  format: string;
+  width: number;
+  height: number;
+  bucket: string;
+  latent_target_path: string;
+  text_emb_target_path: string;
+  latent_shape: string;
+  text_emb_shape: string;
+  latent_size_kb: number;
+  text_emb_size_kb: number;
+  process_time_ms: number;
+  status: 'cached' | 'encoding' | 'error';
+  timestamp: number;
+}
+
+export interface DatasetCacheProgress {
+  status: 'idle' | 'caching' | 'completed' | 'error' | 'paused';
+  current_step: number;
+  total_steps: number;
+  percent: number;
+  current_file?: string;
+  current_caption?: string;
+  current_format?: string;
+  current_resolution?: string;
+  current_bucket?: string;
+  
+  // Disk Footprint & Locations
+  disk_cache_path: string;
+  manifest_path: string;
+  latents_folder_path?: string;
+  embeddings_folder_path?: string;
+  disk_footprint_mb: number;
+  disk_footprint_gb: number;
+  free_disk_space_gb?: number;
+  
+  // RAM Footprint
+  ram_footprint_mb: number;
+  ram_footprint_gb: number;
+  total_host_ram_gb?: number;
+  ram_percentage?: number;
+  
+  // Throughput & ETA
+  samples_cached: number;
+  speed_fps: number;
+  elapsed_seconds: number;
+  eta_seconds: number;
+  
+  // Architecture Targets
+  vae_channels: number;
+  vae_architecture: string;
+  text_encoder_dim: number;
+  text_encoder_architecture: string;
+  
+  // Live Processed Stream
+  recent_processed_files: CacheProcessedFileItem[];
+  error_message?: string;
+}
+
+export interface CacheVerificationReport {
+  is_valid: boolean;
+  total_files_verified: number;
+  corrupted_files: number;
+  disk_size_mb: number;
+  ram_size_mb: number;
+  manifest_found: boolean;
+  manifest_path: string;
+  cache_file_path: string;
+  checked_at: string;
+  message: string;
+}
+
+export type OrphanedReason =
+  | 'uncached'
+  | 'missing_caption'
+  | 'missing_image'
+  | 'dangling_cache'
+  | 'corrupt_format'
+  | 'zero_byte';
+
+export interface OrphanedFileItem {
+  id: string;
+  name: string;
+  path: string;
+  folder: string;
+  format: string;
+  type: 'image' | 'caption' | 'tensor' | 'unknown';
+  size_mb: number;
+  reason: OrphanedReason;
+  reason_label: string;
+  reason_description: string;
+  image_url?: string;
+  suggested_action: 'autofill_caption' | 'add_to_cache' | 'move_to_quarantine' | 'remove_from_disk' | 'inspect';
+  cached_in_db: boolean;
+  in_training_loop: boolean;
+  last_modified?: string;
+}
+
+export interface OrphanedScanResult {
+  total_orphaned: number;
+  uncached_count: number;
+  missing_caption_count: number;
+  missing_image_count: number;
+  dangling_cache_count: number;
+  corrupted_count: number;
+  total_orphaned_size_mb: number;
+  items: OrphanedFileItem[];
+  scanned_folders: string[];
+  active_cache_database_path: string;
+  active_cache_entries_count: number;
+  scanned_at: string;
+}
+
+export interface LiveVramMetrics {
+  current_vram_mb: number;
+  current_vram_gb: number;
+  total_vram_mb: number;
+  total_vram_gb: number;
+  target_budget_mb: number;
+  target_budget_gb: number;
+  headroom_mb: number;
+  headroom_gb: number;
+  utilization_percent: number;
+  fits_budget: boolean;
+}
+
+export interface LiveHardwareTelemetry {
+  gpu_name: string;
+  vram_total_mb: number;
+  host_ram_used_gb: number;
+  host_ram_total_gb: number;
+  host_ram_percent: number;
+  cpu_cores: number;
+  cpu_utilization_percent: number;
+  gpu_utilization_percent: number;
+  gpu_temp_c: number;
+  gpu_power_watts: number;
+  attention_kernel: string;
+  amp_dtype: string;
+}
+
+export interface LiveTrainingPerformance {
+  speed_it_s: number;
+  step_time_ms: number;
+  eta_seconds: number;
+  eta_formatted: string;
+  epoch_current: string;
+  epoch_total: string;
+}
+
+export interface LiveTrainingStats {
+  status: 'idle' | 'running' | 'paused' | 'completed' | 'error';
+  current_step: number;
+  total_steps: number;
+  progress_percent: number;
+  latest_metric: TrainingMetric;
+  metrics_history: TrainingMetric[];
+  vram_metrics: LiveVramMetrics;
+  hardware: LiveHardwareTelemetry;
+  performance: LiveTrainingPerformance;
+  health_status: 'healthy' | 'warning' | 'critical';
+  health_alert: string | null;
+  active_checkpoints_count: number;
+  active_samples_count: number;
+  server_time: number;
 }
 
 

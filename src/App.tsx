@@ -20,7 +20,9 @@ import {
   Radio,
   FolderOpen,
   Box,
-  AlertTriangle
+  AlertTriangle,
+  Sliders,
+  Bookmark
 } from 'lucide-react';
 import { useTrainingWebSocket } from './services/websocket';
 import { TrainingConfigState, PeftEstimate, HardwareInfo, AspectBucket, DatasetFolder, SystemErrorLog } from './types/training';
@@ -37,6 +39,7 @@ import { DatasetManager } from './components/DatasetManager';
 import { ModelComponentsCard } from './components/ModelComponentsCard';
 import { SystemErrorTracker } from './components/SystemErrorTracker';
 import { FileBrowserModal } from './components/FileBrowserModal';
+import { PresetManagerModal } from './components/PresetManagerModal';
 
 export default function App() {
   const {
@@ -47,6 +50,10 @@ export default function App() {
     currentStatus,
     currentStep,
     totalSteps,
+    cacheProgress,
+    setMetrics,
+    setSamples,
+    setCheckpoints,
     setCurrentStatus
   } = useTrainingWebSocket();
 
@@ -56,6 +63,7 @@ export default function App() {
   // Modals & Drawers
   const [isDryRunOpen, setIsDryRunOpen] = useState(false);
   const [isCheckpointsOpen, setIsCheckpointsOpen] = useState(false);
+  const [isPresetsOpen, setIsPresetsOpen] = useState(false);
 
   // File Browser Modal State
   const [browserOpen, setBrowserOpen] = useState(false);
@@ -71,7 +79,7 @@ export default function App() {
     base_model_path: 'Tongyi-MAI/Z-Image-Turbo',
     transformer_path: 'Tongyi-MAI/Z-Image-Turbo',
     vae_path: 'Tongyi-MAI/Z-Image-Turbo/vae',
-    text_encoder_path: 'google/siglip-so400m-patch14-384',
+    text_encoder_path: 'Tongyi-MAI/Z-Image-Turbo/text_encoder',
     output_dir: './outputs/zimage_lora',
     dataset_cache_path: './cache/latents_embeddings.pt',
     dataset_folders: [
@@ -147,7 +155,7 @@ export default function App() {
     }
   };
 
-  // Fetch initial data
+  // Fetch initial data & restore active session state
   const fetchHardware = async () => {
     try {
       const r = await fetch('/api/hardware/probe');
@@ -168,7 +176,43 @@ export default function App() {
     }
   };
 
+  const fetchActiveConfig = async () => {
+    try {
+      const res = await fetch('/api/config/active');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.config && Object.keys(data.config).length > 0) {
+          setConfig(prev => ({
+            ...prev,
+            ...data.config,
+            text_encoder_path: data.config.text_encoder_path || 'Tongyi-MAI/Z-Image-Turbo/text_encoder',
+            vae_path: data.config.vae_path || 'Tongyi-MAI/Z-Image-Turbo/vae'
+          }));
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch active config:', e);
+    }
+  };
+
+  const fetchInitialStatus = async () => {
+    try {
+      const res = await fetch('/api/status');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status) setCurrentStatus(data.status);
+        if (data.samples && Array.isArray(data.samples)) setSamples(data.samples);
+        if (data.checkpoints && Array.isArray(data.checkpoints)) setCheckpoints(data.checkpoints);
+        if (data.history && Array.isArray(data.history)) setMetrics(data.history);
+      }
+    } catch (e) {
+      console.error('Failed to fetch initial status:', e);
+    }
+  };
+
   useEffect(() => {
+    fetchActiveConfig();
+    fetchInitialStatus();
     fetchHardware();
     fetchBuckets(config.target_megapixels || 1.0);
     fetchErrors();
@@ -200,6 +244,12 @@ export default function App() {
       if (updated.target_megapixels && updated.target_megapixels !== prev.target_megapixels) {
         fetchBuckets(updated.target_megapixels);
       }
+      // Persist active settings to backend
+      fetch('/api/config/active', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(next)
+      }).catch(err => console.error('Failed to persist active config:', err));
       return next;
     });
   };
@@ -214,7 +264,7 @@ export default function App() {
   const handlePathSelected = (selectedPath: string) => {
     if (browserTargetField === 'output_dir') {
       updateConfig({ output_dir: selectedPath });
-    } else if (browserTargetField === 'transformer_path') {
+    } else if (browserTargetField === 'transformer_path' || browserTargetField === 'base_model_path') {
       updateConfig({ transformer_path: selectedPath, base_model_path: selectedPath });
     } else if (browserTargetField === 'vae_path') {
       updateConfig({ vae_path: selectedPath });
@@ -304,11 +354,23 @@ export default function App() {
   };
 
   const handleManualSample = async (prompt: string, seed: number, steps: number) => {
-    await fetch('/api/samples/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, seed, steps })
-    });
+    try {
+      const res = await fetch('/api/samples/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, seed, steps })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.sample) {
+          setSamples((prev) => [data.sample, ...prev]);
+        } else if (data.samples && Array.isArray(data.samples)) {
+          setSamples((prev) => [...data.samples, ...prev]);
+        }
+      }
+    } catch (err) {
+      console.error('Manual sampling request failed:', err);
+    }
   };
 
   const handleResumeFromCheckpoint = (step: number) => {
@@ -365,6 +427,17 @@ export default function App() {
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
+            {/* Presets & Configurations Button */}
+            <button
+              type="button"
+              onClick={() => setIsPresetsOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 rounded-lg transition-colors shadow-sm"
+              title="Load & Save Training Config Profiles"
+            >
+              <Sliders className="w-3.5 h-3.5 text-purple-400" />
+              <span className="hidden sm:inline">Presets</span>
+            </button>
+
             {/* Dry Run Button */}
             <button
               type="button"
@@ -574,6 +647,10 @@ export default function App() {
               status={currentStatus}
               currentStep={currentStep}
               totalSteps={totalSteps}
+              config={config}
+              hardwareInfo={hardware}
+              peftEstimate={peftEstimate}
+              datasetFolders={config.dataset_folders}
               onPause={handlePauseTraining}
               onResume={handleResumeTraining}
               onStop={handleStopTraining}
@@ -620,6 +697,8 @@ export default function App() {
               cachePath={config.dataset_cache_path}
               onChangeCachePath={(path) => updateConfig({ dataset_cache_path: path })}
               targetMegapixels={config.target_megapixels || 1.0}
+              cacheProgress={cacheProgress}
+              onOpenBrowser={handleOpenBrowser}
             />
           </div>
         )}
@@ -650,8 +729,9 @@ export default function App() {
               onChangeTransformerPath={(p) => updateConfig({ transformer_path: p, base_model_path: p })}
               vaePath={config.vae_path || 'Tongyi-MAI/Z-Image-Turbo/vae'}
               onChangeVaePath={(p) => updateConfig({ vae_path: p })}
-              textEncoderPath={config.text_encoder_path || 'google/siglip-so400m-patch14-384'}
+              textEncoderPath={config.text_encoder_path || 'Tongyi-MAI/Z-Image-Turbo/text_encoder'}
               onChangeTextEncoderPath={(p) => updateConfig({ text_encoder_path: p })}
+              onOpenBrowser={handleOpenBrowser}
             />
             <TrainingConfigPanel
               config={config}
@@ -776,6 +856,14 @@ export default function App() {
         checkpoints={checkpoints}
         onResumeFromCheckpoint={handleResumeFromCheckpoint}
         onRollback={handleRollback}
+      />
+
+      {/* Preset Manager & Persistence Modal */}
+      <PresetManagerModal
+        isOpen={isPresetsOpen}
+        onClose={() => setIsPresetsOpen(false)}
+        currentConfig={config}
+        onLoadConfig={(loadedConfig) => updateConfig(loadedConfig)}
       />
 
       {/* Host Local File & Folder Browser Modal */}

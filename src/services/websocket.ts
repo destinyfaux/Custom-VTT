@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { TrainingMetric, TrainingSample, CheckpointItem } from "../types/training";
+import { TrainingMetric, TrainingSample, CheckpointItem, DatasetCacheProgress } from "../types/training";
 
 export function useTrainingWebSocket() {
   const [isConnected, setIsConnected] = useState(false);
@@ -9,6 +9,7 @@ export function useTrainingWebSocket() {
   const [currentStatus, setCurrentStatus] = useState<"idle" | "running" | "paused" | "completed" | "error">("idle");
   const [currentStep, setCurrentStep] = useState(0);
   const [totalSteps, setTotalSteps] = useState(1000);
+  const [cacheProgress, setCacheProgress] = useState<DatasetCacheProgress | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   const connect = useCallback(() => {
@@ -47,6 +48,8 @@ export function useTrainingWebSocket() {
             setCheckpoints((prev) => [data.checkpoint, ...prev]);
           } else if (data.type === "status") {
             setCurrentStatus(data.status || (data.state && data.state.status));
+          } else if (data.type === "cache_progress") {
+            setCacheProgress(data.cache_progress);
           }
         } catch (err) {
           console.error("WS message parse error:", err);
@@ -86,6 +89,8 @@ export function useTrainingWebSocket() {
     currentStatus,
     currentStep,
     totalSteps,
+    cacheProgress,
+    setCacheProgress,
     setMetrics,
     setSamples,
     setCheckpoints,

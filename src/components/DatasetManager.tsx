@@ -7,6 +7,7 @@ import {
   Database,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   Layers,
   Sparkles,
   RefreshCw,
@@ -15,10 +16,15 @@ import {
   Sliders,
   Search,
   Maximize2,
-  Tag
+  Tag,
+  FileQuestion,
+  Wand2,
+  Check,
+  ShieldCheck
 } from 'lucide-react';
-import { DatasetFolder, ScannedDatasetPair } from '../types/training';
-import { FilePickerModal } from './FilePickerModal';
+import { DatasetFolder, ScannedDatasetPair, DatasetCacheProgress, CacheVerificationReport } from '../types/training';
+import { DatasetCacheProgressMonitor } from './DatasetCacheProgressMonitor';
+import { OrphanedFilesManager } from './OrphanedFilesManager';
 
 interface DatasetManagerProps {
   folders: DatasetFolder[];
@@ -26,6 +32,8 @@ interface DatasetManagerProps {
   cachePath: string;
   onChangeCachePath: (path: string) => void;
   targetMegapixels: number;
+  cacheProgress?: DatasetCacheProgress | null;
+  onOpenBrowser?: (field: string, mode?: 'folder' | 'file') => void;
 }
 
 export const DatasetManager: React.FC<DatasetManagerProps> = ({
@@ -33,13 +41,16 @@ export const DatasetManager: React.FC<DatasetManagerProps> = ({
   onChangeFolders,
   cachePath,
   onChangeCachePath,
-  targetMegapixels
+  targetMegapixels,
+  cacheProgress,
+  onOpenBrowser
 }) => {
   const [newFolderPath, setNewFolderPath] = useState('');
   const [isScanning, setIsScanning] = useState(false);
-  const [isCaching, setIsCaching] = useState(false);
-  const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
+  const [isAutofilling, setIsAutofilling] = useState(false);
+  const [autofillSuccessMsg, setAutofillSuccessMsg] = useState<string | null>(null);
   const [selectedPreviewPair, setSelectedPreviewPair] = useState<ScannedDatasetPair | null>(null);
+  const [verificationReport, setVerificationReport] = useState<CacheVerificationReport | null>(null);
   
   const [scanResult, setScanResult] = useState<{
     totalPairs: number;
@@ -48,18 +59,49 @@ export const DatasetManager: React.FC<DatasetManagerProps> = ({
     previewSamples: ScannedDatasetPair[];
     formatBreakdown?: Record<string, number>;
     supportedFormats?: string[];
-  } | null>(null);
-
-  const [cacheResult, setCacheResult] = useState<{
-    status: string;
-    ramUsageMb: number;
-    numSamples: number;
+    orphanedImages?: Array<{ file: string; path: string; stem: string; format: string }>;
+    orphanedCaptions?: Array<{ file: string; path: string; stem: string }>;
   } | null>(null);
 
   // Auto scan on mount and when folders change
   useEffect(() => {
     handleScanFolders();
   }, [folders.length]);
+
+  const handleStartCaching = async () => {
+    try {
+      await fetch('/api/cache/dataset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folders: folders.filter(f => f.enabled),
+          output_cache_file: cachePath
+        })
+      });
+    } catch (err) {
+      console.error('Caching error:', err);
+    }
+  };
+
+  const handlePurgeCache = async () => {
+    try {
+      const res = await fetch('/api/cache/purge', { method: 'POST' });
+      const data = await res.json();
+      setVerificationReport(null);
+    } catch (err) {
+      console.error('Purge error:', err);
+    }
+  };
+
+  const handleVerifyCache = async () => {
+    try {
+      const res = await fetch('/api/cache/verify', { method: 'POST' });
+      const data = await res.json();
+      setVerificationReport(data);
+    } catch (err) {
+      console.error('Verify error:', err);
+    }
+  };
 
   const handleAddFolder = (folderPathToAdd?: string) => {
     const pathToAdd = (folderPathToAdd || newFolderPath).trim();
@@ -113,7 +155,7 @@ export const DatasetManager: React.FC<DatasetManagerProps> = ({
       });
       const data = await res.json();
       
-      const totalPairs = data.total_pairs || 234;
+      const totalPairs = data.total_pairs || 0;
       const previewSamples = data.preview_samples || [];
 
       // Update folder counts dynamically if we found actual pairs
@@ -130,11 +172,13 @@ export const DatasetManager: React.FC<DatasetManagerProps> = ({
 
       setScanResult({
         totalPairs,
-        pairedPercentage: data.paired_percentage || 100.0,
+        pairedPercentage: data.paired_percentage ?? 100.0,
         unpairedImages: data.unpaired_images || 0,
         previewSamples,
         formatBreakdown: data.format_breakdown || { PNG: 105, WEBP: 58, JPG: 47, AVIF: 14, TIFF: 10 },
-        supportedFormats: data.supported_formats || ["PNG", "JPG", "JPEG", "WEBP", "BMP", "TIFF", "AVIF", "TGA", "GIF", "HEIC"]
+        supportedFormats: data.supported_formats || ["PNG", "JPG", "JPEG", "WEBP", "BMP", "TIFF", "AVIF", "TGA", "GIF", "HEIC"],
+        orphanedImages: data.orphaned_images || [],
+        orphanedCaptions: data.orphaned_captions || []
       });
     } catch (err) {
       console.error('Scan error:', err);
@@ -143,27 +187,27 @@ export const DatasetManager: React.FC<DatasetManagerProps> = ({
     }
   };
 
-  const handleCacheLatents = async () => {
-    setIsCaching(true);
+  const handleAutofillMissingCaptions = async () => {
+    setIsAutofilling(true);
+    setAutofillSuccessMsg(null);
     try {
-      const res = await fetch('/api/cache/dataset', {
+      const res = await fetch('/api/datasets/autofill-captions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          dataset_dir: folders.map(f => f.path).join(','),
-          output_cache_file: cachePath
+          folders: folders.filter(f => f.enabled)
         })
       });
       const data = await res.json();
-      setCacheResult({
-        status: data.status,
-        ramUsageMb: data.ram_usage_mb,
-        numSamples: data.num_samples
-      });
+      setAutofillSuccessMsg(`Successfully generated ${data.created_count} missing .txt caption files on disk!`);
+      // Rescan after autofill
+      setTimeout(() => {
+        handleScanFolders();
+      }, 500);
     } catch (err) {
-      console.error('Caching error:', err);
+      console.error('Autofill captions error:', err);
     } finally {
-      setIsCaching(false);
+      setIsAutofilling(false);
     }
   };
 
@@ -173,15 +217,6 @@ export const DatasetManager: React.FC<DatasetManagerProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Folder Picker Modal */}
-      <FilePickerModal
-        isOpen={isFolderPickerOpen}
-        onClose={() => setIsFolderPickerOpen(false)}
-        onSelect={(selected) => handleAddFolder(selected)}
-        title="Search & Select Local Dataset Directory"
-        selectMode="folder"
-      />
-
       {/* Header & Overview Card */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 shadow-lg">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -205,16 +240,6 @@ export const DatasetManager: React.FC<DatasetManagerProps> = ({
               <Scan className={`w-3.5 h-3.5 text-indigo-400 ${isScanning ? 'animate-spin' : ''}`} />
               {isScanning ? 'Scanning Directory Files...' : 'Rescan All Formats'}
             </button>
-
-            <button
-              type="button"
-              onClick={handleCacheLatents}
-              disabled={isCaching}
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow transition-colors disabled:opacity-50"
-            >
-              <Database className={`w-3.5 h-3.5 ${isCaching ? 'animate-pulse' : ''}`} />
-              {isCaching ? 'Pre-Caching to Host RAM...' : 'Cache Latents & Text Embeddings'}
-            </button>
           </div>
         </div>
 
@@ -230,21 +255,33 @@ export const DatasetManager: React.FC<DatasetManagerProps> = ({
           ))}
         </div>
 
-        {/* Caching Status Callout */}
-        {cacheResult && (
-          <div className="mt-3.5 p-3 rounded-lg bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-between text-xs text-emerald-300">
+        {/* Autofill Alert */}
+        {autofillSuccessMsg && (
+          <div className="mt-3.5 p-3 rounded-lg bg-indigo-950/40 border border-indigo-500/30 flex items-center justify-between text-xs text-indigo-200">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              <span>
-                <strong>Latent & Text Embeddings Cached to RAM:</strong> {cacheResult.numSamples} pairs parsed across all image formats. Zero GPU memory footprint during training.
-              </span>
+              <Sparkles className="w-4 h-4 text-indigo-400 shrink-0" />
+              <span>{autofillSuccessMsg}</span>
             </div>
-            <span className="font-mono bg-emerald-900/60 px-2 py-0.5 rounded border border-emerald-500/20">
-              Host RAM: {cacheResult.ramUsageMb} MB
-            </span>
+            <button
+              type="button"
+              onClick={() => setAutofillSuccessMsg(null)}
+              className="text-indigo-400 hover:text-indigo-200 text-xs px-2 py-0.5 bg-indigo-900/40 rounded"
+            >
+              Dismiss
+            </button>
           </div>
         )}
       </div>
+
+      {/* Visual Dataset Caching Progress Monitor & Footprint Inspector */}
+      <DatasetCacheProgressMonitor
+        progress={cacheProgress || null}
+        onStartCaching={handleStartCaching}
+        onPurgeCache={handlePurgeCache}
+        onVerifyCache={handleVerifyCache}
+        verificationReport={verificationReport}
+        onOpenBrowser={onOpenBrowser}
+      />
 
       {/* Folders Management Table */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -346,12 +383,12 @@ export const DatasetManager: React.FC<DatasetManagerProps> = ({
                 {/* Search / Browse Folder Button */}
                 <button
                   type="button"
-                  onClick={() => setIsFolderPickerOpen(true)}
+                  onClick={() => onOpenBrowser ? onOpenBrowser('add_dataset_folder', 'folder') : undefined}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 shadow transition-colors whitespace-nowrap"
-                  title="Search files and folders on your computer"
+                  title="Browse local drives and directories"
                 >
                   <Search className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>Search Local Folder...</span>
+                  <span>Browse Folder...</span>
                 </button>
               </div>
 
@@ -368,49 +405,98 @@ export const DatasetManager: React.FC<DatasetManagerProps> = ({
           </div>
 
           {/* Dataset Pairing Health & Multi-format Breakdown */}
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 shadow-lg">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-3 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              Full Dataset Discovery & Format Breakdown
-            </h4>
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 shadow-lg space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                Full Dataset Discovery & Orphan Detection
+              </h4>
+              {scanResult && ((scanResult.orphanedImages && scanResult.orphanedImages.length > 0) || (scanResult.orphanedCaptions && scanResult.orphanedCaptions.length > 0)) && (
+                <button
+                  type="button"
+                  onClick={handleAutofillMissingCaptions}
+                  disabled={isAutofilling}
+                  className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 transition-colors disabled:opacity-50"
+                  title="Generate template .txt caption files for all orphaned images"
+                >
+                  <Wand2 className={`w-3.5 h-3.5 text-amber-400 ${isAutofilling ? 'animate-spin' : ''}`} />
+                  <span>Autofill Missing Captions ({scanResult.orphanedImages?.length || 0})</span>
+                </button>
+              )}
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="bg-neutral-950 p-3 rounded-lg border border-neutral-800">
-                <span className="text-[11px] text-neutral-400 block">Total Discovered Pairs</span>
+                <span className="text-[11px] text-neutral-400 block">Discovered Image Pairs</span>
                 <span className="text-lg font-mono font-bold text-neutral-100 mt-1 block">
-                  {scanResult?.totalPairs || 234}
+                  {scanResult?.totalPairs ?? 0}
                 </span>
                 <span className="text-[10px] text-emerald-400">All matching images discovered</span>
               </div>
 
               <div className="bg-neutral-950 p-3 rounded-lg border border-neutral-800">
                 <span className="text-[11px] text-neutral-400 block">Pairing Integrity</span>
-                <span className="text-lg font-mono font-bold text-emerald-400 mt-1 block">
-                  {scanResult?.pairedPercentage || 100}%
+                <span className={`text-lg font-mono font-bold mt-1 block ${
+                  (scanResult?.unpairedImages || 0) > 0 ? 'text-amber-400' : 'text-emerald-400'
+                }`}>
+                  {scanResult?.pairedPercentage ?? 100}%
                 </span>
                 <span className="text-[10px] text-neutral-400">
-                  {scanResult?.unpairedImages ? `${scanResult.unpairedImages} uncaptioned` : 'Zero orphan files'}
+                  {scanResult?.unpairedImages ? `${scanResult.unpairedImages} uncaptioned files` : 'Zero orphan files'}
                 </span>
               </div>
 
               <div className="bg-neutral-950 p-3 rounded-lg border border-neutral-800">
-                <span className="text-[11px] text-neutral-400 block">Target Scale & Buckets</span>
+                <span className="text-[11px] text-neutral-400 block">Target Scale & Latents</span>
                 <span className="text-lg font-mono font-bold text-cyan-400 mt-1 block">
                   {targetMegapixels} MP
                 </span>
-                <span className="text-[10px] text-neutral-400">64-pixel stride VAE latents</span>
+                <span className="text-[10px] text-neutral-400">Flux AE 16ch latents</span>
               </div>
             </div>
 
             {/* Format Distribution Chips */}
             {scanResult?.formatBreakdown && (
-              <div className="mt-3 pt-3 border-t border-neutral-800/80 flex flex-wrap items-center gap-2">
+              <div className="pt-2 border-t border-neutral-800/80 flex flex-wrap items-center gap-2">
                 <span className="text-[11px] text-neutral-500">Discovered Formats:</span>
                 {Object.entries(scanResult.formatBreakdown).map(([fmt, count]) => (
                   <span key={fmt} className="text-xs px-2 py-0.5 rounded bg-neutral-950 border border-neutral-800 text-neutral-300 font-mono">
                     <strong className="text-indigo-400 uppercase">{fmt}</strong>: {count} images
                   </span>
                 ))}
+              </div>
+            )}
+
+            {/* Orphan Files Breakdown Callout */}
+            {scanResult && (scanResult.orphanedImages && scanResult.orphanedImages.length > 0 || scanResult.orphanedCaptions && scanResult.orphanedCaptions.length > 0) && (
+              <div className="p-3 rounded-lg bg-amber-950/30 border border-amber-500/30 space-y-2 text-xs">
+                <div className="flex items-center gap-2 text-amber-300 font-semibold">
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  <span>Orphaned Dataset Files Detected:</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                  <div className="p-2 rounded bg-neutral-950/80 border border-amber-500/20">
+                    <span className="text-amber-200 font-semibold">
+                      Orphaned Images (Missing .txt caption): {scanResult.orphanedImages?.length || 0}
+                    </span>
+                    <ul className="mt-1 space-y-0.5 max-h-24 overflow-y-auto text-neutral-400 font-mono text-[10px]">
+                      {scanResult.orphanedImages?.map((img, i) => (
+                        <li key={i} className="truncate" title={img.path}>• {img.file}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="p-2 rounded bg-neutral-950/80 border border-amber-500/20">
+                    <span className="text-amber-200 font-semibold">
+                      Orphaned Captions (Missing image): {scanResult.orphanedCaptions?.length || 0}
+                    </span>
+                    <ul className="mt-1 space-y-0.5 max-h-24 overflow-y-auto text-neutral-400 font-mono text-[10px]">
+                      {scanResult.orphanedCaptions?.map((cap, i) => (
+                        <li key={i} className="truncate" title={cap.path}>• {cap.file}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -429,45 +515,60 @@ export const DatasetManager: React.FC<DatasetManagerProps> = ({
           </div>
 
           <div className="space-y-3 flex-1 overflow-y-auto max-h-[460px] pr-1">
-            {scanResult?.previewSamples.map((sample, idx) => (
-              <div
-                key={sample.id || idx}
-                onClick={() => setSelectedPreviewPair(sample)}
-                className="bg-neutral-950 border border-neutral-800/80 rounded-lg p-2.5 flex gap-3 hover:border-indigo-500/60 transition-all cursor-pointer group"
-              >
-                <div className="relative w-18 h-18 shrink-0">
-                  <img
-                    src={sample.image_url}
-                    alt="Dataset Preview"
-                    className="w-18 h-18 rounded object-cover border border-neutral-800 group-hover:border-indigo-500 transition-colors"
-                    referrerPolicy="no-referrer"
-                  />
-                  {sample.format && (
-                    <span className="absolute bottom-0 right-0 bg-black/80 px-1 py-0.2 rounded text-[9px] font-mono text-neutral-200 uppercase">
-                      {sample.format}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between text-[10px] text-neutral-400 mb-1">
-                    <span className="font-mono text-indigo-400 font-semibold">{sample.width}x{sample.height}</span>
-                    <span className="bg-neutral-800 px-1.5 py-0.5 rounded text-neutral-300 font-mono text-[10px]">
-                      {sample.assigned_bucket}
-                    </span>
+            {scanResult?.previewSamples && scanResult.previewSamples.length > 0 ? (
+              scanResult.previewSamples.map((sample, idx) => (
+                <div
+                  key={sample.id || idx}
+                  onClick={() => setSelectedPreviewPair(sample)}
+                  className="bg-neutral-950 border border-neutral-800/80 rounded-lg p-2.5 flex gap-3 hover:border-indigo-500/60 transition-all cursor-pointer group"
+                >
+                  <div className="relative w-18 h-18 shrink-0">
+                    <img
+                      src={sample.image_url}
+                      alt="Dataset Preview"
+                      className="w-18 h-18 rounded object-cover border border-neutral-800 group-hover:border-indigo-500 transition-colors"
+                      referrerPolicy="no-referrer"
+                    />
+                    {sample.format && (
+                      <span className="absolute bottom-0 right-0 bg-black/80 px-1 py-0.2 rounded text-[9px] font-mono text-neutral-200 uppercase">
+                        {sample.format}
+                      </span>
+                    )}
                   </div>
-                  <p className="text-xs text-neutral-300 line-clamp-2 leading-relaxed font-sans">
-                    {sample.caption_text}
-                  </p>
-                  <p className="text-[10px] font-mono text-neutral-500 truncate mt-1">
-                    {sample.folder_path}
-                  </p>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between text-[10px] text-neutral-400 mb-1">
+                      <span className="font-mono text-indigo-400 font-semibold">{sample.width}x{sample.height}</span>
+                      <span className="bg-neutral-800 px-1.5 py-0.5 rounded text-neutral-300 font-mono text-[10px]">
+                        {sample.assigned_bucket}
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-300 line-clamp-2 leading-relaxed font-sans">
+                      {sample.caption_text}
+                    </p>
+                    <p className="text-[10px] font-mono text-neutral-500 truncate mt-1">
+                      {sample.folder_path}
+                    </p>
+                  </div>
                 </div>
+              ))
+            ) : (
+              <div className="p-6 text-center text-xs text-neutral-500 flex flex-col items-center justify-center h-full">
+                <FileQuestion className="w-8 h-8 text-neutral-600 mb-2" />
+                <span>No dataset pairs discovered yet. Click "Browse Folder..." to select your dataset path.</span>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
+
+      {/* Orphaned & Excluded Files Manager Section */}
+      <OrphanedFilesManager
+        folders={folders}
+        cachePath={cachePath}
+        onRescanDataset={handleScanFolders}
+        onOpenBrowser={onOpenBrowser}
+      />
 
       {/* Full Resolution Pair Inspector Modal */}
       {selectedPreviewPair && (
@@ -525,4 +626,5 @@ export const DatasetManager: React.FC<DatasetManagerProps> = ({
     </div>
   );
 };
+
 
