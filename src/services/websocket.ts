@@ -11,8 +11,10 @@ export function useTrainingWebSocket() {
   const [totalSteps, setTotalSteps] = useState(1000);
   const [cacheProgress, setCacheProgress] = useState<DatasetCacheProgress | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const isMountedRef = useRef(true);
 
   const connect = useCallback(() => {
+    if (!isMountedRef.current) return;
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/ws/metrics`;
     
@@ -21,10 +23,11 @@ export function useTrainingWebSocket() {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        setIsConnected(true);
+        if (isMountedRef.current) setIsConnected(true);
       };
 
       ws.onmessage = (event) => {
+        if (!isMountedRef.current) return;
         try {
           const data = JSON.parse(event.data);
           if (data.type === "state") {
@@ -57,15 +60,17 @@ export function useTrainingWebSocket() {
       };
 
       ws.onclose = () => {
-        setIsConnected(false);
-        // Auto reconnect after 2s
-        setTimeout(() => {
-          connect();
-        }, 2000);
+        if (isMountedRef.current) {
+          setIsConnected(false);
+          // Auto reconnect after 2s
+          setTimeout(() => {
+            if (isMountedRef.current) connect();
+          }, 2000);
+        }
       };
 
       ws.onerror = () => {
-        setIsConnected(false);
+        if (isMountedRef.current) setIsConnected(false);
       };
     } catch (e) {
       console.error("Failed to connect to WS:", e);
@@ -73,10 +78,18 @@ export function useTrainingWebSocket() {
   }, []);
 
   useEffect(() => {
+    isMountedRef.current = true;
     connect();
     return () => {
+      isMountedRef.current = false;
       if (wsRef.current) {
-        wsRef.current.close();
+        if (wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.close();
+        } else if (wsRef.current.readyState === WebSocket.CONNECTING) {
+          wsRef.current.onopen = function () {
+            this.close();
+          };
+        }
       }
     };
   }, [connect]);

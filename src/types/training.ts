@@ -216,12 +216,18 @@ export interface PeftEstimate {
 
 export interface HardwareInfo {
   gpu_name: string;
+  gpu_driver?: string;
   vram_total_mb: number;
+  vram_free_mb?: number;
   vram_target_budget_mb: number;
   vram_headroom_mb: number;
   compute_capability: string;
+  cuda_version?: string;
   host_ram_gb: number;
+  host_ram_free_gb?: number;
+  cpu_model?: string;
   cpu_cores: number;
+  cpu_architecture?: string;
   system_os: string;
   is_physical_gpu: boolean;
   is_fp8_supported: boolean;
@@ -399,13 +405,17 @@ export interface LiveHardwareTelemetry {
   host_ram_used_gb: number;
   host_ram_total_gb: number;
   host_ram_percent: number;
+  cpu_model: string;
   cpu_cores: number;
   cpu_utilization_percent: number;
+  cpu_load_avg: [number, number, number];
+  process_rss_mb: number;
   gpu_utilization_percent: number;
   gpu_temp_c: number;
   gpu_power_watts: number;
   attention_kernel: string;
   amp_dtype: string;
+  is_live_container: boolean;
 }
 
 export interface LiveTrainingPerformance {

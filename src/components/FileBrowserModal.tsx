@@ -77,17 +77,26 @@ export const FileBrowserModal: React.FC<FileBrowserModalProps> = ({
         })
       });
 
+      const data = await res.json();
       if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.detail || 'Failed to read directory.');
+        throw new Error(data.error || data.detail || 'Failed to read directory.');
       }
 
-      const data = await res.json();
-      setCurrentPath(data.current_path);
-      setParentPath(data.parent_path);
-      setFolders(data.folders || []);
-      setFiles(data.files || []);
-      setSelectedItemPath(data.current_path);
+      const activePath = data.current_path || data.currentPath || target || '';
+      const activeParent = data.parent_path || data.parentPath || null;
+
+      setCurrentPath(activePath);
+      setParentPath(activeParent);
+
+      const parsedFolders = data.folders || (data.items ? data.items.filter((i: any) => i.isDirectory || i.is_dir).map((i: any) => ({ name: i.name, path: i.path, is_dir: true })) : []);
+      const parsedFiles = data.files || (data.items ? data.items.filter((i: any) => !i.isDirectory && !i.is_dir).map((i: any) => ({ name: i.name, path: i.path, is_dir: false, size_mb: Number(((i.size || 0) / (1024 * 1024)).toFixed(2)), extension: i.ext })) : []);
+
+      setFolders(parsedFolders);
+      setFiles(parsedFiles);
+      setSelectedItemPath(activePath);
+      if (data.warning) {
+        setError(data.warning);
+      }
     } catch (err: any) {
       setError(err.message || 'Error opening folder.');
     } finally {
@@ -108,7 +117,7 @@ export const FileBrowserModal: React.FC<FileBrowserModalProps> = ({
   const filteredFiles = files.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   const handleConfirm = () => {
-    onSelect(selectedItemPath || currentPath);
+    onSelect(selectedItemPath || currentPath || '');
     onClose();
   };
 
@@ -145,7 +154,7 @@ export const FileBrowserModal: React.FC<FileBrowserModalProps> = ({
               key={d}
               onClick={() => browsePath(d)}
               className={`px-2.5 py-1 text-xs font-mono rounded-md border transition-all ${
-                currentPath.startsWith(d)
+                (currentPath || '').startsWith(d)
                   ? 'bg-indigo-600 border-indigo-500 text-white font-bold'
                   : 'bg-neutral-900 border-neutral-700 text-neutral-300 hover:bg-neutral-800'
               }`}

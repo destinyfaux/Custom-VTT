@@ -61,6 +61,30 @@ if HAS_TORCH_PEFT:
             return type('Output', (), {'sample': self.final_proj(x)})()
 
 class TestZImageTrainingPipeline(unittest.TestCase):
+    def test_z_image_pipeline_loader(self):
+        """Validates that training initiation targets Qwen 3.4B text encoder and ae.vae 16-channel AutoEncoder."""
+        from backend.app.training.trainer_worker import TrainerWorker
+        config = {
+            "text_encoder_path": "Tongyi-MAI/Z-Image-Turbo/text_encoder",
+            "vae_path": "Tongyi-MAI/Z-Image-Turbo/vae",
+            "transformer_path": "Tongyi-MAI/Z-Image-Turbo"
+        }
+        worker = TrainerWorker(config)
+        self.assertEqual(worker.text_encoder_model, "qwen_3_4b")
+        self.assertEqual(worker.text_encoder_dim, 4096)
+        self.assertEqual(worker.vae_channels, 16)
+        self.assertIn("S3-DiT", worker.pipeline_architecture)
+
+        # Test fallback / sanitization override if invalid clip/4ch paths are supplied
+        bad_config = {
+            "text_encoder_path": "openai/clip-vit-large-patch14",
+            "vae_path": "stabilityai/sdxl-vae-4ch"
+        }
+        bad_worker = TrainerWorker(bad_config)
+        self.assertEqual(bad_worker.text_encoder_path, "Tongyi-MAI/Z-Image-Turbo/text_encoder")
+        self.assertEqual(bad_worker.vae_path, "Tongyi-MAI/Z-Image-Turbo/vae")
+        print("\n[PASSED] Z-Image Pipeline Loader targeting (Qwen 3.4B & ae.vae 16ch) verified.")
+
     def test_peft_targeting(self):
         """Validates PEFT targeting resolves correctly on S3-DiT 30-block graph."""
         target_blocks = [10, 11, 12]
