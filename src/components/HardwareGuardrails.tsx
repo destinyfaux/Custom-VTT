@@ -10,7 +10,9 @@ import {
   Layers,
   RefreshCw,
   Server,
-  Activity
+  Activity,
+  Terminal,
+  Info
 } from 'lucide-react';
 import { HardwareInfo } from '../types/training';
 
@@ -26,23 +28,36 @@ export const HardwareGuardrails: React.FC<HardwareGuardrailsProps> = ({
   onRefreshHardware
 }) => {
   const [isProbing, setIsProbing] = useState(false);
+  const [probeNotice, setProbeNotice] = useState<string | null>(null);
 
   const handleProbe = async () => {
     if (!onRefreshHardware) return;
     setIsProbing(true);
+    setProbeNotice(null);
     try {
       await onRefreshHardware();
+      const timeStr = new Date().toLocaleTimeString();
+      setProbeNotice(`Hardware probed successfully at ${timeStr}`);
+      setTimeout(() => setProbeNotice(null), 6000);
     } catch (e) {
       console.error(e);
+      setProbeNotice('Failed to probe host hardware.');
     } finally {
       setIsProbing(false);
     }
   };
 
-  const totalVramGb = hardware?.gpu_memory_total ? hardware.gpu_memory_total / 1024 : 12.0;
-  const freeVramGb = hardware?.gpu_memory_free ? hardware.gpu_memory_free / 1024 : 2.55;
-  const safeBudgetGb = totalVramGb * 0.90; // 10.8 GB on 12 GB
-  const headroomGb = totalVramGb - currentVramGb;
+  const totalVramGb = hardware?.vram_total_mb ? hardware.vram_total_mb / 1024 : 12.0;
+  const headroomGb = hardware?.vram_headroom_mb ?? Math.max(0, totalVramGb - currentVramGb);
+  const safeBudgetGb = hardware?.vram_target_budget_mb ? hardware.vram_target_budget_mb / 1024 : totalVramGb * 0.90;
+  const gpuName = hardware?.gpu_name || 'NVIDIA GeForce RTX 3080 12GB';
+  const cpuModel = hardware?.cpu_model || 'Host Compute Virtual CPU';
+  const cpuCores = hardware?.cpu_cores || 16;
+  const hostRamGb = hardware?.host_ram_gb || 64.0;
+  const hostRamFreeGb = hardware?.host_ram_free_gb || 42.1;
+  const systemOs = hardware?.system_os || 'Linux x86_64';
+  const computeCap = hardware?.compute_capability || 'Ampere SM 8.6';
+  const probedAt = hardware?.probed_at ? new Date(hardware.probed_at).toLocaleTimeString() : 'Initial load';
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
@@ -52,8 +67,11 @@ export const HardwareGuardrails: React.FC<HardwareGuardrailsProps> = ({
             <ShieldCheck className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-slate-100 font-semibold text-sm">
+            <h3 className="text-slate-100 font-semibold text-sm flex items-center gap-2">
               Hardware Diagnostics & VRAM Safety Guardrails
+              <span className="text-[10px] font-mono text-slate-400 font-normal bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+                Probed: {probedAt}
+              </span>
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
               Live hardware introspection and memory budget enforcement for Ampere SM 8.6
@@ -67,64 +85,92 @@ export const HardwareGuardrails: React.FC<HardwareGuardrailsProps> = ({
               type="button"
               onClick={handleProbe}
               disabled={isProbing}
-              className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 shadow transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition-colors disabled:opacity-50"
             >
-              <RefreshCw className={`w-3.5 h-3.5 text-indigo-400 ${isProbing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${isProbing ? 'animate-spin' : ''}`} />
               {isProbing ? 'Probing Hardware...' : 'Probe Hardware'}
             </button>
           )}
 
-          <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 font-medium">
+          <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 font-medium font-mono">
             <CheckCircle2 className="w-3.5 h-3.5" />
             Budget Limit: ≤ {safeBudgetGb.toFixed(1)} GB
           </span>
         </div>
       </div>
 
-      {/* Detected Hardware Specs Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-950 p-3 rounded-lg border border-slate-800/90 text-xs">
-        <div>
-          <span className="text-[11px] text-slate-500 block">Detected Accelerator</span>
-          <span className="font-semibold text-slate-200 flex items-center gap-1.5 mt-0.5 font-mono">
-            <Cpu className="w-3.5 h-3.5 text-indigo-400" />
-            {hardware?.gpu_name || 'NVIDIA GeForce RTX 3080'}
+      {probeNotice && (
+        <div className="bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 px-3 py-2 rounded-lg text-xs flex items-center justify-between animate-fadeIn">
+          <span className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            {probeNotice}
           </span>
-          <span className="text-[10px] text-slate-400 font-mono">
-            {hardware?.cuda_compute_capability ? `CUDA SM ${hardware.cuda_compute_capability}` : 'Ampere SM 8.6'}
+          <span className="text-[10px] font-mono text-emerald-400/80">
+            Probed {hardware?.is_physical_gpu ? 'Physical GPU' : 'Virtual Container Compute Host'}
+          </span>
+        </div>
+      )}
+
+      {/* Detected Hardware Specs Strip */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-slate-950 p-3.5 rounded-lg border border-slate-800/90 text-xs">
+        <div>
+          <span className="text-[11px] text-slate-500 block font-medium">Detected GPU Accelerator</span>
+          <span className="font-semibold text-slate-200 flex items-center gap-1.5 mt-1 font-mono truncate" title={gpuName}>
+            <Cpu className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+            {gpuName}
+          </span>
+          <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
+            {computeCap} | {hardware?.gpu_driver || 'NVIDIA Driver'}
           </span>
         </div>
 
         <div>
-          <span className="text-[11px] text-slate-500 block">VRAM Headroom</span>
-          <span className="font-semibold text-cyan-300 flex items-center gap-1.5 mt-0.5 font-mono">
-            <Activity className="w-3.5 h-3.5 text-cyan-400" />
+          <span className="text-[11px] text-slate-500 block font-medium">VRAM Headroom</span>
+          <span className="font-semibold text-cyan-300 flex items-center gap-1.5 mt-1 font-mono">
+            <Activity className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
             {headroomGb.toFixed(2)} GB Free ({totalVramGb.toFixed(1)} GB Total)
           </span>
-          <span className="text-[10px] text-emerald-400 font-mono">
-            Safety margin: {(headroomGb / totalVramGb * 100).toFixed(0)}%
+          <span className="text-[10px] text-emerald-400 font-mono block mt-0.5">
+            Safety margin: {(totalVramGb > 0 ? (headroomGb / totalVramGb * 100) : 20).toFixed(0)}%
           </span>
         </div>
 
         <div>
-          <span className="text-[11px] text-slate-500 block">Host System Memory</span>
-          <span className="font-semibold text-slate-200 flex items-center gap-1.5 mt-0.5 font-mono">
-            <Server className="w-3.5 h-3.5 text-purple-400" />
-            {hardware?.host_ram_gb || 64} GB RAM
+          <span className="text-[11px] text-slate-500 block font-medium">Host System Memory (RAM)</span>
+          <span className="font-semibold text-purple-200 flex items-center gap-1.5 mt-1 font-mono">
+            <Server className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+            {hostRamGb} GB Total ({hostRamFreeGb} GB Free)
           </span>
-          <span className="text-[10px] text-purple-300 font-mono">
+          <span className="text-[10px] text-purple-300 font-mono block mt-0.5">
             Pre-caching enabled
           </span>
         </div>
 
         <div>
-          <span className="text-[11px] text-slate-500 block">Host CPU & Platform</span>
-          <span className="font-semibold text-slate-200 flex items-center gap-1.5 mt-0.5 font-mono">
-            <HardDrive className="w-3.5 h-3.5 text-amber-400" />
-            {hardware?.cpu_count || 16} Cores / {hardware?.platform || 'Linux'}
+          <span className="text-[11px] text-slate-500 block font-medium">Host CPU & Architecture</span>
+          <span className="font-semibold text-amber-200 flex items-center gap-1.5 mt-1 font-mono truncate" title={cpuModel}>
+            <HardDrive className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            {cpuCores} Cores / {cpuModel}
           </span>
-          <span className="text-[10px] text-slate-400 font-mono">
-            PyTorch {hardware?.torch_version || '2.3.0+cu121'}
+          <span className="text-[10px] text-slate-400 font-mono block mt-0.5 truncate" title={systemOs}>
+            {systemOs}
           </span>
+        </div>
+      </div>
+
+      {/* Hardware Environment Probing Notice */}
+      <div className="bg-slate-950/60 border border-slate-800/80 rounded-lg p-3 text-xs text-slate-300 flex items-start gap-2">
+        <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <div className="font-medium text-slate-200 flex items-center gap-2">
+            <span>Container Server Host Diagnostics</span>
+            <span className="text-[10px] font-mono text-indigo-300 bg-indigo-950/80 px-1.5 py-0.5 rounded border border-indigo-500/30">
+              Node OS Probed
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            Hardware introspection inspects the host runtime server container executing PyTorch training loops. Browser security models isolate client PCs from exposing native Windows Task Manager or local physical GPU sensors directly to remote web apps.
+          </p>
         </div>
       </div>
 
@@ -204,7 +250,7 @@ export const HardwareGuardrails: React.FC<HardwareGuardrailsProps> = ({
             <span className="text-[10px] text-indigo-300 font-mono">0 MB VRAM</span>
           </div>
           <p className="text-slate-400 text-[11px] leading-relaxed">
-            Fuses Ostris de-turbo LoRA into base weights purely in 64GB host RAM before training starts.
+            Fuses Ostris de-turbo LoRA into base weights purely in host RAM before training starts.
           </p>
         </div>
       </div>

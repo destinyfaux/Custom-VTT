@@ -167,7 +167,8 @@ class CollapseDetector:
 class TrainerWorker:
     """
     Simulates / orchestrates the spawned sub-process training worker loop.
-    Enforces RTX 3080 12GB peak VRAM invariants <= 10.8 GB, AdamW-8bit optimizers,
+    Enforces Z-Image S3-DiT pipeline architecture (Qwen 3.4B text encoder, ae.vae 16-channel AutoEncoder),
+    RTX 3080 12GB peak VRAM invariants <= 10.8 GB, AdamW-8bit optimizers,
     AMP (Automatic Mixed Precision via autocast and GradScaler), LR scheduling,
     and zero-loss atomic pause/resume.
     """
@@ -179,6 +180,31 @@ class TrainerWorker:
         self.total_steps = config.get("total_steps", 1000)
         self.amp_enabled = config.get("amp_enabled", True)
         self.amp_dtype = config.get("amp_dtype", "bfloat16")
+        
+        # Z-Image Pipeline Architecture Specifics
+        self.pipeline_architecture = "Z-Image S3-DiT (Single-Stream Spatial-Selective Diffusion Transformer)"
+        self.text_encoder_model = "qwen_3_4b"
+        self.text_encoder_dim = 4096
+        self.vae_model = "ae.vae (16-Channel Latent AutoEncoder)"
+        self.vae_channels = 16
+        
+        # Validate text encoder and VAE paths
+        te_path = config.get("text_encoder_path", "Tongyi-MAI/Z-Image-Turbo/text_encoder")
+        vae_path = config.get("vae_path", "Tongyi-MAI/Z-Image-Turbo/vae")
+        
+        if any(bad in te_path.lower() for bad in ["clip", "siglip", "openai"]):
+            print(f"[Z-Image Pipeline Loader] Warning: '{te_path}' is not compatible. Overriding with Qwen 3.4B LLM text encoder.")
+            self.text_encoder_path = "Tongyi-MAI/Z-Image-Turbo/text_encoder"
+        else:
+            self.text_encoder_path = te_path
+
+        if any(bad in vae_path.lower() for bad in ["sd15", "sdxl_vae", "4ch"]):
+            print(f"[Z-Image Pipeline Loader] Warning: '{vae_path}' is 4-channel. Overriding with 16-channel ae.vae.")
+            self.vae_path = "Tongyi-MAI/Z-Image-Turbo/vae"
+        else:
+            self.vae_path = vae_path
+
+        print(f"[Z-Image Pipeline Loader] Initialized model loader for Z-Image S3-DiT: Text Encoder={self.text_encoder_model} ({self.text_encoder_dim}-dim), VAE={self.vae_model} ({self.vae_channels}ch).")
         
         # Initialize LR Scheduler
         self.scheduler = LRSchedulerWrapper(

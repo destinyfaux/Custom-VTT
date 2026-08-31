@@ -871,7 +871,7 @@ export default function App() {
         isOpen={browserOpen}
         onClose={() => setBrowserOpen(false)}
         onSelect={handlePathSelected}
-        initialPath={config.base_model_path || 'G:\\'}
+        initialPath={config.base_model_path || '.'}
         mode={browserMode}
         title={`Select ${browserTargetField.replace(/_/g, ' ').toUpperCase()} Path`}
       />
