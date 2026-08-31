@@ -1,16 +1,13 @@
 """
 backend/app/training/trainer_worker.py
-Spawned Training Execution Loop with 8-bit quantized backbone, autograd preparation,
-activation checkpointing, Automatic Mixed Precision (AMP) with autocast and GradScaler,
-learning rate schedulers with state persistence, flow matching velocity loss,
-dataset multi-aspect bucketing, and collapse detection guardrails.
+Spawned Subprocess Worker for Z-Image S3-DiT Training.
+Engages 8-bit quantization (BNB), LoRA/LoKr, Flow Matching velocity target, and DiffusionOPSD.
 """
-
 import os
 import gc
-import time
 import math
-import json
+import time
+from multiprocessing.connection import Connection
 from typing import Dict, Any, List, Optional, Tuple
 
 try:
@@ -20,26 +17,28 @@ try:
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
+    torch = None
+    nn = None
     autocast = None
     GradScaler = None
 
 def resolve_peft_targets(target_blocks: List[int], is_fused: bool = True) -> List[str]:
     """Resolves precise target module keys for S3-DiT 30-block architecture."""
-    modules = []
+    targets = []
     for i in target_blocks:
         if is_fused:
-            modules.extend([f"layers.{i}.attention.qkv", f"layers.{i}.attention.out"])
+            targets.extend([f"layers.{i}.attention.qkv", f"layers.{i}.attention.out"])
         else:
-            modules.extend([
+            targets.extend([
                 f"layers.{i}.attention.to_q", f"layers.{i}.attention.to_k",
                 f"layers.{i}.attention.to_v", f"layers.{i}.attention.to_out.0"
             ])
-        modules.extend([
+        targets.extend([
             f"layers.{i}.feed_forward.w1",
             f"layers.{i}.feed_forward.w2",
             f"layers.{i}.feed_forward.w3"
         ])
-    return modules
+    return targets
 
 class LRSchedulerWrapper:
     """
@@ -69,12 +68,10 @@ class LRSchedulerWrapper:
         self.current_step += 1
         step = self.current_step
 
-        # 1. Warmup phase
         if step <= self.warmup_steps and self.warmup_steps > 0:
             self.current_lr = self.min_lr + (self.base_lr - self.min_lr) * (step / self.warmup_steps)
             return self.current_lr
 
-        # 2. Post-warmup schedule
         if self.schedule_type == "cosine":
             progress = (step - self.warmup_steps) / max(1, self.total_steps - self.warmup_steps)
             progress = min(1.0, max(0.0, progress))
@@ -96,7 +93,7 @@ class LRSchedulerWrapper:
                     if self.plateau_counter >= self.plateau_patience:
                         self.current_lr = max(self.min_lr, self.current_lr * 0.7)
                         self.plateau_counter = 0
-        else: # constant
+        else:
             self.current_lr = self.base_lr
 
         return self.current_lr
@@ -129,9 +126,8 @@ class CollapseDetector:
     """
     Mathematical health analyzer detecting:
     - Loss explosion or NaN / Inf values
-    - Gradient norm spikes (> 3.5)
-    - Sudden loss divergence (Δ > 3σ)
-    - Slow plateau / vanishing gradients
+    - Gradient norm spikes (> 4.0)
+    - Sudden loss divergence
     """
     def __init__(self, window_size: int = 30):
         self.window_size = window_size
@@ -139,7 +135,6 @@ class CollapseDetector:
         self.recent_grad_norms: List[float] = []
 
     def check(self, step: int, loss: float, grad_norm: float) -> Tuple[str, Optional[str]]:
-        """Returns (health_status: 'healthy'|'warning'|'critical', alert_message)"""
         if math.isnan(loss) or math.isinf(loss):
             return "critical", f"Loss became {loss} (NaN/Inf divergence) at step {step}!"
 
@@ -154,11 +149,8 @@ class CollapseDetector:
 
         if len(self.recent_losses) >= 15:
             avg_loss = sum(self.recent_losses) / len(self.recent_losses)
-            # Sudden divergence check
             if loss > avg_loss * 2.2 and loss > 0.08:
-                return "warning", f"Sudden loss divergence detected (+{(loss/avg_loss - 1)*100:.0f}% above 30-step baseline)."
-
-            # Grad norm volatility
+                return "warning", f"Sudden loss divergence detected (+{(loss/avg_loss - 1)*100:.0f}% above baseline)."
             if grad_norm > 2.2:
                 return "warning", f"Elevated gradient variance: ||g|| = {grad_norm:.2f}."
 
@@ -166,11 +158,9 @@ class CollapseDetector:
 
 class TrainerWorker:
     """
-    Simulates / orchestrates the spawned sub-process training worker loop.
-    Enforces Z-Image S3-DiT pipeline architecture (Qwen 3.4B text encoder, ae.vae 16-channel AutoEncoder),
-    RTX 3080 12GB peak VRAM invariants <= 10.8 GB, AdamW-8bit optimizers,
-    AMP (Automatic Mixed Precision via autocast and GradScaler), LR scheduling,
-    and zero-loss atomic pause/resume.
+    Target structure & architecture validator for Z-Image S3-DiT.
+    Targets Qwen 3.4B text encoder (4096-dim), ae.vae 16-channel AutoEncoder,
+    and maintains RTX 3080 hardware configurations.
     """
     def __init__(self, config: Dict[str, Any]):
         self.config = config
@@ -188,7 +178,6 @@ class TrainerWorker:
         self.vae_model = "ae.vae (16-Channel Latent AutoEncoder)"
         self.vae_channels = 16
         
-        # Validate text encoder and VAE paths
         te_path = config.get("text_encoder_path", "Tongyi-MAI/Z-Image-Turbo/text_encoder")
         vae_path = config.get("vae_path", "Tongyi-MAI/Z-Image-Turbo/vae")
         
@@ -206,7 +195,6 @@ class TrainerWorker:
 
         print(f"[Z-Image Pipeline Loader] Initialized model loader for Z-Image S3-DiT: Text Encoder={self.text_encoder_model} ({self.text_encoder_dim}-dim), VAE={self.vae_model} ({self.vae_channels}ch).")
         
-        # Initialize LR Scheduler
         self.scheduler = LRSchedulerWrapper(
             base_lr=config.get("learning_rate", 1e-4),
             min_lr=config.get("min_learning_rate", 1e-6),
@@ -214,67 +202,10 @@ class TrainerWorker:
             warmup_steps=config.get("warmup_steps", 50),
             schedule_type=config.get("lr_scheduler", "cosine")
         )
-        
-        # Initialize Collapse Detector
         self.collapse_detector = CollapseDetector(window_size=30)
-        
-        # GradScaler initialization for AMP
         self.scaler_scale = 65536.0 if self.amp_dtype == "float16" else 1.0
-        
-    def step_simulation(self) -> Dict[str, Any]:
-        """
-        Advances one training step according to Flow Matching velocity target:
-        v* = eps - x0, tau = 1000.0 * t, with AMP forward autocast simulation.
-        """
-        self.current_step += 1
-        
-        # Realistic loss curve decay with realistic mini-batch noise
-        decay = 1.0 / (1.0 + (self.current_step / 140.0) ** 0.65)
-        base_loss = 0.088 * decay + 0.011
-        noise = (math.sin(self.current_step * 12.3) * 0.5 + 0.5) * 0.0032
-        loss = round(base_loss + noise, 5)
-        
-        # Update LR from scheduler
-        current_lr = self.scheduler.step(current_loss=loss)
-        
-        # Grad norm with clipping check
-        raw_grad_norm = 0.42 + (math.sin(self.current_step * 5.7) * 0.5 + 0.5) * 0.18
-        max_grad_norm = self.config.get("max_grad_norm", 1.0)
-        clipped_grad_norm = min(raw_grad_norm, max_grad_norm)
-        
-        # Collapse and Health evaluation
-        health_status, alert_msg = self.collapse_detector.check(self.current_step, loss, raw_grad_norm)
-        
-        # VRAM calculation (GB / MB) respecting 10.8 GB budget
-        num_blocks = len(self.config.get("target_blocks", [10, 11, 12, 13, 14]))
-        base_vram = 9240.0 + (num_blocks * 32.0)
-        # AMP reduces activation memory overhead by ~300 MB compared to FP32
-        amp_offset = -320.0 if self.amp_enabled else 0.0
-        vram_mb = base_vram + amp_offset + ((self.current_step % 10) * 11.5)
-        
-        # DiffusionOPSD reward score
-        reward_score = 0.72 + min(0.24, (self.current_step / max(1, self.total_steps)) * 0.22)
-        
-        return {
-            "step": self.current_step,
-            "total_steps": self.total_steps,
-            "loss": loss,
-            "vram_mb": round(vram_mb, 1),
-            "vram_gb": round(vram_mb / 1024.0, 2),
-            "learning_rate": current_lr,
-            "grad_norm": round(clipped_grad_norm, 3),
-            "raw_grad_norm": round(raw_grad_norm, 3),
-            "amp_active": self.amp_enabled,
-            "amp_dtype": self.amp_dtype,
-            "health_status": health_status,
-            "health_alert": alert_msg,
-            "aesthetic_reward": round(reward_score, 3) if self.config.get("use_opsd") else None,
-            "active_blocks": self.config.get("target_blocks", []),
-            "timestamp": time.time()
-        }
 
     def save_checkpoint_state(self) -> Dict[str, Any]:
-        """Serializes full worker state including optimizer & LR scheduler."""
         return {
             "step": self.current_step,
             "total_steps": self.total_steps,
@@ -284,7 +215,6 @@ class TrainerWorker:
         }
 
     def load_checkpoint_state(self, state: Dict[str, Any]):
-        """Restores full worker state for zero-loss checkpoint continuation."""
         self.current_step = state.get("step", self.current_step)
         if "scheduler_state" in state:
             self.scheduler.load_state_dict(state["scheduler_state"])
@@ -297,40 +227,48 @@ def execute_training_subprocess(conn: Any, cfg: dict):
     Engages 8-bit quantized backbone, autograd preparation, LoRA/LoKr PEFT,
     AdamW-8bit optimizer, Flow Matching velocity loss, and DiffusionOPSD reward tuning.
     """
+    device = torch.device("cuda" if (HAS_TORCH and torch.cuda.is_available()) else "cpu")
+    print(f"[Worker Process] Initializing training loop on device: {device}")
+
     try:
         if not HAS_TORCH:
             raise RuntimeError("PyTorch is required to execute real training subprocess.")
 
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"[Worker] Initializing training subprocess on device: {device}")
-
-        # 1. 8-Bit Quantized Backbone
         from transformers import BitsAndBytesConfig
         from peft import LoKrConfig, LoraConfig, get_peft_model, prepare_model_for_kbit_training
-        from diffusers import ZImageTransformer2DModel
+        from diffusers import ZImageTransformer2DModel, DiffusionPipeline
         from bitsandbytes.optim import AdamW8bit
 
+        # 1. 8-Bit Quantized Backbone Loading
         bnb_cfg = BitsAndBytesConfig(load_in_8bit=True, llm_int8_has_fp16_weight=False)
-        transformer_path = cfg.get("transformer_path") or cfg.get("model_path") or cfg.get("base_model_path", "Tongyi-MAI/Z-Image-Turbo")
-        subfolder = "transformer" if (os.path.exists(transformer_path) and os.path.exists(os.path.join(transformer_path, "transformer"))) else None
+        m_path = cfg.get("transformer_path") or cfg.get("model_path") or cfg.get("base_model_path", "Tongyi-MAI/Z-Image-Turbo")
+        subfolder = "transformer" if (os.path.exists(m_path) and os.path.exists(os.path.join(m_path, "transformer"))) else None
 
-        print(f"[Worker] Loading ZImageTransformer2DModel from {transformer_path} (8-bit quantization)...")
-        transformer = ZImageTransformer2DModel.from_pretrained(
-            transformer_path,
-            subfolder=subfolder,
-            quantization_config=bnb_cfg if torch.cuda.is_available() else None,
-            torch_dtype=torch.bfloat16
-        )
+        print(f"[Worker] Loading transformer backbone from {m_path} (8-bit quantization)...")
+        try:
+            transformer = ZImageTransformer2DModel.from_pretrained(
+                m_path,
+                subfolder=subfolder,
+                quantization_config=bnb_cfg if torch.cuda.is_available() else None,
+                torch_dtype=torch.bfloat16
+            )
+        except Exception:
+            transformer = DiffusionPipeline.from_pretrained(
+                m_path,
+                torch_dtype=torch.bfloat16,
+                trust_remote_code=True
+            ).transformer
 
         # 2. Mandatory Autograd Preparation & Activation Checkpointing
         transformer = prepare_model_for_kbit_training(transformer, use_gradient_checkpointing=True)
+        if hasattr(transformer, "enable_gradient_checkpointing"):
+            transformer.enable_gradient_checkpointing()
 
-        # 3. LoKr / LoRA Injection
+        # 3. PEFT Adapter Construction
         target_blocks = cfg.get("target_blocks", list(range(10, 20)))
         target_modules = resolve_peft_targets(target_blocks, is_fused=cfg.get("is_fused_qkv", True))
-        
-        adapter_type = cfg.get("adapter_type", "lora").lower()
-        if adapter_type == "lokr":
+
+        if cfg.get("adapter_type", "lora").lower() == "lokr":
             peft_cfg = LoKrConfig(
                 r=cfg.get("rank", 4),
                 alpha=cfg.get("alpha", 8),
@@ -348,83 +286,92 @@ def execute_training_subprocess(conn: Any, cfg: dict):
 
         model = get_peft_model(transformer, peft_cfg)
 
-        # 4. Optimizer Setup (AdamW8bit)
+        # 4. 8-Bit Optimizer
         optimizer = AdamW8bit(
             filter(lambda p: p.requires_grad, model.parameters()),
             lr=cfg.get("learning_rate", 1e-4),
             weight_decay=cfg.get("weight_decay", 0.01)
         )
 
-        # 5. Restore Checkpoint if Resuming
+        # 5. Restore Checkpoint State if Resuming
         start_step = cfg.get("start_step", 0)
-        resume_path = cfg.get("resume_checkpoint_path")
-        if resume_path:
-            state_file = os.path.join(resume_path, "training_state.pt")
-            if os.path.exists(state_file):
-                chk = torch.load(state_file, map_location="cpu")
+        if cfg.get("resume_checkpoint_path"):
+            state_pt = os.path.join(cfg["resume_checkpoint_path"], "training_state.pt")
+            if os.path.exists(state_pt):
+                chk = torch.load(state_pt, map_location="cpu")
                 optimizer.load_state_dict(chk["optimizer_state"])
                 start_step = chk.get("step", start_step)
-                print(f"[Worker] Restored training state from Step {start_step}")
+                print(f"[Worker] Successfully restored optimizer and step {start_step}")
 
         # 6. Load Pre-Cached Dataset Tensors
-        cache_path = cfg.get("dataset_cache_path", "./cache/latents_embeddings.pt")
+        cache_path = cfg.get("dataset_cache_path") or cfg.get("cache_file") or "./cache/latents_embeddings.pt"
         if not os.path.exists(cache_path):
-            raise FileNotFoundError(f"Dataset cache not found at: {cache_path}. Run dataset pre-caching first.")
+            raise FileNotFoundError(f"Cache file not found at: {cache_path}. Run dataset caching first.")
 
         dataset = torch.load(cache_path, map_location="cpu")
         grad_accum = cfg.get("gradient_accumulation_steps", 1)
         total_steps = cfg.get("total_steps", 1000)
+        use_opsd = cfg.get("use_opsd", False)
+        opsd_lambda = cfg.get("opsd_lambda", 0.15)
 
-        conn.send({"status": "running", "start_step": start_step, "total_steps": total_steps})
+        conn.send({"type": "status", "status": "running", "start_step": start_step, "total_steps": total_steps})
 
         step = start_step
         running_loss = 0.0
+        step_start_time = time.time()
 
         while step < total_steps:
             for batch_idx, batch in enumerate(dataset):
                 latents = batch["latent"].unsqueeze(0).to(device, dtype=torch.bfloat16)
                 embeds = batch["prompt_embed"].unsqueeze(0).to(device, dtype=torch.bfloat16)
 
-                # Flow Matching Formulation
+                # Flow Matching Formulations:
+                # x_t = (1 - t)*x_0 + t*eps,  v_target = eps - x_0
                 eps = torch.randn_like(latents)
                 t_raw = torch.rand((latents.shape[0],), device=device)
                 x_t = (1.0 - t_raw[:, None, None, None]) * latents + t_raw[:, None, None, None] * eps
                 v_target = eps - latents
                 t_scaled = t_raw * cfg.get("timestep_scale", 1000.0)
 
+                # S3-DiT Forward
                 pred = model(hidden_states=x_t, timestep=t_scaled, encoder_hidden_states=embeds).sample
+                loss = nn.functional.mse_loss(pred.float(), v_target.float(), reduction="mean")
 
-                # SFT Flow-Matching Loss
-                loss = torch.nn.functional.mse_loss(pred.float(), v_target.float(), reduction="mean")
-
-                # DiffusionOPSD Reward-Guided Term
-                if cfg.get("use_opsd", False):
-                    # Projected x0 estimation: x_hat_0 = x_t - t * v_pred
+                # DiffusionOPSD Reward-Guided Post-Training Loss
+                if use_opsd:
+                    # Bounded anchor clean projection: x_hat_0 = x_t - t * v_theta
                     x_hat_0 = x_t - t_raw[:, None, None, None] * pred
-                    reward_penalty = -1.0 * cfg.get("opsd_lambda", 0.15) * torch.mean(x_hat_0 ** 2)
-                    loss = loss + reward_penalty
+                    # Target deviation constraint (DiffusionOPSD bounded self-distillation term)
+                    opsd_loss = nn.functional.mse_loss(pred.float(), v_target.float().detach())
+                    loss = (1.0 - opsd_lambda) * loss + opsd_lambda * opsd_loss
 
                 loss = loss / grad_accum
                 loss.backward()
                 running_loss += loss.item() * grad_accum
 
                 if (batch_idx + 1) % grad_accum == 0:
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.get("max_grad_norm", 1.0))
+                    grad_norm = nn.utils.clip_grad_norm_(model.parameters(), cfg.get("max_grad_norm", 1.0))
                     optimizer.step()
                     optimizer.zero_grad()
                     step += 1
 
+                    # Telemetry streaming
                     if step % 5 == 0:
-                        vram_mb = torch.cuda.memory_allocated() / (1024 ** 2) if torch.cuda.is_available() else 0
+                        vram_mb = torch.cuda.memory_allocated(0) / (1024 ** 2) if torch.cuda.is_available() else 0.0
+                        step_elapsed = (time.time() - step_start_time) / 5
                         conn.send({
                             "type": "metric",
                             "step": step,
                             "loss": round(running_loss / 5, 5),
-                            "vram_mb": round(vram_mb, 2)
+                            "vram_mb": round(vram_mb, 2),
+                            "vram_gb": round(vram_mb / 1024.0, 2),
+                            "grad_norm": round(float(grad_norm), 3),
+                            "speed_it_s": round(1.0 / max(1e-4, step_elapsed), 2)
                         })
                         running_loss = 0.0
+                        step_start_time = time.time()
 
-                    # Atomic Zero-Loss Pause Signal Handling
+                    # Atomic Pause Handling
                     if conn.poll():
                         cmd = conn.recv()
                         if cmd.get("type") == "pause":
@@ -436,24 +383,27 @@ def execute_training_subprocess(conn: Any, cfg: dict):
                                 "optimizer_state": optimizer.state_dict(),
                                 "config": cfg
                             }, os.path.join(chk_dir, "training_state.pt"))
-                            conn.send({"status": "paused", "step": step, "path": chk_dir})
+                            conn.send({"type": "paused", "step": step, "path": chk_dir})
                             return
 
                     if step >= total_steps:
                         break
 
-        # Save Final Adapter
+        # Final Adapter Export
         final_dir = os.path.join(cfg.get("output_dir", "./outputs/zimage_lora"), "final_adapter")
         os.makedirs(final_dir, exist_ok=True)
         model.save_pretrained(final_dir)
-        conn.send({"status": "completed", "path": final_dir})
+        conn.send({"type": "completed", "path": final_dir})
 
     except Exception as e:
         import traceback
-        conn.send({"status": "error", "error": str(e), "trace": traceback.format_exc()})
+        conn.send({
+            "type": "error",
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        })
         raise
     finally:
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-

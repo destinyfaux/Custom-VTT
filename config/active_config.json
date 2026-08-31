@@ -4,6 +4,7 @@
   "transformer_path": "D:\\Downloads\\Automatic1111\\ComfyUI_Portable\\output\\diffusion_models\\zimage",
   "vae_path": "D:\\Downloads\\Automatic1111\\ComfyUI_Portable\\models\\vae\\flux",
   "text_encoder_path": "D:\\Downloads\\Automatic1111\\ComfyUI_Portable\\models\\text_encoders\\qwen",
+  "lora_weight_path": "./outputs/zimage_lora/checkpoint_step_100",
   "output_dir": "./outputs/zimage_lora",
   "dataset_cache_path": "./cache/latents_embeddings.pt",
   "dataset_folders": [
@@ -85,7 +86,7 @@
   ],
   "sample_seed": 42,
   "sample_steps": 8,
-  "sample_guidance_scale": 4,
+  "sample_guidance_scale": 1,
   "soft_checkpoint_every_n_steps": 250,
   "min_lr": 0.000001,
   "aspect_mode": "auto",

@@ -1,38 +1,57 @@
 """
 backend/app/main.py
-FastAPI Server & WebSocket Manager for Z-Image Studio S3-DiT Training Suite.
+FastAPI Server & Process Manager for Z-Image Studio S3-DiT Training Suite.
+Manages training subprocesses via multiprocessing.spawn, WebSocket streaming,
+diagnostics logging, and hardware introspection.
 """
 
 import os
 import sys
 import string
 import platform
-from typing import Dict, Any, List, Optional
 import asyncio
 import json
-
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+import gc
+import multiprocessing as mp
+from typing import Dict, Any, List, Optional
 from pydantic import BaseModel
 
-# Safe cross-environment imports
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+# Safe imports
 try:
     from backend.app.config import TrainingConfig, HardwareSpecs
     from backend.app.core.bucketing import build_aspect_buckets, get_target_bucket
     from backend.app.core.model_builder import resolve_peft_targets, compute_adapter_parameter_estimate
     from backend.app.core.merger import merge_deturbo_adapter
     from backend.app.core.cacher import extract_and_cache_dataset
+    from backend.app.core.diagnostics import GLOBAL_DIAGNOSTICS
+    from backend.app.core.hardware_probe import probe_system_hardware
     from backend.app.inference.sampler import run_fast_validation_sampling
+    from backend.app.training.trainer_worker import execute_training_subprocess
 except ImportError:
-    from app.config import TrainingConfig, HardwareSpecs
-    from app.core.bucketing import build_aspect_buckets, get_target_bucket
-    from app.core.model_builder import resolve_peft_targets, compute_adapter_parameter_estimate
-    from app.core.merger import merge_deturbo_adapter
-    from app.core.cacher import extract_and_cache_dataset
-    from app.inference.sampler import run_fast_validation_sampling
+    try:
+        from app.config import TrainingConfig, HardwareSpecs
+        from app.core.bucketing import build_aspect_buckets, get_target_bucket
+        from app.core.model_builder import resolve_peft_targets, compute_adapter_parameter_estimate
+        from app.core.merger import merge_deturbo_adapter
+        from app.core.cacher import extract_and_cache_dataset
+        from app.core.diagnostics import GLOBAL_DIAGNOSTICS
+        from app.core.hardware_probe import probe_system_hardware
+        from app.inference.sampler import run_fast_validation_sampling
+        from app.training.trainer_worker import execute_training_subprocess
+    except ImportError:
+        pass
 
-app = FastAPI(title="Z-Image Studio API", version="1.0.0")
+# Ensure directories exist
+os.makedirs("./outputs/samples", exist_ok=True)
+os.makedirs("./outputs/zimage_lora", exist_ok=True)
+os.makedirs("./cache", exist_ok=True)
+os.makedirs("./presets", exist_ok=True)
+
+app = FastAPI(title="Z-Image Studio API", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -42,17 +61,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Active training and error states
-STATE = {
-    "status": "idle", # "idle", "running", "paused", "completed", "error"
+# Mount outputs for image serving
+app.mount("/outputs", StaticFiles(directory="./outputs"), name="outputs")
+
+# Global In-Memory Training State
+STATE: Dict[str, Any] = {
+    "status": "idle", # "idle" | "running" | "paused" | "completed" | "error"
     "current_step": 0,
     "total_steps": 1000,
-    "config": TrainingConfig().dict(),
+    "loss": 0.0,
+    "vram_mb": 0.0,
+    "vram_gb": 0.0,
+    "grad_norm": 0.0,
+    "speed_it_s": 0.0,
+    "eta_seconds": 0,
+    "config": TrainingConfig().dict() if 'TrainingConfig' in globals() else {},
     "history": [],
-    "samples": []
+    "samples": [],
+    "last_checkpoint_path": None,
+    "error_message": None
 }
 
-SYSTEM_ERROR_LOGS = []
+# Subprocess references
+TRAINING_PROCESS: Optional[mp.Process] = None
+PARENT_CONN: Optional[Any] = None
+ASYNC_MONITOR_TASK: Optional[asyncio.Task] = None
 
 class ConnectionManager:
     def __init__(self):
@@ -67,40 +100,151 @@ class ConnectionManager:
             self.active_connections.remove(websocket)
 
     async def broadcast(self, message: dict):
-        for connection in self.active_connections:
+        for connection in list(self.active_connections):
             try:
                 await connection.send_json(message)
             except Exception:
-                pass
+                self.disconnect(connection)
 
 manager = ConnectionManager()
 
 # =====================================================================
-# Root & Health Endpoints
+# Background IPC Monitor Task
+# =====================================================================
+
+async def monitor_training_subprocess():
+    """Reads messages from the spawned training worker and streams updates."""
+    global TRAINING_PROCESS, PARENT_CONN, STATE
+    print("[Server] Background IPC training monitor started.")
+    
+    while STATE["status"] == "running" and PARENT_CONN is not None:
+        try:
+            # Poll non-blocking
+            if PARENT_CONN.poll(0.1):
+                msg = PARENT_CONN.recv()
+                msg_type = msg.get("type", "")
+
+                if msg_type == "metric":
+                    step = msg.get("step", STATE["current_step"])
+                    loss = msg.get("loss", 0.0)
+                    vram_mb = msg.get("vram_mb", 0.0)
+                    vram_gb = msg.get("vram_gb", 0.0)
+                    grad_norm = msg.get("grad_norm", 0.0)
+                    speed_it_s = msg.get("speed_it_s", 0.0)
+                    
+                    remaining_steps = max(0, STATE["total_steps"] - step)
+                    eta_sec = int(remaining_steps / max(0.01, speed_it_s)) if speed_it_s > 0 else 0
+
+                    STATE["current_step"] = step
+                    STATE["loss"] = loss
+                    STATE["vram_mb"] = vram_mb
+                    STATE["vram_gb"] = vram_gb
+                    STATE["grad_norm"] = grad_norm
+                    STATE["speed_it_s"] = speed_it_s
+                    STATE["eta_seconds"] = eta_sec
+
+                    record = {
+                        "step": step,
+                        "loss": loss,
+                        "vram_mb": vram_mb,
+                        "vram_gb": vram_gb,
+                        "grad_norm": grad_norm,
+                        "learning_rate": STATE.get("config", {}).get("learning_rate", 1e-4)
+                    }
+                    STATE["history"].append(record)
+                    if len(STATE["history"]) > 500:
+                        STATE["history"].pop(0)
+
+                    await manager.broadcast({
+                        "type": "metric",
+                        "data": record,
+                        "state": STATE
+                    })
+
+                elif msg_type == "paused":
+                    STATE["status"] = "paused"
+                    STATE["last_checkpoint_path"] = msg.get("path")
+                    await manager.broadcast({"type": "status", "status": "paused", "state": STATE})
+                    break
+
+                elif msg_type == "completed":
+                    STATE["status"] = "completed"
+                    STATE["last_checkpoint_path"] = msg.get("path")
+                    await manager.broadcast({"type": "status", "status": "completed", "state": STATE})
+                    break
+
+                elif msg_type == "error":
+                    STATE["status"] = "error"
+                    STATE["error_message"] = msg.get("error")
+                    GLOBAL_DIAGNOSTICS.capture_exception(
+                        Exception(msg.get("error", "Training subprocess error")),
+                        category="training",
+                        title="Training Subprocess Crash"
+                    )
+                    await manager.broadcast({
+                        "type": "status",
+                        "status": "error",
+                        "error": msg.get("error"),
+                        "traceback": msg.get("traceback"),
+                        "state": STATE
+                    })
+                    break
+        except Exception as e:
+            print(f"[Server] IPC Monitor error: {e}")
+            break
+
+        await asyncio.sleep(0.05)
+
+    if TRAINING_PROCESS and not TRAINING_PROCESS.is_alive():
+        if STATE["status"] == "running":
+            STATE["status"] = "idle"
+            await manager.broadcast({"type": "status", "status": "idle", "state": STATE})
+
+# =====================================================================
+# Root, Health, & Hardware Probe Endpoints
 # =====================================================================
 
 @app.get("/")
 def read_root():
-    # Redirect visitors to the React UI or return a status JSON
     return {
         "status": "online",
         "service": "Z-Image Studio Backend",
         "frontend_ui": "http://localhost:3000",
         "api_docs": "http://127.0.0.1:8000/docs",
-        "hardware": "RTX 3080 (12GB) Ampere 8-Bit BNB"
+        "target_hardware": "RTX 3080 (12GB) Ampere 8-Bit BNB"
     }
 
 @app.get("/api/hardware")
 @app.get("/api/hardware/probe")
 def get_hardware_invariants():
-    return HardwareSpecs().dict()
+    """Probes physical host hardware or returns RTX 3080 Ampere invariants."""
+    return probe_system_hardware()
 
 @app.get("/api/status")
+@app.get("/api/training/live-stats")
 def get_training_status():
+    """Returns current active training state and real telemetry metrics."""
     return STATE
 
 # =====================================================================
-# Filesystem Explorer Endpoints (Local Host Machine Browsing)
+# Diagnostics & Logs Endpoints
+# =====================================================================
+
+@app.get("/api/diagnostics/system")
+@app.get("/api/logs/errors")
+def get_diagnostics_errors():
+    return {
+        "errors": GLOBAL_DIAGNOSTICS.get_logs(),
+        "summary": GLOBAL_DIAGNOSTICS.get_summary()
+    }
+
+@app.delete("/api/logs/errors")
+def clear_diagnostics_errors():
+    GLOBAL_DIAGNOSTICS.clear()
+    return {"status": "cleared"}
+
+# =====================================================================
+# Filesystem Explorer Endpoints
 # =====================================================================
 
 class BrowseRequest(BaseModel):
@@ -111,24 +255,21 @@ class BrowseRequest(BaseModel):
 
 @app.get("/api/fs/drives")
 def get_system_drives():
-    """Returns available drive letters on Windows or root on Linux."""
     drives = []
     if platform.system() == "Windows":
         for letter in string.ascii_uppercase:
-            drive_path = f"{letter}:\\"
-            if os.path.exists(drive_path):
-                drives.append(drive_path)
+            dp = f"{letter}:\\"
+            if os.path.exists(dp):
+                drives.append(dp)
     else:
         drives.append("/")
     return {"drives": drives, "os": platform.system()}
 
 @app.post("/api/fs/browse")
 def browse_filesystem(req: BrowseRequest):
-    """Enumerates folders and files on host filesystem."""
     target_path = req.path
     if not target_path or not os.path.exists(target_path):
         target_path = os.getcwd()
-
     target_path = os.path.abspath(target_path)
 
     try:
@@ -140,32 +281,19 @@ def browse_filesystem(req: BrowseRequest):
 
     folders = []
     files = []
-
     for entry in sorted(entries):
         if not req.show_hidden and entry.startswith("."):
             continue
-            
-        full_entry_path = os.path.join(target_path, entry)
-        
+        full_p = os.path.join(target_path, entry)
         try:
-            if os.path.isdir(full_entry_path):
-                folders.append({
-                    "name": entry,
-                    "path": full_entry_path,
-                    "is_dir": True
-                })
+            if os.path.isdir(full_p):
+                folders.append({"name": entry, "path": full_p, "is_dir": True})
             elif not req.directories_only:
                 ext = os.path.splitext(entry)[1].lower()
                 if req.allowed_extensions and ext not in req.allowed_extensions:
                     continue
-                size_mb = round(os.path.getsize(full_entry_path) / (1024 * 1024), 2)
-                files.append({
-                    "name": entry,
-                    "path": full_entry_path,
-                    "is_dir": False,
-                    "size_mb": size_mb,
-                    "extension": ext
-                })
+                size_mb = round(os.path.getsize(full_p) / (1024 * 1024), 2)
+                files.append({"name": entry, "path": full_p, "is_dir": False, "size_mb": size_mb, "extension": ext})
         except (PermissionError, OSError):
             continue
 
@@ -188,15 +316,14 @@ def validate_path(payload: dict):
     return {"exists": exists, "is_directory": is_dir, "path": path}
 
 # =====================================================================
-# Preset & Config Persistence Endpoints
+# Preset & Config Management Endpoints
 # =====================================================================
 
 PRESETS_DIR = "./presets"
-os.makedirs(PRESETS_DIR, exist_ok=True)
 
 @app.get("/api/config/active")
 def get_active_config():
-    return STATE.get("config", TrainingConfig().dict())
+    return STATE.get("config", {})
 
 @app.post("/api/config/active")
 def save_active_config(config: dict):
@@ -211,17 +338,15 @@ def list_presets():
             if f.endswith(".json"):
                 try:
                     with open(os.path.join(PRESETS_DIR, f), "r") as pf:
-                        pdata = json.load(pf)
-                        presets.append(pdata)
+                        presets.append(json.load(pf))
                 except Exception:
                     pass
-    # If no custom presets saved yet, provide default RTX 3080 optimal presets
     if not presets:
         presets = [
             {
-                "id": "rtx3080_lora_turbo",
+                "id": "rtx3080_lora_fast",
                 "name": "RTX 3080 (12GB) - LoRA Fast Turbo",
-                "description": "8-bit quantized backbone, rank 16 LoRA on blocks 10-18, 8-step validation",
+                "description": "8-bit quantized backbone, rank 16 LoRA on blocks 10-18, Flow Matching & OPSD",
                 "config": {
                     "base_model": "Tongyi-MAI/Z-Image-Turbo",
                     "adapter_type": "lora",
@@ -238,7 +363,7 @@ def list_presets():
             {
                 "id": "rtx3080_lokr_deep",
                 "name": "RTX 3080 (12GB) - LoKr Deep Tuning",
-                "description": "Kronecker product PEFT on blocks 8-24, higher parameter density with minimal VRAM",
+                "description": "Kronecker product PEFT on blocks 8-24 with high parameter density & low VRAM",
                 "config": {
                     "base_model": "Tongyi-MAI/Z-Image-Turbo",
                     "adapter_type": "lokr",
@@ -273,7 +398,7 @@ def delete_preset(preset_id: str):
     return {"status": "not_found", "id": preset_id}
 
 # =====================================================================
-# Model Inspection & Probing Endpoints
+# Model Inspection & Peft Calculation
 # =====================================================================
 
 @app.post("/api/models/inspect")
@@ -283,7 +408,6 @@ def inspect_model_components(payload: dict):
     vae_path = payload.get("vae_path", model_path)
     text_encoder_path = payload.get("text_encoder_path", model_path)
 
-    # Probe S3-DiT architecture
     return {
         "model_path": model_path,
         "is_valid_s3dit": True,
@@ -307,7 +431,7 @@ def inspect_model_components(payload: dict):
         },
         "text_encoder": {
             "path": text_encoder_path,
-            "name": "Qwen 3.4B LLM / SigLIP",
+            "name": "Qwen 3.4B LLM",
             "dim": 4096,
             "status": "ready"
         },
@@ -315,20 +439,31 @@ def inspect_model_components(payload: dict):
         "vram_headroom_estimate_gb": 10.4
     }
 
+@app.post("/api/peft/estimate")
+def estimate_peft(config: dict):
+    target_blocks = config.get("target_blocks", list(range(10, 20)))
+    adapter_type = config.get("adapter_type", "lora")
+    rank = config.get("rank", 16)
+    alpha = config.get("alpha", 32)
+    return compute_adapter_parameter_estimate(target_blocks, adapter_type, rank, alpha)
+
 # =====================================================================
-# Dataset Inspection Endpoints
+# Dataset Scanning & Caching
 # =====================================================================
 
 @app.post("/api/dataset/summary")
+@app.post("/api/datasets/scan")
 def summarize_dataset(payload: dict):
     folders = payload.get("folders", [])
     if not folders and "dataset_dir" in payload:
         folders = [{"path": payload["dataset_dir"], "repeats": 1}]
+    elif not folders and "dataset_folders" in payload:
+        folders = payload["dataset_folders"]
 
     total_images = 0
     total_captions = 0
-    valid_exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
-    caption_exts = {".txt", ".caption", ".prompt"}
+    valid_exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".avif", ".tiff"}
+    caption_exts = {".txt", ".caption", ".prompt", ".tags"}
 
     for f_cfg in folders:
         fpath = f_cfg.get("path")
@@ -357,84 +492,23 @@ def summarize_dataset(payload: dict):
         ]
     }
 
-@app.post("/api/train/rollback")
-async def rollback_checkpoint(payload: dict):
-    step = payload.get("step", 0)
-    STATE["current_step"] = step
-    await manager.broadcast({"type": "rollback", "step": step, "state": STATE})
-    return {"status": "rolled_back", "step": step}
-
-@app.get("/api/logs/errors")
-def get_error_logs():
-    return {"errors": SYSTEM_ERROR_LOGS}
-
-@app.delete("/api/logs/errors")
-def clear_error_logs():
-    global SYSTEM_ERROR_LOGS
-    SYSTEM_ERROR_LOGS = []
-    return {"status": "cleared"}
-
-@app.post("/api/logs/errors/simulate")
-def simulate_error(payload: dict):
-    category = payload.get("category", "training")
-    simulated_log = {
-        "id": f"err_{len(SYSTEM_ERROR_LOGS) + 1}",
-        "timestamp": "Just now",
-        "severity": "error",
-        "category": category,
-        "message": f"Simulated diagnostic error for category: {category}",
-        "traceback": "Simulated traceback for UI diagnostics."
-    }
-    SYSTEM_ERROR_LOGS.insert(0, simulated_log)
-    return {"status": "simulated", "log": simulated_log}
-
-# =====================================================================
-# Training & Orchestration Endpoints
-# =====================================================================
-
-@app.post("/api/train/start")
-async def start_training(config: TrainingConfig):
-    STATE["status"] = "running"
-    STATE["config"] = config.dict()
-    STATE["current_step"] = 0
-    STATE["total_steps"] = config.total_steps
-    STATE["history"] = []
-    
-    await manager.broadcast({"type": "status", "state": STATE})
-    return {"status": "started", "config": config}
-
-@app.post("/api/train/pause")
-async def pause_training():
-    if STATE["status"] == "running":
-        STATE["status"] = "paused"
-        await manager.broadcast({"type": "status", "state": STATE})
-    return {"status": "paused", "step": STATE["current_step"]}
-
-@app.post("/api/train/resume")
-async def resume_training():
-    if STATE["status"] == "paused":
-        STATE["status"] = "running"
-        await manager.broadcast({"type": "status", "state": STATE})
-    return {"status": "resumed", "step": STATE["current_step"]}
-
-@app.post("/api/train/stop")
-async def stop_training():
-    STATE["status"] = "idle"
-    await manager.broadcast({"type": "status", "state": STATE})
-    return {"status": "stopped"}
-
 @app.get("/api/buckets")
 def get_buckets(megapixels: float = 1.0):
     buckets = build_aspect_buckets(target_area=int(megapixels * 1024 * 1024))
     return [{"width": w, "height": h, "aspect_ratio": round(a, 3)} for w, h, a in buckets]
 
-@app.post("/api/peft/estimate")
-def estimate_peft(config: dict):
-    target_blocks = config.get("target_blocks", list(range(10, 20)))
-    adapter_type = config.get("adapter_type", "lora")
-    rank = config.get("rank", 16)
-    alpha = config.get("alpha", 32)
-    return compute_adapter_parameter_estimate(target_blocks, adapter_type, rank, alpha)
+@app.post("/api/cache/dataset")
+def run_dataset_caching(req: dict):
+    return extract_and_cache_dataset(
+        folders=req.get("folders") or req.get("dataset_folders"),
+        dataset_dir=req.get("dataset_dir", "./dataset"),
+        output_cache_file=req.get("output_cache_file", "./cache/latents_embeddings.pt"),
+        target_megapixels=req.get("target_megapixels", 1.0)
+    )
+
+# =====================================================================
+# De-Turbo Merge & Inference Sampling
+# =====================================================================
 
 @app.post("/api/merge/deturbo")
 def run_merge(req: dict):
@@ -444,16 +518,8 @@ def run_merge(req: dict):
         output_dir=req.get("output_dir", "./models/zimage_deturbo_merged")
     )
 
-@app.post("/api/cache/dataset")
-def run_dataset_caching(req: dict):
-    return extract_and_cache_dataset(
-        dataset_dir=req.get("dataset_dir", "./dataset"),
-        output_cache_file=req.get("output_cache_file", "./cache/latents_embeddings.pt")
-    )
-
 @app.post("/api/samples/generate")
 async def generate_sample_image(req: dict):
-    """Executes fast validation sampling using local Z-Image model components."""
     prompt = req.get("prompt", "A high quality photo")
     seed = req.get("seed", 42)
     steps = req.get("steps", 8)
@@ -475,7 +541,100 @@ async def generate_sample_image(req: dict):
         text_encoder_path=text_encoder_path,
         lora_path=lora_path
     )
+    if "file_path" in sample_result:
+        sample_result["url"] = sample_result["file_path"].replace("./outputs", "/outputs")
     return sample_result
+
+# =====================================================================
+# Training Process Orchestration (multiprocessing.spawn)
+# =====================================================================
+
+@app.post("/api/train/start")
+async def start_training(config: TrainingConfig, background_tasks: BackgroundTasks):
+    global TRAINING_PROCESS, PARENT_CONN, ASYNC_MONITOR_TASK, STATE
+
+    if STATE["status"] == "running":
+        raise HTTPException(status_code=400, detail="Training is already running.")
+
+    STATE["status"] = "running"
+    STATE["config"] = config.dict()
+    STATE["current_step"] = 0
+    STATE["total_steps"] = config.total_steps
+    STATE["history"] = []
+    STATE["error_message"] = None
+
+    # Spawn IPC channel
+    ctx = mp.get_context("spawn")
+    parent_conn, child_conn = ctx.Pipe()
+    PARENT_CONN = parent_conn
+
+    # Start training subprocess
+    TRAINING_PROCESS = ctx.Process(
+        target=execute_training_subprocess,
+        args=(child_conn, config.dict())
+    )
+    TRAINING_PROCESS.start()
+
+    # Start background async monitor
+    ASYNC_MONITOR_TASK = asyncio.create_task(monitor_training_subprocess())
+
+    await manager.broadcast({"type": "status", "status": "running", "state": STATE})
+    return {"status": "started", "config": config}
+
+@app.post("/api/train/pause")
+async def pause_training():
+    global PARENT_CONN, STATE
+    if STATE["status"] == "running" and PARENT_CONN is not None:
+        try:
+            PARENT_CONN.send({"type": "pause"})
+        except Exception:
+            pass
+        STATE["status"] = "paused"
+        await manager.broadcast({"type": "status", "status": "paused", "state": STATE})
+    return {"status": "paused", "step": STATE["current_step"]}
+
+@app.post("/api/train/resume")
+async def resume_training():
+    global TRAINING_PROCESS, PARENT_CONN, ASYNC_MONITOR_TASK, STATE
+    if STATE["status"] == "paused":
+        STATE["status"] = "running"
+        cfg = dict(STATE.get("config", {}))
+        cfg["start_step"] = STATE["current_step"]
+        if STATE.get("last_checkpoint_path"):
+            cfg["resume_checkpoint_path"] = STATE["last_checkpoint_path"]
+
+        ctx = mp.get_context("spawn")
+        parent_conn, child_conn = ctx.Pipe()
+        PARENT_CONN = parent_conn
+
+        TRAINING_PROCESS = ctx.Process(
+            target=execute_training_subprocess,
+            args=(child_conn, cfg)
+        )
+        TRAINING_PROCESS.start()
+        ASYNC_MONITOR_TASK = asyncio.create_task(monitor_training_subprocess())
+
+        await manager.broadcast({"type": "status", "status": "running", "state": STATE})
+    return {"status": "resumed", "step": STATE["current_step"]}
+
+@app.post("/api/train/stop")
+async def stop_training():
+    global TRAINING_PROCESS, PARENT_CONN, STATE
+    if TRAINING_PROCESS and TRAINING_PROCESS.is_alive():
+        TRAINING_PROCESS.terminate()
+        TRAINING_PROCESS.join(timeout=3.0)
+    STATE["status"] = "idle"
+    PARENT_CONN = None
+    TRAINING_PROCESS = None
+    await manager.broadcast({"type": "status", "status": "idle", "state": STATE})
+    return {"status": "stopped"}
+
+@app.post("/api/train/rollback")
+async def rollback_checkpoint(payload: dict):
+    step = payload.get("step", 0)
+    STATE["current_step"] = step
+    await manager.broadcast({"type": "rollback", "step": step, "state": STATE})
+    return {"status": "rolled_back", "step": step}
 
 # =====================================================================
 # Telemetry WebSocket
@@ -485,9 +644,9 @@ async def generate_sample_image(req: dict):
 async def websocket_metrics(websocket: WebSocket):
     await manager.connect(websocket)
     try:
+        await websocket.send_json({"type": "init", "state": STATE})
         while True:
             data = await websocket.receive_text()
-            # Respond to ping or client commands
             await websocket.send_json({"type": "pong", "time": os.times()})
     except WebSocketDisconnect:
         manager.disconnect(websocket)

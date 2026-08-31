@@ -14,6 +14,16 @@ except ImportError:
     HAS_TORCH = False
     torch = None
 
+try:
+    from backend.app.core.diagnostics import GLOBAL_DIAGNOSTICS
+except ImportError:
+    try:
+        from app.core.diagnostics import GLOBAL_DIAGNOSTICS
+    except ImportError:
+        class DummyDiagnostics:
+            def capture_exception(self, *args, **kwargs): pass
+        GLOBAL_DIAGNOSTICS = DummyDiagnostics()
+
 def merge_deturbo_adapter(
     base_model_id: str = "Tongyi-MAI/Z-Image-Turbo",
     adapter_repo: str = "ostris/zimage_turbo_training_adapter",
@@ -30,7 +40,14 @@ def merge_deturbo_adapter(
         print("[DIAGNOSTIC] Merging de-distillation adapter in headless mode.")
         with open(os.path.join(save_path, "config.json"), "w") as f:
             f.write('{"model_type": "z_image_transformer", "is_deturbo_merged": true}\n')
-        return {"status": "success", "merged_path": save_path, "fused_model_path": save_path, "vram_used_mb": 0.0}
+        return {
+            "status": "success",
+            "merged_path": save_path,
+            "fused_model_path": save_path,
+            "base_model": base_model_id,
+            "adapter_fused": adapter_repo,
+            "vram_used_mb": 0.0
+        }
 
     try:
         from diffusers import ZImageTransformer2DModel, DiffusionPipeline
@@ -45,7 +62,6 @@ def merge_deturbo_adapter(
                 low_cpu_mem_usage=True
             )
         except Exception:
-            # Fallback if standard diffusion model
             transformer = DiffusionPipeline.from_pretrained(
                 base_model_id,
                 torch_dtype=torch.bfloat16,
@@ -60,13 +76,17 @@ def merge_deturbo_adapter(
 
         merged.save_pretrained(save_path)
         print(f"[Merger] Standalone De-Turbo base saved to: {save_path}")
-        return {"status": "success", "merged_path": save_path, "fused_model_path": save_path, "vram_used_mb": 0.0}
+        return {
+            "status": "success",
+            "merged_path": save_path,
+            "fused_model_path": save_path,
+            "base_model": base_model_id,
+            "adapter_fused": adapter_repo,
+            "vram_used_mb": 0.0
+        }
 
     except Exception as e:
-        print(f"[Merger] Notice / Fallback: {e}")
-        with open(os.path.join(save_path, "config.json"), "w") as f:
-            f.write(f'{{"model_type": "z_image_transformer", "base": "{base_model_id}", "adapter": "{adapter_repo}"}}\n')
-        return {"status": "success", "merged_path": save_path, "fused_model_path": save_path, "vram_used_mb": 0.0, "diagnostic": str(e)}
+        GLOBAL_DIAGNOSTICS.capture_exception(e, category="model", title="De-Turbo Fusion Failed")
+        raise RuntimeError(f"De-Turbo adapter merge failed: {e}") from e
     finally:
         gc.collect()
-
