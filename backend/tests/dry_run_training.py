@@ -15,6 +15,8 @@ import math
 # Add repo root to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 from backend.app.training.trainer_worker import LRSchedulerWrapper, CollapseDetector, resolve_peft_targets
+from backend.app.inference.sampler import run_fast_validation_sampling
+from backend.app.core.diagnostics import GLOBAL_DIAGNOSTICS
 
 # Try importing native torch and peft; provide lightweight synthetic fallbacks if in pure mock mode
 try:
@@ -220,7 +222,7 @@ class TestZImageTrainingPipeline(unittest.TestCase):
                 h = int(round(target_area / w / step) * step)
                 if h >= min_dim and h <= max_dim:
                     aspect = w / h
-                    if (w, h) not in [(b[0], b[1]) for b in buckets]:
+                    if (w, h) not in [(b[0], b[1)] for b in buckets]:
                         buckets.append((w, h, aspect))
             
             self.assertTrue(len(buckets) >= 5)
@@ -231,8 +233,21 @@ class TestZImageTrainingPipeline(unittest.TestCase):
             matched = min(buckets, key=lambda b: abs(b[2] - test_aspect))
             self.assertIsNotNone(matched)
             self.assertTrue(matched[0] > matched[1]) # width > height for 16:9
-            
+        
         print("[PASSED] Multi-Megapixel dynamic aspect bucketing (0.5MP to 2.0MP).")
 
-if __name__ == "__main__":
-    unittest.main()
+    def test_system_diagnostics_summary_and_sampler_contract(self):
+        """Ensures diagnostics expose summary counts and sampler returns UI-friendly sample payload."""
+        summary = GLOBAL_DIAGNOSTICS.get_summary()
+        self.assertIn("total_logs", summary)
+        self.assertIn("error_count", summary)
+        self.assertIn("warning_count", summary)
+        self.assertIn("has_critical", summary)
+
+        sample = run_fast_validation_sampling(prompt="Test prompt", num_steps=2, seed=7, width=64, height=64, step=3)
+        self.assertIn("id", sample)
+        self.assertIn("url", sample)
+        self.assertIn("step", sample)
+        self.assertIn("timestamp", sample)
+        self.assertEqual(sample["step"], 3)
+        print("[PASSED] Diagnostics summary and sampler UI contract verification.")
