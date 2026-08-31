@@ -1,16 +1,25 @@
 {
   "model_name": "Tongyi-MAI/Z-Image-Turbo",
-  "base_model_path": "Tongyi-MAI/Z-Image-Turbo",
-  "transformer_path": "Tongyi-MAI/Z-Image-Turbo",
-  "vae_path": "Tongyi-MAI/Z-Image-Turbo/vae",
-  "text_encoder_path": "Tongyi-MAI/Z-Image-Turbo/text_encoder",
+  "base_model_path": "D:\\Downloads\\Automatic1111\\ComfyUI_Portable\\output\\diffusion_models\\zimage",
+  "transformer_path": "D:\\Downloads\\Automatic1111\\ComfyUI_Portable\\output\\diffusion_models\\zimage",
+  "vae_path": "D:\\Downloads\\Automatic1111\\ComfyUI_Portable\\models\\vae\\flux",
+  "text_encoder_path": "D:\\Downloads\\Automatic1111\\ComfyUI_Portable\\models\\text_encoders\\qwen",
   "output_dir": "./outputs/zimage_lora",
   "dataset_cache_path": "./cache/latents_embeddings.pt",
-  "dataset_folders": [],
+  "dataset_folders": [
+    {
+      "id": "ds_1788139238571",
+      "path": "E:\\Data\\PRIVATE\\DnD",
+      "weight": 1,
+      "repeats": 1,
+      "pair_count": 262,
+      "enabled": true
+    }
+  ],
   "target_megapixels": 1,
   "aspect_ratio_mode": "auto",
   "fixed_aspect_ratio": "1:1",
-  "adapter_type": "lora",
+  "adapter_type": "lokr",
   "target_blocks": [
     10,
     11,
@@ -24,7 +33,7 @@
     19
   ],
   "is_fused_qkv": true,
-  "rank": 16,
+  "rank": 32,
   "alpha": 32,
   "dropout": 0.05,
   "learning_rate": 0.0001,
