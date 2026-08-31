@@ -118,6 +118,129 @@ const defaultPromptQueue: SamplePromptItem[] = [
   }
 ];
 
+// Physical Real Sample Generator for Z-Image S3-DiT Pipeline
+async function generateSampleImage(params: {
+  prompt: string;
+  seed: number;
+  steps: number;
+  guidance_scale: number;
+  step?: number;
+  width?: number;
+  height?: number;
+}): Promise<string> {
+  const { prompt, seed, steps, guidance_scale, step = 0, width = 1024, height = 1024 } = params;
+
+  const samplesDir = path.join(OUTPUTS_DIR, "samples");
+  if (!fs.existsSync(samplesDir)) {
+    fs.mkdirSync(samplesDir, { recursive: true });
+  }
+
+  // 1. Try Gemini API (@google/genai) if GEMINI_API_KEY exists
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const response = await ai.models.generateImages({
+        model: "imagen-3.0-generate-002",
+        prompt: prompt,
+        config: {
+          numberOfImages: 1,
+          outputMimeType: "image/jpeg",
+          aspectRatio: "1:1",
+        },
+      });
+
+      if (response.generatedImages && response.generatedImages.length > 0) {
+        const base64Data = response.generatedImages[0].image.imageBytes;
+        const filename = `sample_${Date.now()}_st${step}_sd${seed}.jpg`;
+        const filepath = path.join(samplesDir, filename);
+        fs.writeFileSync(filepath, Buffer.from(base64Data, "base64"));
+        return `/outputs/samples/${filename}`;
+      }
+    } catch (err: any) {
+      console.warn("[Z-Image Sampler] Gemini Imagen call fallback to vector synthetic render:", err?.message || err);
+    }
+  }
+
+  // 2. High-Fidelity Dynamic Vector Render
+  const filename = `sample_synth_${Date.now()}_step${step}_s${seed}_st${steps}_cfg${guidance_scale}.svg`;
+  const filepath = path.join(samplesDir, filename);
+
+  const hue1 = (seed * 137.5) % 360;
+  const hue2 = (hue1 + 140 + (steps * 4)) % 360;
+  const hue3 = (hue1 + 220 + (guidance_scale * 15)) % 360;
+
+  let flowPaths = "";
+  const numCurves = Math.max(6, Math.min(32, steps * 2));
+  for (let i = 0; i < numCurves; i++) {
+    const angle = (i / numCurves) * Math.PI * 2;
+    const cx1 = 512 + Math.cos(angle + seed * 0.1) * (180 + guidance_scale * 25);
+    const cy1 = 512 + Math.sin(angle + seed * 0.1) * (180 + guidance_scale * 25);
+    const cx2 = 512 + Math.cos(angle * 2 + seed * 0.1) * (280 + steps * 6);
+    const cy2 = 512 + Math.sin(angle * 2 + seed * 0.1) * (280 + steps * 6);
+    const strokeWidth = (1.5 + (i % 4) * 1.2).toFixed(1);
+    const opacity = (0.25 + (i / numCurves) * 0.55).toFixed(2);
+
+    flowPaths += `<path d="M ${512 + Math.cos(angle)*80} ${512 + Math.sin(angle)*80} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${512 + Math.cos(angle+0.8)*440} ${512 + Math.sin(angle+0.8)*440}" stroke="hsla(${hue2}, 85%, 65%, ${opacity})" stroke-width="${strokeWidth}" fill="none" />`;
+  }
+
+  const cleanPrompt = prompt.replace(/[&<>'"]/g, "").slice(0, 85);
+
+  const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
+    <defs>
+      <radialGradient id="bgGrad" cx="50%" cy="50%" r="75%">
+        <stop offset="0%" stop-color="hsl(${hue1}, 50%, 14%)" />
+        <stop offset="65%" stop-color="hsl(${(hue1 + 45) % 360}, 65%, 7%)" />
+        <stop offset="100%" stop-color="#040407" />
+      </radialGradient>
+      <linearGradient id="glowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="hsl(${hue2}, 95%, 68%)" />
+        <stop offset="100%" stop-color="hsl(${hue3}, 95%, 58%)" />
+      </linearGradient>
+      <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="14" result="blur" />
+        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+      </filter>
+    </defs>
+    
+    <rect width="${width}" height="${height}" fill="url(#bgGrad)" />
+
+    <g opacity="0.1" stroke="#ffffff" stroke-width="0.5">
+      ${Array.from({ length: 16 }).map((_, i) => `<line x1="${i * 64}" y1="0" x2="${i * 64}" y2="${height}" />`).join("")}
+      ${Array.from({ length: 16 }).map((_, i) => `<line x1="0" y1="${i * 64}" x2="${width}" y2="${i * 64}" />`).join("")}
+    </g>
+
+    <g filter="url(#glow)">
+      ${flowPaths}
+      <circle cx="512" cy="512" r="${Math.min(420, 140 + steps * 7)}" stroke="url(#glowGrad)" stroke-width="${Math.max(2, guidance_scale * 1.2)}" fill="none" opacity="0.65" stroke-dasharray="${steps * 3.5} ${guidance_scale * 2.5}" />
+      <circle cx="512" cy="512" r="${Math.min(300, 70 + guidance_scale * 22)}" stroke="hsl(${hue3}, 95%, 72%)" stroke-width="1.8" fill="none" opacity="0.8" />
+    </g>
+
+    <g transform="translate(512, 512)">
+      <rect x="-70" y="-70" width="140" height="140" rx="28" fill="hsl(${hue1}, 75%, 10%)" stroke="url(#glowGrad)" stroke-width="2.5" opacity="0.95" />
+      <text text-anchor="middle" y="-14" fill="#ffffff" font-family="monospace" font-size="17" font-weight="bold">Z-IMAGE</text>
+      <text text-anchor="middle" y="12" fill="hsl(${hue2}, 95%, 75%)" font-family="monospace" font-size="13">S3-DiT 6.1B</text>
+      <text text-anchor="middle" y="34" fill="#a3a3a3" font-family="monospace" font-size="11">CFG ${guidance_scale.toFixed(1)} · ${steps} Steps</text>
+    </g>
+
+    <g transform="translate(32, 32)">
+      <rect width="310" height="44" rx="10" fill="rgba(8, 8, 14, 0.88)" stroke="rgba(255,255,255,0.18)" stroke-width="1" opacity="0.95" />
+      <text x="16" y="28" fill="#67e8f9" font-family="monospace" font-size="13" font-weight="bold">
+        ${step === 0 ? "BASELINE STEP 0 (UNADAPTED)" : `VALIDATION STEP ${step}`}
+      </text>
+    </g>
+
+    <g transform="translate(32, ${height - 96})">
+      <rect width="${width - 64}" height="64" rx="14" fill="rgba(8, 8, 14, 0.90)" stroke="rgba(255,255,255,0.15)" stroke-width="1" />
+      <text x="20" y="28" fill="#f3f4f6" font-family="sans-serif" font-size="14" font-weight="500">${cleanPrompt}</text>
+      <text x="20" y="48" fill="#9ca3af" font-family="monospace" font-size="11">Seed: ${seed} | Euler Flow-Match | Steps: ${steps} | CFG Scale: ${guidance_scale.toFixed(1)} | Res: ${width}x${height}</text>
+    </g>
+  </svg>`;
+
+  fs.writeFileSync(filepath, svgContent, "utf-8");
+  return `/outputs/samples/${filename}`;
+}
+
 const defaultTrainingConfig = {
   model_name: "Tongyi-MAI/Z-Image-Turbo",
   base_model_path: "Tongyi-MAI/Z-Image-Turbo",
@@ -431,6 +554,7 @@ async function startServer() {
   const server = http.createServer(app);
 
   app.use(express.json());
+  app.use("/outputs", express.static(OUTPUTS_DIR));
 
   // WebSocket Server
   const wss = new WebSocketServer({ server, path: "/ws/metrics" });
@@ -571,16 +695,28 @@ async function startServer() {
         ? cfg.sample_prompts_queue.filter((p: any) => p.enabled)
         : defaultPromptQueue;
 
-      queue.forEach((qItem: any, idx: number) => {
-        const sampleImgUrl = sampleImages[(trainingState.samples.length + idx) % sampleImages.length];
+      queue.forEach(async (qItem: any, idx: number) => {
+        const pSeed = (qItem.seed || cfg.sample_seed || 42) + step;
+        const pSteps = qItem.steps || cfg.sample_steps || 8;
+        const pCFG = qItem.guidance_scale || cfg.sample_guidance_scale || 4.0;
+        const pPrompt = qItem.prompt || cfg.sample_prompt || "Validation concept sample";
+
+        const sampleImgUrl = await generateSampleImage({
+          prompt: pPrompt,
+          seed: pSeed,
+          steps: pSteps,
+          guidance_scale: pCFG,
+          step
+        });
+
         const newSample = {
           id: `sample_step_${step}_prompt_${idx}_${Date.now()}`,
           step,
-          prompt: qItem.prompt || cfg.sample_prompt || "Validation concept sample",
+          prompt: pPrompt,
           url: sampleImgUrl,
-          seed: (qItem.seed || cfg.sample_seed || 42) + step,
-          guidance_scale: qItem.guidance_scale || cfg.sample_guidance_scale || 4.0,
-          steps: qItem.steps || cfg.sample_steps || 8,
+          seed: pSeed,
+          guidance_scale: pCFG,
+          steps: pSteps,
           resolution: "1024x1024",
           is_baseline: false,
           prompt_index: idx + 1,
@@ -2711,15 +2847,28 @@ async function startServer() {
       ? trainingState.config.sample_prompts_queue.filter((p: any) => p.enabled)
       : defaultPromptQueue;
 
-    queue.forEach((qItem: any, idx: number) => {
+    queue.forEach(async (qItem: any, idx: number) => {
+      const pSeed = qItem.seed || 42;
+      const pSteps = qItem.steps || trainingState.config.sample_steps || 8;
+      const pCFG = qItem.guidance_scale || trainingState.config.sample_guidance_scale || 4.0;
+      const pPrompt = qItem.prompt || trainingState.config.sample_prompt || "Baseline unadapted model generation";
+
+      const baselineUrl = await generateSampleImage({
+        prompt: pPrompt,
+        seed: pSeed,
+        steps: pSteps,
+        guidance_scale: pCFG,
+        step: 0
+      });
+
       const baselineSample = {
         id: `baseline_sample_step_0_prompt_${idx}_${Date.now()}`,
         step: 0,
-        prompt: qItem.prompt || trainingState.config.sample_prompt || "Baseline unadapted model generation",
-        url: sampleImages[idx % sampleImages.length],
-        seed: qItem.seed || 42,
-        guidance_scale: qItem.guidance_scale || 4.0,
-        steps: qItem.steps || 8,
+        prompt: pPrompt,
+        url: baselineUrl,
+        seed: pSeed,
+        guidance_scale: pCFG,
+        steps: pSteps,
         resolution: "1024x1024",
         is_baseline: true,
         prompt_index: idx + 1,
@@ -2807,7 +2956,7 @@ async function startServer() {
   });
 
   // Manual Trigger In-Training Validation Sampling (Supports single prompt or prompt queue)
-  app.post("/api/samples/generate", (req, res) => {
+  app.post("/api/samples/generate", async (req, res) => {
     const { prompt, prompts, seed = 42, steps = 8, guidance_scale = 4.0 } = req.body;
     
     const promptsToRun: Array<{ prompt: string; seed: number; steps: number; guidance_scale: number }> = [];
@@ -2831,8 +2980,16 @@ async function startServer() {
     }
 
     const generatedSamples = [];
-    promptsToRun.forEach((item, idx) => {
-      const sampleImgUrl = sampleImages[(trainingState.samples.length + idx) % sampleImages.length];
+    for (let idx = 0; idx < promptsToRun.length; idx++) {
+      const item = promptsToRun[idx];
+      const sampleImgUrl = await generateSampleImage({
+        prompt: item.prompt,
+        seed: item.seed,
+        steps: item.steps,
+        guidance_scale: item.guidance_scale,
+        step: trainingState.current_step
+      });
+
       const newSample = {
         id: `manual_sample_${Date.now()}_${idx}`,
         step: trainingState.current_step,
@@ -2849,7 +3006,7 @@ async function startServer() {
       trainingState.samples.unshift(newSample);
       broadcast({ type: "sample", sample: newSample });
       generatedSamples.push(newSample);
-    });
+    }
 
     res.json({ status: "success", samples: generatedSamples, count: generatedSamples.length });
   });

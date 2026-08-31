@@ -372,12 +372,12 @@ export default function App() {
     return await res.json();
   };
 
-  const handleManualSample = async (prompt: string, seed: number, steps: number) => {
+  const handleManualSample = async (prompt: string, seed: number, steps: number, guidance_scale: number) => {
     try {
       const res = await fetch('/api/samples/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, seed, steps })
+        body: JSON.stringify({ prompt, seed, steps, guidance_scale })
       });
       if (res.ok) {
         const data = await res.json();
