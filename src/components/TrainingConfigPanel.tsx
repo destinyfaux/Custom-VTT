@@ -237,28 +237,62 @@ export const TrainingConfigPanel: React.FC<TrainingConfigPanelProps> = ({
           </div>
         </div>
 
-        {/* Sample Image Interval */}
-        <div className="space-y-1.5">
-          <div className="flex justify-between">
-            <label className="text-slate-300 font-medium flex items-center gap-1">
-              <Camera className="w-3.5 h-3.5 text-indigo-400" />
-              Sample Image Every N Steps
-            </label>
-            <span className="font-mono text-indigo-400 font-bold">
-              {config.sample_every_n_steps === 0 ? 'Manual' : `${config.sample_every_n_steps} steps`}
-            </span>
+        {/* Sample Image Interval & Inference Parameters */}
+        <div className="space-y-3 p-3 bg-slate-950/60 rounded-xl border border-slate-800">
+          <div className="space-y-1.5">
+            <div className="flex justify-between">
+              <label className="text-slate-300 font-medium flex items-center gap-1">
+                <Camera className="w-3.5 h-3.5 text-indigo-400" />
+                Sample Image Every N Steps
+              </label>
+              <span className="font-mono text-indigo-400 font-bold">
+                {config.sample_every_n_steps === 0 ? 'Manual' : `${config.sample_every_n_steps} steps`}
+              </span>
+            </div>
+            <select
+              value={config.sample_every_n_steps || 250}
+              onChange={(e) => onChange({ sample_every_n_steps: Number(e.target.value) })}
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
+            >
+              <option value={100}>100 steps (Frequent)</option>
+              <option value={250}>250 steps (Recommended)</option>
+              <option value={500}>500 steps (Fast)</option>
+              <option value={1000}>1000 steps (Uninterrupted)</option>
+              <option value={0}>Manual Only (Zero Stall)</option>
+            </select>
           </div>
-          <select
-            value={config.sample_every_n_steps || 250}
-            onChange={(e) => onChange({ sample_every_n_steps: Number(e.target.value) })}
-            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
-          >
-            <option value={100}>100 steps (Frequent)</option>
-            <option value={250}>250 steps (Recommended)</option>
-            <option value={500}>500 steps (Fast)</option>
-            <option value={1000}>1000 steps (Uninterrupted)</option>
-            <option value={0}>Manual Only (Zero Stall)</option>
-          </select>
+
+          <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-400">Default Steps</span>
+                <span className="font-mono text-indigo-400 font-bold">{config.sample_steps || 8}</span>
+              </div>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={config.sample_steps || 8}
+                onChange={(e) => onChange({ sample_steps: Number(e.target.value) })}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500 text-center"
+              />
+            </div>
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-400">Default CFG Scale</span>
+                <span className="font-mono text-indigo-400 font-bold">{(config.sample_guidance_scale || 4.0).toFixed(1)}</span>
+              </div>
+              <input
+                type="number"
+                step="0.5"
+                min={1.0}
+                max={20.0}
+                value={config.sample_guidance_scale || 4.0}
+                onChange={(e) => onChange({ sample_guidance_scale: Number(e.target.value) })}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500 text-center"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Soft Checkpoint Interval */}
