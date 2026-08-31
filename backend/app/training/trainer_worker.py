@@ -289,3 +289,171 @@ class TrainerWorker:
         if "scheduler_state" in state:
             self.scheduler.load_state_dict(state["scheduler_state"])
         self.scaler_scale = state.get("scaler_scale", self.scaler_scale)
+
+
+def execute_training_subprocess(conn: Any, cfg: dict):
+    """
+    Spawned subprocess execution loop for real S3-DiT training on NVIDIA RTX 3080.
+    Engages 8-bit quantized backbone, autograd preparation, LoRA/LoKr PEFT,
+    AdamW-8bit optimizer, Flow Matching velocity loss, and DiffusionOPSD reward tuning.
+    """
+    try:
+        if not HAS_TORCH:
+            raise RuntimeError("PyTorch is required to execute real training subprocess.")
+
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"[Worker] Initializing training subprocess on device: {device}")
+
+        # 1. 8-Bit Quantized Backbone
+        from transformers import BitsAndBytesConfig
+        from peft import LoKrConfig, LoraConfig, get_peft_model, prepare_model_for_kbit_training
+        from diffusers import ZImageTransformer2DModel
+        from bitsandbytes.optim import AdamW8bit
+
+        bnb_cfg = BitsAndBytesConfig(load_in_8bit=True, llm_int8_has_fp16_weight=False)
+        transformer_path = cfg.get("transformer_path") or cfg.get("model_path") or cfg.get("base_model_path", "Tongyi-MAI/Z-Image-Turbo")
+        subfolder = "transformer" if (os.path.exists(transformer_path) and os.path.exists(os.path.join(transformer_path, "transformer"))) else None
+
+        print(f"[Worker] Loading ZImageTransformer2DModel from {transformer_path} (8-bit quantization)...")
+        transformer = ZImageTransformer2DModel.from_pretrained(
+            transformer_path,
+            subfolder=subfolder,
+            quantization_config=bnb_cfg if torch.cuda.is_available() else None,
+            torch_dtype=torch.bfloat16
+        )
+
+        # 2. Mandatory Autograd Preparation & Activation Checkpointing
+        transformer = prepare_model_for_kbit_training(transformer, use_gradient_checkpointing=True)
+
+        # 3. LoKr / LoRA Injection
+        target_blocks = cfg.get("target_blocks", list(range(10, 20)))
+        target_modules = resolve_peft_targets(target_blocks, is_fused=cfg.get("is_fused_qkv", True))
+        
+        adapter_type = cfg.get("adapter_type", "lora").lower()
+        if adapter_type == "lokr":
+            peft_cfg = LoKrConfig(
+                r=cfg.get("rank", 4),
+                alpha=cfg.get("alpha", 8),
+                target_modules=target_modules,
+                lokr_dropout=cfg.get("dropout", 0.05),
+                use_effective_conv2d=False
+            )
+        else:
+            peft_cfg = LoraConfig(
+                r=cfg.get("rank", 16),
+                alpha=cfg.get("alpha", 32),
+                target_modules=target_modules,
+                lora_dropout=cfg.get("dropout", 0.05)
+            )
+
+        model = get_peft_model(transformer, peft_cfg)
+
+        # 4. Optimizer Setup (AdamW8bit)
+        optimizer = AdamW8bit(
+            filter(lambda p: p.requires_grad, model.parameters()),
+            lr=cfg.get("learning_rate", 1e-4),
+            weight_decay=cfg.get("weight_decay", 0.01)
+        )
+
+        # 5. Restore Checkpoint if Resuming
+        start_step = cfg.get("start_step", 0)
+        resume_path = cfg.get("resume_checkpoint_path")
+        if resume_path:
+            state_file = os.path.join(resume_path, "training_state.pt")
+            if os.path.exists(state_file):
+                chk = torch.load(state_file, map_location="cpu")
+                optimizer.load_state_dict(chk["optimizer_state"])
+                start_step = chk.get("step", start_step)
+                print(f"[Worker] Restored training state from Step {start_step}")
+
+        # 6. Load Pre-Cached Dataset Tensors
+        cache_path = cfg.get("dataset_cache_path", "./cache/latents_embeddings.pt")
+        if not os.path.exists(cache_path):
+            raise FileNotFoundError(f"Dataset cache not found at: {cache_path}. Run dataset pre-caching first.")
+
+        dataset = torch.load(cache_path, map_location="cpu")
+        grad_accum = cfg.get("gradient_accumulation_steps", 1)
+        total_steps = cfg.get("total_steps", 1000)
+
+        conn.send({"status": "running", "start_step": start_step, "total_steps": total_steps})
+
+        step = start_step
+        running_loss = 0.0
+
+        while step < total_steps:
+            for batch_idx, batch in enumerate(dataset):
+                latents = batch["latent"].unsqueeze(0).to(device, dtype=torch.bfloat16)
+                embeds = batch["prompt_embed"].unsqueeze(0).to(device, dtype=torch.bfloat16)
+
+                # Flow Matching Formulation
+                eps = torch.randn_like(latents)
+                t_raw = torch.rand((latents.shape[0],), device=device)
+                x_t = (1.0 - t_raw[:, None, None, None]) * latents + t_raw[:, None, None, None] * eps
+                v_target = eps - latents
+                t_scaled = t_raw * cfg.get("timestep_scale", 1000.0)
+
+                pred = model(hidden_states=x_t, timestep=t_scaled, encoder_hidden_states=embeds).sample
+
+                # SFT Flow-Matching Loss
+                loss = torch.nn.functional.mse_loss(pred.float(), v_target.float(), reduction="mean")
+
+                # DiffusionOPSD Reward-Guided Term
+                if cfg.get("use_opsd", False):
+                    # Projected x0 estimation: x_hat_0 = x_t - t * v_pred
+                    x_hat_0 = x_t - t_raw[:, None, None, None] * pred
+                    reward_penalty = -1.0 * cfg.get("opsd_lambda", 0.15) * torch.mean(x_hat_0 ** 2)
+                    loss = loss + reward_penalty
+
+                loss = loss / grad_accum
+                loss.backward()
+                running_loss += loss.item() * grad_accum
+
+                if (batch_idx + 1) % grad_accum == 0:
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.get("max_grad_norm", 1.0))
+                    optimizer.step()
+                    optimizer.zero_grad()
+                    step += 1
+
+                    if step % 5 == 0:
+                        vram_mb = torch.cuda.memory_allocated() / (1024 ** 2) if torch.cuda.is_available() else 0
+                        conn.send({
+                            "type": "metric",
+                            "step": step,
+                            "loss": round(running_loss / 5, 5),
+                            "vram_mb": round(vram_mb, 2)
+                        })
+                        running_loss = 0.0
+
+                    # Atomic Zero-Loss Pause Signal Handling
+                    if conn.poll():
+                        cmd = conn.recv()
+                        if cmd.get("type") == "pause":
+                            chk_dir = os.path.join(cfg.get("output_dir", "./outputs/zimage_lora"), f"checkpoint_step_{step}")
+                            os.makedirs(chk_dir, exist_ok=True)
+                            model.save_pretrained(chk_dir)
+                            torch.save({
+                                "step": step,
+                                "optimizer_state": optimizer.state_dict(),
+                                "config": cfg
+                            }, os.path.join(chk_dir, "training_state.pt"))
+                            conn.send({"status": "paused", "step": step, "path": chk_dir})
+                            return
+
+                    if step >= total_steps:
+                        break
+
+        # Save Final Adapter
+        final_dir = os.path.join(cfg.get("output_dir", "./outputs/zimage_lora"), "final_adapter")
+        os.makedirs(final_dir, exist_ok=True)
+        model.save_pretrained(final_dir)
+        conn.send({"status": "completed", "path": final_dir})
+
+    except Exception as e:
+        import traceback
+        conn.send({"status": "error", "error": str(e), "trace": traceback.format_exc()})
+        raise
+    finally:
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+

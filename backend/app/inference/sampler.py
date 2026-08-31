@@ -1,66 +1,106 @@
 """
 backend/app/inference/sampler.py
-Fast validation inference pipeline for Z-Image S3-DiT preview generation.
-Executes with zero memory collision by completely clearing gradient tensors prior to sampling.
-Supports configurable CFG (Guidance Scale) and Sampling Steps for Turbo (1.5 CFG, 8 steps) & Base (4.5 CFG, 28 steps) models.
+Real Diffusers S3-DiT validation inference with automatic LoRA injection and VRAM evacuation.
 """
-
 import os
+import gc
 import time
-import math
-from typing import Dict, Any, List
+from typing import Dict, Any, Optional
+
+try:
+    import torch
+    HAS_TORCH = True
+except ImportError:
+    HAS_TORCH = False
+    torch = None
 
 def run_fast_validation_sampling(
-    prompt: str = "A futuristic cybernetic tiger in a luminescent neon jungle",
+    prompt: str = "A cinematic photo of a cybernetic tiger in a luminescent laboratory, 8k",
     num_steps: int = 8,
     seed: int = 42,
     guidance_scale: float = 4.0,
     width: int = 1024,
     height: int = 1024,
-    transformer_path: str = "Tongyi-MAI/Z-Image-Turbo/transformer",
-    vae_path: str = "Tongyi-MAI/Z-Image-Turbo/vae",
-    text_encoder_path: str = "Tongyi-MAI/Z-Image-Turbo/text_encoder",
-    lora_path: str = "",
+    base_model_path: str = "Tongyi-MAI/Z-Image-Turbo",
+    transformer_path: Optional[str] = None,
+    vae_path: Optional[str] = None,
+    text_encoder_path: Optional[str] = None,
+    lora_path: Optional[str] = None,
     output_dir: str = "./outputs/samples"
 ) -> Dict[str, Any]:
     """
-    Runs fast Euler / Flow-Matching generation targeting local Z-Image S3-DiT model components
-    (Qwen 3.4B text encoder + ae.vae 16-channel AutoEncoder + S3-DiT 8-bit Transformer).
-    Writes generated image artifact to disk.
+    Executes real Diffusers S3-DiT validation inference with automatic LoRA injection
+    and strict VRAM evacuation protocol to ensure 0 MB VRAM collision with training loops.
     """
     os.makedirs(output_dir, exist_ok=True)
-    timestamp = int(time.time() * 1000)
-    sample_id = f"sample_py_{timestamp}_s{seed}_st{num_steps}_cfg{guidance_scale}"
+    sample_id = f"sample_{int(time.time()*1000)}_s{seed}"
     output_path = os.path.join(output_dir, f"{sample_id}.png")
+    start_time = time.time()
 
-    # Dynamic synthetic image generation for physical verification on disk
+    # Headless CPU / Sandbox fallback guard (Non-destructive)
+    if not HAS_TORCH or not torch.cuda.is_available():
+        print("[DIAGNOSTIC] Running in headless CPU fallback mode (No CUDA / GPU detected).")
+        try:
+            from PIL import Image, ImageDraw
+            img = Image.new("RGB", (width, height), (15, 17, 26))
+            draw = ImageDraw.Draw(img)
+            draw.rectangle([20, 20, width - 20, height - 20], outline=(67, 56, 202), width=2)
+            draw.text((40, 40), "[HEADLESS ENVIRONMENT / NO CUDA DETECTED]", fill=(239, 68, 68))
+            draw.text((40, 75), f"Z-Image S3-DiT Preview (Target: RTX 3080 12GB)", fill=(147, 197, 253))
+            draw.text((40, 105), f"Prompt: {prompt[:90]}", fill=(226, 232, 240))
+            draw.text((40, 135), f"Steps: {num_steps} | Seed: {seed} | CFG: {guidance_scale}", fill=(148, 163, 184))
+            img.save(output_path)
+        except Exception:
+            with open(output_path, "wb") as f:
+                f.write(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x04\x00\x00\x00\x04\x00\x08\x02\x00\x00\x00\xd6\x83\xaa\x0c\x00\x00\x00\x00IEND\xaeB`\x82")
+
+        return {
+            "sample_id": sample_id,
+            "prompt": prompt,
+            "num_steps": num_steps,
+            "seed": seed,
+            "guidance_scale": guidance_scale,
+            "resolution": f"{width}x{height}",
+            "file_path": output_path,
+            "generation_time_sec": round(time.time() - start_time, 2),
+            "mode": "sandbox_cpu_fallback"
+        }
+
+    model_src = transformer_path if (transformer_path and os.path.exists(transformer_path)) else base_model_path
+    mode = "real_cuda_diffusion"
+
     try:
-        from PIL import Image, ImageDraw, ImageFont
-        img = Image.new("RGB", (width, height), color=(10, 10, 18))
-        draw = ImageDraw.Draw(img)
+        from diffusers import ZImagePipeline, DiffusionPipeline
+        print(f"[Sampler] Loading Z-Image Pipeline from: {model_src}...")
+        try:
+            pipe = ZImagePipeline.from_pretrained(model_src, torch_dtype=torch.bfloat16)
+        except Exception:
+            pipe = DiffusionPipeline.from_pretrained(model_src, torch_dtype=torch.bfloat16, trust_remote_code=True)
 
-        hue = (seed * 137.5) % 360
-        r = int(127 + 127 * math.sin(hue * math.pi / 180))
-        g = int(127 + 127 * math.sin((hue + 120) * math.pi / 180))
-        b = int(127 + 127 * math.sin((hue + 240) * math.pi / 180))
+        pipe.to("cuda")
 
-        # Render latent diffusion flow rings
-        for i in range(min(30, num_steps * 2)):
-            radius = int(80 + i * 14 + guidance_scale * 10)
-            box = [width // 2 - radius, height // 2 - radius, width // 2 + radius, height // 2 + radius]
-            draw.ellipse(box, outline=(r, g, b), width=2)
+        if lora_path and os.path.exists(lora_path):
+            print(f"[Sampler] Loading active LoRA adapter: {lora_path}")
+            pipe.load_lora_weights(lora_path)
 
-        # Draw details badge
-        draw.rectangle([40, 40, width - 40, 140], fill=(20, 20, 32), outline=(r, g, b), width=2)
-        draw.text((60, 60), f"Z-Image S3-DiT 6.1B Validation Output", fill=(255, 255, 255))
-        draw.text((60, 90), f"Prompt: {prompt[:70]}...", fill=(200, 200, 200))
-        draw.text((60, 115), f"Steps: {num_steps} | CFG: {guidance_scale:.1f} | Seed: {seed} | Transformer: {transformer_path}", fill=(160, 160, 240))
+        generator = torch.Generator("cuda").manual_seed(seed)
+        res = pipe(
+            prompt=prompt,
+            num_inference_steps=num_steps,
+            guidance_scale=guidance_scale,
+            width=width,
+            height=height,
+            generator=generator
+        )
+        res.images[0].save(output_path)
 
-        img.save(output_path)
-    except Exception:
-        # Fallback if PIL not present
-        with open(output_path, "wb") as f:
-            f.write(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x04\x00\x00\x00\x04\x00\x08\x02\x00\x00\x00\xd6\x83\xaa\x0c\x00\x00\x00\x00IEND\xaeB`\x82")
+    finally:
+        # Strict VRAM Evacuation Protocol
+        if 'pipe' in locals():
+            del pipe
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     return {
         "sample_id": sample_id,
@@ -69,13 +109,9 @@ def run_fast_validation_sampling(
         "seed": seed,
         "guidance_scale": guidance_scale,
         "resolution": f"{width}x{height}",
-        "transformer_path": transformer_path,
-        "vae_path": vae_path,
-        "text_encoder_path": text_encoder_path,
-        "lora_path": lora_path,
         "file_path": output_path,
-        "vram_overhead_mb": 1450.0,
-        "generation_time_sec": round(0.4 + (num_steps * 0.12), 2),
-        "timestamp": timestamp
+        "generation_time_sec": round(time.time() - start_time, 2),
+        "mode": mode
     }
+
 
