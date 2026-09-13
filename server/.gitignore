@@ -12,5 +12,3 @@ server/assets/maps
 
 # Dependencies and build output
 node_modules/
-client/dist/
-server/node_modules
