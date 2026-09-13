@@ -935,6 +935,33 @@ export function spawnRing(centerX, centerY, radius, styleKey, emittersRef) {
   });
 }
 
+// ========== Lightweight token-drop puff ==========
+// Deliberately SUBTLE: a tiny dust puff when a token is dropped / placed on the
+// map. This is a placement acknowledgement, NOT a battle impact — it previously
+// reused spawnSmash (150 particles) + spawnPulse ('force' purple burst), which
+// was massively distracting for a simple move. ~10 small motes, low drift,
+// gone in about a third of a second.
+export function spawnDropFX(centerX, centerY, size, particlesRef) {
+  const count = 10;
+  for (let i = 0; i < count; i++) {
+    // Horizontal-biased puff along the token's base, drifting slightly upward
+    const side = Math.random() < 0.5 ? Math.PI : 0; // left or right half
+    const angle = side + (Math.random() - 0.5) * (Math.PI * 0.8);
+    const speed = 0.5 + Math.random() * 1.1;
+    const vx = Math.cos(angle) * speed;
+    const vy = Math.sin(angle) * speed * 0.4 - 0.25;
+    const life = 14 + Math.random() * 10; // ~0.23–0.4s at 60fps
+    const px = centerX + (Math.random() - 0.5) * size * 0.55;
+    const py = centerY + size * 0.22 + (Math.random() - 0.5) * size * 0.12;
+    const p = new Particle(px, py, vx, vy, life, life, 'impact', 'dust');
+    // Shrink the impact-style motes to keep the puff dainty
+    p.baseSize = 2 + Math.random() * 3;
+    p.size = p.baseSize;
+    p.friction = 0.9;
+    particlesRef.push(p);
+  }
+}
+
 // ========== NEW: Custom Healing & Damage Spawners ==========
 export function spawnHealFX(centerX, centerY, size, particlesRef) {
   // Rising floaty green "+" symbols drifting upwards inside the token's footprint

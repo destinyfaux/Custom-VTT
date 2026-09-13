@@ -3,6 +3,7 @@ import { useState } from 'react';
 import CharacterSheet from './character/CharacterSheet';
 import soundSynthesizer from '../utils/SoundSynthesizer';
 import OptionsModal from './OptionsModal';
+import RulesModal from './RulesModal';
 
 export default function Sidebar({
   role,
@@ -22,6 +23,7 @@ export default function Sidebar({
 }) {
   const [activeTab, setActiveTab] = useState(null);
   const [showOptions, setShowOptions] = useState(false);
+  const [showRules, setShowRules] = useState(false);
 
   // Filtered array containing only the quick-access sliding drawer panels
   const tabs = [
@@ -198,6 +200,26 @@ export default function Sidebar({
           </span>
         </button>
 
+        {/* Rules & Rulings Reference */}
+        <button
+          onClick={() => {
+            soundSynthesizer.playUIClick();
+            setShowRules(true);
+          }}
+          className="group relative flex items-center h-12 w-12 hover:w-48 px-3 rounded-lg transition-all duration-300 ease-in-out bg-bgCard hover:bg-borderDark border border-transparent hover:border-accentGold/35"
+          title="Rules & Rulings Reference — Quick in-session lookup for conditions, combat actions, and common rulings"
+        >
+          <span className="text-xl flex-shrink-0 mx-auto group-hover:mx-0 transition-all duration-300">
+            📚
+          </span>
+          <span className="absolute left-12 opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap text-xs font-bold tracking-wider uppercase text-textMuted group-hover:text-white">
+            Rules
+          </span>
+          <span className="absolute right-3 opacity-0 group-hover:opacity-100 transition-all duration-300 text-[10px] text-textMuted group-hover:text-accentGold font-bold">
+            ❯
+          </span>
+        </button>
+
         {/* Divider */}
         <div className="w-12 border-t border-borderDark my-1" />
 
@@ -273,6 +295,9 @@ export default function Sidebar({
 
       {/* Options Modal */}
       {showOptions && <OptionsModal onClose={() => setShowOptions(false)} />}
+
+      {/* Rules & Rulings Modal */}
+      {showRules && <RulesModal onClose={() => setShowRules(false)} />}
     </>
   );
 }

@@ -1,6 +1,7 @@
 // client/src/components/CombatPanel.jsx
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { socket } from '../socket';
+import { buildMapLabels } from '../utils/tokenNaming';
 
 export default function CombatPanel({ onClose }) {
   const [tokens, setTokens] = useState([]);
@@ -18,6 +19,10 @@ export default function CombatPanel({ onClose }) {
   
   const dragStart = useRef({ x: 0, y: 0 });
   const resizeStart = useRef({ w: 0, h: 0, mouseX: 0, mouseY: 0 });
+  const [rollingAll, setRollingAll] = useState(false);
+
+  // Disambiguated display labels ("Goblin A/B/C") — same render-time labels as the map
+  const mapLabels = useMemo(() => buildMapLabels(tokens), [tokens]);
 
   // Handle token state updates from both full state and lightweight events
   useEffect(() => {
@@ -76,6 +81,30 @@ export default function CombatPanel({ onClose }) {
   const submitNPCInitiative = (tokenId) => {
     const initiative = initiativeEntries[tokenId] || 0;
     socket.emit('add_npc_initiative', { tokenId, initiative });
+  };
+
+  // Server rolls 1d20 + DEX mod (from SRD monsterData) for one NPC
+  const rollNPCInitiative = (tokenId) => {
+    socket.emit('roll_npc_initiative', { tokenId }, (res) => {
+      if (res?.success && res.results?.length) {
+        setInitiativeEntries(prev => ({ ...prev, [tokenId]: res.results[0].total }));
+      }
+    });
+  };
+
+  // Server rolls every placed, living NPC in one go
+  const rollAllNPCInitiative = () => {
+    setRollingAll(true);
+    socket.emit('roll_npc_initiative', { all: true }, (res) => {
+      setRollingAll(false);
+      if (res?.success && Array.isArray(res.results)) {
+        setInitiativeEntries(prev => {
+          const next = { ...prev };
+          res.results.forEach(r => { next[r.tokenId] = r.total; });
+          return next;
+        });
+      }
+    });
   };
 
   const requestPlayerInitiative = (tokenId) => {
@@ -164,8 +193,16 @@ export default function CombatPanel({ onClose }) {
       </header>
 
       <div className="flex-1 p-4 overflow-y-auto scrollbar-hide bg-[#0b0c10] space-y-3">
-        {/* Refresh button */}
-        <div className="flex justify-end">
+        {/* Refresh + auto-roll buttons */}
+        <div className="flex justify-end gap-1">
+          <button
+            onClick={rollAllNPCInitiative}
+            disabled={rollingAll}
+            className="bg-accentGold/20 text-accentGold px-2 py-0.5 rounded text-[9px] font-bold hover:bg-accentGold hover:text-black transition-colors disabled:opacity-50"
+            title="Roll 1d20 + DEX mod for every placed, living NPC at once"
+          >
+            {rollingAll ? 'ROLLING…' : '🎲 AUTO-ROLL ALL NPCs'}
+          </button>
           <button
             onClick={refreshTokens}
             className="bg-borderDark text-white px-2 py-0.5 rounded text-[9px] hover:bg-gray-700 transition-colors"
@@ -192,7 +229,7 @@ export default function CombatPanel({ onClose }) {
               <div className="w-6 h-6 rounded-full overflow-hidden border border-borderDark flex-shrink-0">
                 {token.avatarUrl ? <img src={token.avatarUrl} className="w-full h-full object-cover" /> : <span className="w-full h-full flex items-center justify-center text-[10px]">{token.name[0]}</span>}
               </div>
-              <span className="flex-1 text-white truncate">{token.name}</span>
+              <span className="flex-1 text-white truncate">{mapLabels[token.id] || token.name}</span>
               <span className="text-[9px] text-textMuted">{token.type}</span>
               </div>
 
@@ -249,6 +286,13 @@ export default function CombatPanel({ onClose }) {
                     placeholder="Roll"
                     className="w-12 bg-bgPanel text-white text-center border border-borderDark rounded p-0.5 text-[10px] focus:border-accentGold"
                   />
+                  <button
+                    onClick={() => rollNPCInitiative(token.id)}
+                    className="bg-accentGold/20 text-accentGold px-2 py-0.5 rounded text-[9px] font-bold hover:bg-accentGold hover:text-black transition-colors"
+                    title="Roll 1d20 + DEX modifier from the SRD stat block"
+                  >
+                    🎲 ROLL
+                  </button>
                   <button
                     onClick={() => submitNPCInitiative(token.id)}
                     disabled={!hasEntry}

@@ -73,6 +73,10 @@ export default function GearModal({ data, update, onClose, role, targetUserId })
     const [allMonsters, setAllMonsters] = useState({});   // full monster SRD for lookup
     const [selectedPetStats, setSelectedPetStats] = useState(null);
     const [hiddenCatalogItems, setHiddenCatalogItems] = useState([]);
+    // Implemented consumable effects from the server (drives USE buttons + toasts)
+    const [usableItemInfo, setUsableItemInfo] = useState(null);
+    const [useResult, setUseResult] = useState(null);
+    const useResultTimer = useRef(null);
 
     const resolveTokenUrl = useCallback((name) => {
         return findMatchingToken(name, tokenList) || '';
@@ -205,6 +209,51 @@ export default function GearModal({ data, update, onClose, role, targetUserId })
     }, [flushInventoryQueue]);
 
     // ---------- INVENTORY ACTIONS (no currency) ----------
+    // Fetch the server's implemented consumable-effect registry once
+    useEffect(() => {
+        const baseUrl = (SERVER_URL || '').replace(/\/+$/, '');
+        fetch(`${baseUrl}/api/item-effects`)
+            .then(r => r.json())
+            .then(info => setUsableItemInfo(info))
+            .catch(() => setUsableItemInfo(null));
+    }, []);
+
+    // Resolve whether an item name has an implemented use (mirror of server resolver)
+    const getUsableEffect = useCallback((itemName) => {
+        if (!usableItemInfo || !itemName) return null;
+        const key = String(itemName).trim().toLowerCase().replace(/\s+/g, ' ');
+        if (usableItemInfo.items?.[key]) return usableItemInfo.items[key];
+        if (usableItemInfo.tierRegex) {
+            try {
+                if (new RegExp(usableItemInfo.tierRegex, 'i').test(key)) {
+                    // Tier regex matched — server will resolve the exact formula
+                    return { label: itemName, category: 'potion', effect: { type: 'heal' } };
+                }
+            } catch { /* invalid regex — ignore */ }
+        }
+        return null;
+    }, [usableItemInfo]);
+
+    // Use a consumable: server rolls the effect, applies HP, consumes one from the stack
+    const handleUseItem = (item) => {
+        if (item.quantity !== undefined && item.quantity < 1) return;
+        socket.emit('use_consumable', { characterId: effectiveUserId, itemId: item.id }, (res) => {
+            if (res?.success) {
+                soundSynthesizer.playUIClick();
+                const formula = res.effect?.formula || '';
+                const rolls = res.roll?.rolls?.length ? ` (${res.roll.rolls.join(' + ')})` : '';
+                setUseResult({
+                    ok: true,
+                    text: `🧪 ${res.label}: ${res.hpCur >= 0 && res.effect?.type === 'heal' ? '+' : ''}${res.roll?.total ?? 0} HP${rolls}${formula ? ` [${formula}]` : ''} → ${res.hpCur}/${res.hpMax} HP${res.quantityLeft === 0 ? ' · last one used!' : ` · ${res.quantityLeft} left`}`
+                });
+            } else {
+                setUseResult({ ok: false, text: `⚠️ ${res?.error || 'Could not use item'}` });
+            }
+            if (useResultTimer.current) clearTimeout(useResultTimer.current);
+            useResultTimer.current = setTimeout(() => setUseResult(null), 6000);
+        });
+    };
+
     const handleAddItem = (item) => {
         if (item.itemType === 'pack') {
             // Packs are handled separately
@@ -853,6 +902,11 @@ export default function GearModal({ data, update, onClose, role, targetUserId })
                                                     : `Weight: ${item.weight || '0'} lbs • Cost: ${item.cost || item.value || '—'}`
                                                 }
                                             </div>
+                                            {item.description && (
+                                                <div className="text-[10px] text-textLight/70 mt-1 leading-snug line-clamp-2" title={item.description}>
+                                                    {item.description}
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="flex items-center shrink-0">
@@ -938,6 +992,14 @@ export default function GearModal({ data, update, onClose, role, targetUserId })
                                                 <div className="text-[10px] text-textMuted mt-0.5">
                                                     Weight: {totalWeight} lbs • {item.properties?.slice(0,2).join(', ')}
                                                 </div>
+                                                {(() => {
+                                                    const srdRef = findItemInSRD(item.name, srd);
+                                                    return srdRef?.description ? (
+                                                        <div className="text-[10px] text-textLight/70 mt-1 leading-snug line-clamp-2" title={srdRef.description}>
+                                                            {srdRef.description}
+                                                        </div>
+                                                    ) : null;
+                                                })()}
                                             </div>
 
                                             {/* Deploy button for mounts with monsterData */}
@@ -948,6 +1010,19 @@ export default function GearModal({ data, update, onClose, role, targetUserId })
                                                     className="bg-blue-600 text-white px-2 py-1 rounded text-[9px] font-bold hover:bg-blue-500 transition-colors"
                                                 >
                                                     Deploy
+                                                </button>
+                                            )}
+
+                                            {/* Use button for consumables with implemented effects */}
+                                            {!isMount && getUsableEffect(item.name) && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleUseItem(item)}
+                                                    disabled={(item.quantity ?? 1) < 1}
+                                                    className="bg-purple-700 text-white px-2 py-1 rounded text-[9px] font-bold uppercase tracking-wider hover:bg-purple-600 disabled:opacity-40 transition-colors"
+                                                    title={getUsableEffect(item.name)?.usage || 'Use this consumable'}
+                                                >
+                                                    Use
                                                 </button>
                                             )}
 
@@ -1102,6 +1177,19 @@ export default function GearModal({ data, update, onClose, role, targetUserId })
                     </div>
                 </div>
             </div>
+
+            {/* Item-use result toast */}
+            {useResult && (
+                <div
+                    className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[1300] px-4 py-2.5 rounded-lg border shadow-2xl text-xs font-bold animate-in fade-in slide-in-from-bottom-4 duration-200 max-w-[90vw] ${
+                        useResult.ok
+                            ? 'bg-emerald-950/95 border-emerald-600 text-emerald-100'
+                            : 'bg-red-950/95 border-red-600 text-red-100'
+                    }`}
+                >
+                    {useResult.text}
+                </div>
+            )}
         </div>
     );
 }

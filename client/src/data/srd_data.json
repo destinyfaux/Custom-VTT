@@ -12507,7 +12507,8 @@
           "dex_bonus": true,
           "str_req": null,
           "stealth_disadvantage": true,
-          "weight": "8 lb."
+          "weight": "8 lb.",
+          "description": "Quilted cloth layers. AC 11 + DEX; stealth disadvantage (it rustles)."
         },
         {
           "name": "Leather",
@@ -12516,7 +12517,8 @@
           "dex_bonus": true,
           "str_req": null,
           "stealth_disadvantage": false,
-          "weight": "10 lb."
+          "weight": "10 lb.",
+          "description": "Stiffened leather chestpiece. AC 11 + DEX; no stealth penalty; dons in 1 minute."
         },
         {
           "name": "Studded Leather",
@@ -12525,7 +12527,8 @@
           "dex_bonus": true,
           "str_req": null,
           "stealth_disadvantage": false,
-          "weight": "13 lb."
+          "weight": "13 lb.",
+          "description": "Leather reinforced with close-set metal studs. AC 12 + DEX modifier; light armor with no stealth penalty. Dons in 1 minute."
         },
         {
           "name": "Robes",
@@ -12535,7 +12538,8 @@
           "max_dex_bonus": 99,
           "str_req": null,
           "stealth_disadvantage": false,
-          "weight": "2 lb"
+          "weight": "2 lb",
+          "description": "Ceremonial or arcane robes. No armor bonus by themselves — unless a class feature or magic says otherwise."
         }
       ],
       "medium": [
@@ -12547,7 +12551,8 @@
           "max_dex_bonus": 2,
           "str_req": null,
           "stealth_disadvantage": false,
-          "weight": "12 lb."
+          "weight": "12 lb.",
+          "description": "Layers of hide and fur. AC 12 + DEX (max +2); no stealth penalty."
         },
         {
           "name": "Chain Shirt",
@@ -12557,7 +12562,8 @@
           "max_dex_bonus": 2,
           "str_req": null,
           "stealth_disadvantage": false,
-          "weight": "20 lb."
+          "weight": "20 lb.",
+          "description": "Interlocking rings worn under clothes. AC 13 + DEX (max +2); no stealth penalty. Donns in 1 minute."
         },
         {
           "name": "Scale Mail",
@@ -12567,7 +12573,8 @@
           "max_dex_bonus": 2,
           "str_req": null,
           "stealth_disadvantage": true,
-          "weight": "45 lb."
+          "weight": "45 lb.",
+          "description": "Overlapping metal scales on a backing. AC 14 + DEX (max +2); stealth disadvantage. Donns in 5 minutes."
         },
         {
           "name": "Breastplate",
@@ -12577,7 +12584,8 @@
           "max_dex_bonus": 2,
           "str_req": null,
           "stealth_disadvantage": false,
-          "weight": "20 lb."
+          "weight": "20 lb.",
+          "description": "A fitted metal chest piece. AC 14 + DEX (max +2); no stealth penalty. Donns in 5 minutes."
         },
         {
           "name": "Half Plate",
@@ -12587,7 +12595,8 @@
           "max_dex_bonus": 2,
           "str_req": null,
           "stealth_disadvantage": true,
-          "weight": "40 lb."
+          "weight": "40 lb.",
+          "description": "Shaped metal plates covering most of the body. AC 15 + DEX (max +2); stealth disadvantage. Donns in 5 minutes."
         }
       ],
       "heavy": [
@@ -12598,7 +12607,8 @@
           "dex_bonus": false,
           "str_req": null,
           "stealth_disadvantage": true,
-          "weight": "40 lb."
+          "weight": "40 lb.",
+          "description": "Leather with heavy metal rings sewn in. AC 14; stealth disadvantage; DEX doesn’t apply."
         },
         {
           "name": "Chain Mail",
@@ -12607,7 +12617,8 @@
           "dex_bonus": false,
           "str_req": 13,
           "stealth_disadvantage": true,
-          "weight": "55 lb."
+          "weight": "55 lb.",
+          "description": "Interlocking metal rings, the workhorse of heavy armor. AC 16; stealth disadvantage; requires Strength 13. Donns in 5 minutes."
         },
         {
           "name": "Splint",
@@ -12616,7 +12627,8 @@
           "dex_bonus": false,
           "str_req": 15,
           "stealth_disadvantage": true,
-          "weight": "60 lb."
+          "weight": "60 lb.",
+          "description": "Metal strips riveted inside a leather backing. AC 17; stealth disadvantage; requires Strength 15."
         },
         {
           "name": "Plate",
@@ -12625,7 +12637,8 @@
           "dex_bonus": false,
           "str_req": 15,
           "stealth_disadvantage": true,
-          "weight": "65 lb."
+          "weight": "65 lb.",
+          "description": "Full plate. AC 18; stealth disadvantage; requires Strength 15. Donns in 10 minutes with help."
         }
       ],
       "shields": [
@@ -12633,7 +12646,8 @@
           "name": "Shield",
           "cost": "10 gp",
           "ac_bonus": 2,
-          "weight": "6 lb."
+          "weight": "6 lb.",
+          "description": "A wooden or metal shield strapped to one arm. +2 AC while wielded, but that hand isn’t free for two-weapon fighting or somatic-heavy tasks."
         },
         {
           "name": "Arrow-catching Shield",
@@ -12672,173 +12686,206 @@
         {
           "name": "Alchemist's Supplies",
           "cost": "50 gp",
-          "weight": "8 lb."
+          "weight": "8 lb.",
+          "description": "Glassware, burners, and reagents. Brew acids, alchemist’s fire, antitoxin, and other alchemical items during downtime (DMG crafting rules)."
         },
         {
           "name": "Carpenter's Tools",
           "cost": "8 gp",
-          "weight": "6 lb."
+          "weight": "6 lb.",
+          "description": "Saws, hammers, and nails for woodworking — build furniture, doors, and fortifications, or identify wooden craftsmanship."
         },
         {
           "name": "Cartographer's Tools",
           "cost": "15 gp",
-          "weight": "6 lb."
+          "weight": "6 lb.",
+          "description": "Ink, parchment, and drafting instruments for making accurate maps — the party’s most valuable treasure after the actual treasure."
         },
         {
           "name": "Leatherworker's Tools",
           "cost": "5 gp",
-          "weight": "5 lb."
+          "weight": "5 lb.",
+          "description": "Awls and shears for curing and working leather — repair armor, make pouches, and keep the party’s straps buckled."
         },
         {
           "name": "Cobbler's Tools",
           "cost": "5 gp",
-          "weight": "5 lb."
+          "weight": "5 lb.",
+          "description": "Repair and craft boots and shoes. Long marches go easier on well-kept feet."
         },
         {
           "name": "Painter's Supplies",
           "cost": "10 gp",
-          "weight": "5 lb."
+          "weight": "5 lb.",
+          "description": "Pigments, oils, and brushes — create signs, forgeries of paintings, or (with talent) distracting works of art."
         },
         {
           "name": "Potter's Tools",
           "cost": "10 gp",
-          "weight": "3 lb."
+          "weight": "3 lb.",
+          "description": "Wheel and kiln for ceramic containers — useful for storing alchemical ingredients safely."
         },
         {
           "name": "Weaver's Tools",
           "cost": "1 gp",
-          "weight": "5 lb."
+          "weight": "5 lb.",
+          "description": "Loom and thread for cloth goods — repair clothing and identify textile quality or origin."
         },
         {
           "name": "Woodcarver's Tools",
           "cost": "1 gp",
-          "weight": "5 lb."
+          "weight": "5 lb.",
+          "description": "Knives and chisels for carving wood — fashion figurines, arrows, and tool handles."
         },
         {
           "name": "Glassblower's Tools",
           "cost": "30 gp",
-          "weight": "5 lb."
+          "weight": "5 lb.",
+          "description": "Pipe and furnace for shaping glass — bottles, vials, and lenses."
         },
         {
           "name": "Jeweler's Tools",
           "cost": "25 gp",
-          "weight": "2 lb."
+          "weight": "2 lb.",
+          "description": "Loupe and cutters for appraising and working gemstones. Advantage on identifying the value of that gem hoard."
         },
         {
           "name": "Brewer's Supplies",
           "cost": "20 gp",
-          "weight": "9 lb."
+          "weight": "9 lb.",
+          "description": "Fermentation vessels for making beer and spirits — excellent for tavern downtime income and social lubrication."
         },
         {
           "name": "Calligrapher's Supplies",
           "cost": "10 gp",
-          "weight": "5 lb."
+          "weight": "5 lb.",
+          "description": "Fine inks and quills for beautiful script — the backbone of elegant forgeries and official documents."
         },
         {
           "name": "Mason's Tools",
           "cost": "10 gp",
-          "weight": "8 lb."
+          "weight": "8 lb.",
+          "description": "Trowel and level for stonework — spot weak walls, build fortifications, and identify stonemason marks."
         },
         {
           "name": "Smith's Tools",
           "cost": "20 gp",
-          "weight": "8 lb."
+          "weight": "8 lb.",
+          "description": "Forge, hammer, and anvil — repair and craft metal weapons and armor during downtime."
         },
         {
           "name": "Tinker's Tools",
           "cost": "50 gp",
-          "weight": "10 lb."
+          "weight": "10 lb.",
+          "description": "Precision tools for clockwork gadgets — repair clockwork devices and create minor trinkets."
         }
       ],
       "gaming_sets": [
         {
           "name": "Dice set",
           "cost": "1 sp",
-          "weight": "-"
+          "weight": "-",
+          "description": "A set of chance cubes. Gambles, divination-flavored flavor, and settling who takes first watch."
         },
         {
           "name": "Dragonchess set",
           "cost": "1 gp",
-          "weight": "1/2 lb."
+          "weight": "1/2 lb.",
+          "description": "A three-tiered strategy game popular in Waterdeep. Playing well impresses scholars and nobles alike."
         },
         {
           "name": "Playing card set",
           "cost": "5 sp",
-          "weight": "-"
+          "weight": "-",
+          "description": "A standard deck for cards, fortunes, and cheating gracefully."
         },
         {
           "name": "Three-Dragon Ante set",
           "cost": "1 gp",
-          "weight": "-"
+          "weight": "-",
+          "description": "A card game of dragons, wagers, and bluffing — popular across the Sword Coast."
         }
       ],
       "instruments": [
         {
           "name": "Bagpipes",
           "cost": "30 gp",
-          "weight": "6 lb."
+          "weight": "6 lb.",
+          "description": "Loud and unmistakable. Bards proficient with an instrument use it as a spellcasting focus."
         },
         {
           "name": "Drum",
           "cost": "6 gp",
-          "weight": "3 lb."
+          "weight": "3 lb.",
+          "description": "Keep the beat for marches and rituals. Bards use a proficient instrument as a spellcasting focus."
         },
         {
           "name": "Dulcimer",
           "cost": "25 gp",
-          "weight": "10 lb."
+          "weight": "10 lb.",
+          "description": "A sweet stringed instrument. Bards use a proficient instrument as a spellcasting focus."
         },
         {
           "name": "Flute",
           "cost": "2 gp",
-          "weight": "1 lb."
+          "weight": "1 lb.",
+          "description": "A portable woodwind. Bards use a proficient instrument as a spellcasting focus."
         },
         {
           "name": "Lute",
           "cost": "35 gp",
-          "weight": "2 lb."
+          "weight": "2 lb.",
+          "description": "The bard classic. Bards use a proficient instrument as a spellcasting focus."
         },
         {
           "name": "Lyre",
           "cost": "30 gp",
-          "weight": "2 lb."
+          "weight": "2 lb.",
+          "description": "Strings for poetry and hymns. Bards use a proficient instrument as a spellcasting focus."
         },
         {
           "name": "Horn",
           "cost": "3 gp",
-          "weight": "2 lb."
+          "weight": "2 lb.",
+          "description": "A braying signal horn — great for rallying allies and alerting enemies. Bards use a proficient instrument as a spellcasting focus."
         },
         {
           "name": "Pan flute",
           "cost": "12 gp",
-          "weight": "2 lb."
+          "weight": "2 lb.",
+          "description": "Reedy pastoral melodies. Bards use a proficient instrument as a spellcasting focus."
         },
         {
           "name": "Shawm",
           "cost": "2 gp",
-          "weight": "1 lb."
+          "weight": "1 lb.",
+          "description": "A piercing double-reed ancestor of the oboe. Bards use a proficient instrument as a spellcasting focus."
         },
         {
           "name": "Viol",
           "cost": "35 gp",
-          "weight": "1 lb."
+          "weight": "1 lb.",
+          "description": "A bowed string instrument for courts and cathedrals. Bards use a proficient instrument as a spellcasting focus."
         }
       ],
       "other_tools": [
         {
           "name": "Herbalism kit",
           "cost": "5 gp",
-          "weight": "3 lb."
+          "weight": "3 lb.",
+          "description": "Mortar, pestle, pouches, and vials for identifying and preparing plants. With proficiency, harvest and brew antitoxins, remedies, and potions at the DM’s discretion."
         },
         {
           "name": "Poisoner's kit",
           "cost": "50 gp",
-          "weight": "2 lb."
+          "weight": "2 lb.",
+          "description": "Vials, reagents, and tools for brewing and applying poisons. Proficiency supports harvest and handling of toxic materials."
         },
         {
           "name": "Thieves' tools",
           "cost": "25 gp",
-          "weight": "1 lb."
+          "weight": "1 lb.",
+          "description": "A small set of picks, pliers, and a tiny mirror. Required to pick locks (DC set by the lock) and to disarm traps (DC set by the trap). Proficiency applies to both."
         },
         {
           "name": "Air Rebreather",
@@ -12848,19 +12895,22 @@
         {
           "name": "Navigator's Tools",
           "cost": "25 gp",
-          "weight": "2 lb."
+          "weight": "2 lb.",
+          "description": "Sextant, compass, and star charts. Proficiency grants advantage on checks to chart courses at sea or track position in the wilderness."
         }
       ],
       "vehicles": [
         {
           "name": "Land vehicle",
           "cost": "-",
-          "weight": "-"
+          "weight": "-",
+          "description": "Carts, carriages, and wagons. Proficiency applies to keeping it on the road when things get rough."
         },
         {
           "name": "Water vehicle",
           "cost": "-",
-          "weight": "-"
+          "weight": "-",
+          "description": "Rowboats, barges, and ships. Proficiency covers operation and navigation basics."
         }
       ]
     },
@@ -12868,7 +12918,8 @@
       {
         "name": "Arrows (20)",
         "cost": "1 gp",
-        "weight": "1 lb."
+        "weight": "1 lb.",
+        "description": "A bundle of twenty arrows for bows. Simplified ammunition tracking at most tables; the DM may require recovering arrows after combat."
       },
       {
         "name": "Blowgun needles (50)",
@@ -12878,7 +12929,8 @@
       {
         "name": "Crossbow bolts (20)",
         "cost": "1 gp",
-        "weight": "1½ lb."
+        "weight": "1½ lb.",
+        "description": "A bundle of twenty crossbow bolts. Simplified ammunition tracking at most tables; the DM may require recovering bolts after combat."
       },
       {
         "name": "Sling bullets (20)",
@@ -12893,7 +12945,8 @@
       {
         "name": "Ball bearings (1,000)",
         "cost": "1 gp",
-        "weight": "2 lb."
+        "weight": "2 lb.",
+        "description": "As an action, spill the bag to cover a 25-foot square. A creature crossing the area must succeed on a DC 10 DEX save or fall prone. Also useful for jamming door tracks."
       },
       {
         "name": "Barrel",
@@ -12908,7 +12961,8 @@
       {
         "name": "Bottle, glass",
         "cost": "2 gp",
-        "weight": "2 lb."
+        "weight": "2 lb.",
+        "description": "An airtight glass container, handy for potions, samples of strange liquids, and messages you intend to throw into the sea."
       },
       {
         "name": "Bucket",
@@ -12918,52 +12972,62 @@
       {
         "name": "Caltrops (20)",
         "cost": "1 gp",
-        "weight": "2 lb."
+        "weight": "2 lb.",
+        "description": "Scatter as an action to cover a 5-foot square. A creature entering must succeed on a DC 15 DEX save or take 1 piercing damage and move at half speed (or fall prone on a failed save by 5 or more)."
       },
       {
         "name": "Candle",
         "cost": "1 cp",
-        "weight": "-"
+        "weight": "-",
+        "description": "Burns for 1 hour, shedding bright light in a 5-foot radius and dim light for another 5 feet."
       },
       {
         "name": "Case, crossbow bolt",
         "cost": "1 gp",
-        "weight": "1 lb."
+        "weight": "1 lb.",
+        "description": "A cylindrical leather case holding up to 20 crossbow bolts."
       },
       {
         "name": "Case, map or scroll",
         "cost": "1 gp",
-        "weight": "1 lb."
+        "weight": "1 lb.",
+        "description": "A leather tube that protects maps, scrolls, and treaties from rain and rips."
       },
       {
         "name": "Chain (10 feet)",
         "cost": "5 gp",
-        "weight": "10 lb."
+        "weight": "10 lb.",
+        "description": "Iron chain links, each able to hold up to 1,000 pounds. A DC 20 Strength check breaks it."
       },
       {
         "name": "Chalk (1 piece)",
         "cost": "1 cp",
-        "weight": "-"
+        "weight": "-",
+        "description": "A stick of chalk for marking trails, drawing summoning circles, or leaving messages in dungeons (and for keeping track of explored passages)."
       },
       {
         "name": "Chest",
         "cost": "5 gp",
-        "weight": "25 lb."
+        "weight": "25 lb.",
+        "description": "A sturdy lockable wooden box. The classic place to hide treasure (and mimic mouths)."
       },
       {
         "name": "Climber's kit",
         "cost": "25 gp",
-        "weight": "12 lb."
+        "weight": "12 lb.",
+        "description": "Spikes, brackets, and handholds that let a proficient user scale sheer surfaces more safely, negating some fall risk (DM’s discretion)."
       },
       {
         "name": "Crowbar",
         "cost": "2 gp",
-        "weight": "5 lb."
+        "weight": "5 lb.",
+        "description": "A bent iron lever. Grants advantage on Strength checks where the crowbar’s leverage can be applied, such as breaking open doors or prying open containers."
       },
       {
         "name": "Fishing tackle",
         "cost": "1 gp",
-        "weight": "4 lb."
+        "weight": "4 lb.",
+        "description": "A wooden rod, hooks, lines, lures, and a net — everything needed to catch fish for the party’s next meal."
       },
       {
         "name": "Flask or tankard",
@@ -12973,12 +13037,14 @@
       {
         "name": "Rations (1 day)",
         "cost": "5 sp",
-        "weight": "2 lb."
+        "weight": "2 lb.",
+        "description": "Dry rations that feed one person for one day — jerky, dried fruit, hardtack, and nuts. Boring, but it keeps you alive between inns."
       },
       {
         "name": "Waterskin",
         "cost": "2 sp",
-        "weight": "5 lb."
+        "weight": "5 lb.",
+        "description": "A leather bladder that holds up to 4 pints of liquid. Essential in deserts and dungeons alike."
       },
       {
         "name": "Ale (gallon)",
@@ -12993,7 +13059,8 @@
       {
         "name": "Arcane focus",
         "cost": "10 gp",
-        "weight": "-"
+        "weight": "-",
+        "description": "A crystal, orb, staff, or wand that a sorcerer, warlock, or wizard can use in place of free material components. A hand holding the focus satisfies the material component requirement."
       },
       {
         "name": "Crystal",
@@ -13003,7 +13070,8 @@
       {
         "name": "Druidic focus",
         "cost": "10 gp",
-        "weight": "-"
+        "weight": "-",
+        "description": "A sprig of mistletoe, totem, or carved wooden token through which druids channel nature magic, replacing free material components."
       },
       {
         "name": "Holy amulet",
@@ -13063,17 +13131,20 @@
       {
         "name": "Grappling hook",
         "cost": "2 gp",
-        "weight": "4 lb."
+        "weight": "4 lb.",
+        "description": "An iron hook with a ring at the base. Attach rope, throw it (or use a weapon attack as an improvised throw at the DM’s discretion), and climb — the hook can secure a hold on ledges, battlements, and beams."
       },
       {
         "name": "Hammer",
         "cost": "1 gp",
-        "weight": "3 lb."
+        "weight": "3 lb.",
+        "description": "A standard masonry hammer. Drives pitons, breaks stone (slowly), and doubles as an improvised weapon at the DM’s discretion."
       },
       {
         "name": "Hammer, sledge",
         "cost": "2 gp",
-        "weight": "10 lb."
+        "weight": "10 lb.",
+        "description": "A heavy two-handed maul for driving spikes and breaking stone. Advantage on forcing open stuck stone doors at the DM’s discretion."
       },
       {
         "name": "Hide, animal",
@@ -13083,7 +13154,8 @@
       {
         "name": "Holy water (flask)",
         "cost": "25 gp",
-        "weight": "1 lb."
+        "weight": "1 lb.",
+        "description": "A flask of consecrated water. As an action, throw up to 20 ft.: 2d6 radiant damage to fiends and undead (a miss does nothing). It can also be splashed to keep vampires at bay."
       },
       {
         "name": "Hourglass",
@@ -13108,17 +13180,20 @@
       {
         "name": "Lamp",
         "cost": "5 sp",
-        "weight": "1 lb."
+        "weight": "1 lb.",
+        "description": "A brass oil lamp that sheds bright light in a 15-foot radius and dim light for another 30 feet. Burns 6 hours on a flask of oil."
       },
       {
         "name": "Lantern, bullseye",
         "cost": "10 gp",
-        "weight": "2 lb."
+        "weight": "2 lb.",
+        "description": "A lantern with a single shuttered lens that focuses light into a 60-foot cone (bright) with 60 more feet of dim light — but only 5 feet behind you."
       },
       {
         "name": "Lantern, hooded",
         "cost": "5 gp",
-        "weight": "2 lb."
+        "weight": "2 lb.",
+        "description": "A lantern with an adjustable shutter. Bright light in a 30-foot radius, dim for another 30. Close the hood for just dim light in a 5-foot radius, or none at all."
       },
       {
         "name": "Lock",
@@ -13128,12 +13203,14 @@
       {
         "name": "Manacles",
         "cost": "2 gp",
-        "weight": "6 lb."
+        "weight": "6 lb.",
+        "description": "Iron restraints for wrists or ankles with a locking catch. Breaking free requires a DC 20 Strength check; picking the lock requires DC 15 Dexterity with thieves’ tools."
       },
       {
         "name": "Oil (flask)",
         "cost": "1 sp",
-        "weight": "1 lb."
+        "weight": "1 lb.",
+        "description": "As an action, pour on a nearby surface to create a slick 5-ft. square (DEX save or fall prone), or throw up to 20 ft. If lit, the oil burns for 2 rounds and deals 5 fire damage to anything in it."
       },
       {
         "name": "Paper (one sheet)",
@@ -13158,7 +13235,8 @@
       {
         "name": "Piton",
         "cost": "5 cp",
-        "weight": "1/4 lb."
+        "weight": "1/4 lb.",
+        "description": "An iron spike hammered into rock, ice, or masonry to anchor a climbing rope. Climbers should bring a hammer or mallet."
       },
       {
         "name": "Poison, basic (vial)",
@@ -13183,7 +13261,8 @@
       {
         "name": "Quiver",
         "cost": "1 gp",
-        "weight": "1 lb."
+        "weight": "1 lb.",
+        "description": "A leather arrow case that holds up to 20 arrows (or crossbow bolts with a bolt case)."
       },
       {
         "name": "Ram, portable",
@@ -13203,22 +13282,26 @@
       {
         "name": "Shovel",
         "cost": "2 gp",
-        "weight": "5 lb."
+        "weight": "5 lb.",
+        "description": "For digging graves, treasure holes, or tunnels out of trouble. Digging through hard-packed earth is an hour’s work for a shovel-man."
       },
       {
         "name": "Signet ring",
         "cost": "5 gp",
-        "weight": "-"
+        "weight": "-",
+        "description": "A ring bearing a family crest or official seal. Pressing it into wax authenticates documents in the bearer’s name."
       },
       {
         "name": "Soap",
         "cost": "2 cp",
-        "weight": "-"
+        "weight": "-",
+        "description": "A bar of scented soap. Abstractions aside, it keeps you clean. Social situations with fastidious nobles may thank you."
       },
       {
         "name": "Spellbook",
         "cost": "50 gp",
-        "weight": "3 lb."
+        "weight": "3 lb.",
+        "description": "A tome bound in leather with reinforced pages. Essential for wizards to prepare spells each day and to record new spells copied from scrolls or other books."
       },
       {
         "name": "Spikes, iron (10)",
@@ -13233,7 +13316,8 @@
       {
         "name": "Tent, two-person",
         "cost": "2 gp",
-        "weight": "20 lb."
+        "weight": "20 lb.",
+        "description": "A simple canvas tent large enough for two Medium creatures and their gear. Pitches in minutes; keeps the rain off while you sleep."
       },
       {
         "name": "Tinderbox",
@@ -13243,7 +13327,8 @@
       {
         "name": "Torch",
         "cost": "1 cp",
-        "weight": "1 lb."
+        "weight": "1 lb.",
+        "description": "A wooden cudgel with cloth soaked in pitch at one end. Burns for 1 hour, shedding bright light in a 20-foot radius and dim light for an additional 20 feet."
       },
       {
         "name": "Vial",
@@ -13318,12 +13403,14 @@
       {
         "name": "Alchemist's Fire (flask)",
         "cost": "50 gp",
-        "weight": "1 lb."
+        "weight": "1 lb.",
+        "description": "As an action, throw up to 20 ft.: 1d4 fire damage on hit and the target ignites, taking 1d4 fire damage at the start of each of its turns. A creature can use its action to extinguish the flames (DC 10 DEX check)."
       },
       {
         "name": "Acid (vial)",
         "cost": "25 gp",
-        "weight": "1 lb."
+        "weight": "1 lb.",
+        "description": "As an action, throw up to 20 ft.: 2d6 acid damage on hit, and 5 more acid damage at the start of your next turn if the target is a metal or nonmagical organic object."
       },
       {
         "name": "Poison, Basic (vial)",
@@ -13333,27 +13420,32 @@
       {
         "name": "Antitoxin (vial)",
         "cost": "50 gp",
-        "weight": "-"
+        "weight": "-",
+        "description": "An alchemical vial that grants advantage on saving throws against poison for 1 hour, and suppresses the poisoned condition while its protection lasts. It is spent whether or not you are exposed to poison."
       },
       {
         "name": "Potion of Healing",
         "cost": "50 gp",
-        "weight": "1/2 lb."
+        "weight": "1/2 lb.",
+        "description": "A red potion that glimmers when agitated. Bonus action to drink (or administer to another creature within 5 ft.): the drinker regains 2d4+2 hit points. Use it straight from your inventory with the USE button."
       },
       {
         "name": "Potion of Greater Healing",
         "cost": "150 gp",
-        "weight": "1/2 lb."
+        "weight": "1/2 lb.",
+        "description": "A deeper red potion. Bonus action to drink: the drinker regains 4d4+4 hit points. Use it straight from your inventory with the USE button."
       },
       {
         "name": "Potion of Superior Healing",
         "cost": "450 gp",
-        "weight": "1/2 lb."
+        "weight": "1/2 lb.",
+        "description": "A crimson potion with a faint pulse of light. Bonus action to drink: the drinker regains 8d4+8 hit points. Use it straight from your inventory with the USE button."
       },
       {
         "name": "Potion of Supreme Healing",
         "cost": "1350 gp",
-        "weight": "1/2 lb."
+        "weight": "1/2 lb.",
+        "description": "A luminous red potion used by military healers. Bonus action to drink: the drinker regains 10d4+20 hit points. Use it straight from your inventory with the USE button."
       },
       {
         "name": "Oil of Slipperiness",
@@ -13363,7 +13455,8 @@
       {
         "name": "Potion of Water Breathing",
         "cost": "200 gp",
-        "weight": "1/2 lb."
+        "weight": "1/2 lb.",
+        "description": "A cloudy green potion smelling of the sea. Drinking it (action) lets you breathe underwater for 1 hour."
       },
       {
         "name": "Scroll of Spell (1st level)",
@@ -13448,27 +13541,32 @@
       {
         "name": "Holy Symbol: Amulet",
         "cost": "5 gp",
-        "weight": "1 lb."
+        "weight": "1 lb.",
+        "description": "A sacred emblem — amulet, reliquary, or emblem on a shield — used by clerics and paladins in place of free material components. A hand holding it satisfies the material component requirement."
       },
       {
         "name": "Holy Symbol: Emblem",
         "cost": "5 gp",
-        "weight": "-"
+        "weight": "-",
+        "description": "A sacred emblem — amulet, reliquary, or emblem on a shield — used by clerics and paladins in place of free material components. A hand holding it satisfies the material component requirement."
       },
       {
         "name": "Holy Symbol: Reliquary",
         "cost": "5 gp",
-        "weight": "2 lb."
+        "weight": "2 lb.",
+        "description": "A sacred emblem — amulet, reliquary, or emblem on a shield — used by clerics and paladins in place of free material components. A hand holding it satisfies the material component requirement."
       },
       {
         "name": "Component Pouch",
         "cost": "25 gp",
-        "weight": "2 lb."
+        "weight": "2 lb.",
+        "description": "A pouch of all the mundane material components a caster needs, plus small pouches to keep them sorted. A hand holding the pouch can satisfy material components with no cost."
       },
       {
         "name": "Healer's Kit",
         "cost": "5 gp",
-        "weight": "3 lb."
+        "weight": "3 lb.",
+        "description": "A leather pouch of bandages and salves. As an action, use it to automatically stabilize a creature at 0 hit points — no Medicine check required. It has 10 uses."
       },
       {
         "name": "Manacles (Large)",
@@ -13483,17 +13581,20 @@
       {
         "name": "Hunting Trap",
         "cost": "5 gp",
-        "weight": "25 lb."
+        "weight": "25 lb.",
+        "description": "A steel jaw trap. Place with an action; a creature stepping on it takes 1d4 piercing damage and is restrained (STR DC 13 to escape, or DC 13 DEX to avoid triggering when placed unseen)."
       },
       {
         "name": "Rope, Hempen (50 ft.)",
         "cost": "1 gp",
-        "weight": "10 lb."
+        "weight": "10 lb.",
+        "description": "Hemp rope. When tied and secured, it holds up to 500 pounds of weight before breaking."
       },
       {
         "name": "Rope, Silk (50 ft.)",
         "cost": "10 gp",
-        "weight": "5 lb."
+        "weight": "5 lb.",
+        "description": "Silken rope, prized by climbers. When tied and secured, it holds up to 800 pounds of weight before breaking."
       },
       {
         "name": "Signal Whistle",
@@ -13528,12 +13629,14 @@
       {
         "name": "Grappling Hook",
         "cost": "2 gp",
-        "weight": "4 lb."
+        "weight": "4 lb.",
+        "description": "An iron hook with a ring at the base. Attach rope, throw it (or use a weapon attack as an improvised throw at the DM’s discretion), and climb — the hook can secure a hold on ledges, battlements, and beams."
       },
       {
         "name": "Block and Tackle",
         "cost": "1 gp",
-        "weight": "5 lb."
+        "weight": "5 lb.",
+        "description": "A system of pulleys and rope that multiplies lifting power. With it, a team of creatures can lift up to four times the normal weight."
       },
       {
         "name": "Sledge Hammer",
@@ -13578,7 +13681,8 @@
       {
         "name": "Bedroll",
         "cost": "1 gp",
-        "weight": "7 lb."
+        "weight": "7 lb.",
+        "description": "Bedding that lets you sleep comfortably outdoors (weather permitting) instead of on bare ground. Counts toward a rest’s requirements in most campaigns."
       },
       {
         "name": "Blanket",
@@ -13588,17 +13692,20 @@
       {
         "name": "Winter Blanket",
         "cost": "5 sp",
-        "weight": "3 lb."
+        "weight": "3 lb.",
+        "description": "A thick woolen blanket. It keeps you warm during cold-weather travel; each traveler without cold-weather gear risks exhaustion in freezing conditions."
       },
       {
         "name": "Caltrops (bag of 20)",
         "cost": "1 gp",
-        "weight": "2 lb."
+        "weight": "2 lb.",
+        "description": "Scatter as an action to cover a 5-foot square. A creature entering must succeed on a DC 15 DEX save or take 1 piercing damage and move at half speed (or fall prone on a failed save by 5 or more)."
       },
       {
         "name": "Ball Bearings (bag of 1000)",
         "cost": "1 gp",
-        "weight": "2 lb."
+        "weight": "2 lb.",
+        "description": "As an action, spill the bag to cover a 25-foot square. A creature crossing the area must succeed on a DC 10 DEX save or fall prone. Also useful for jamming door tracks."
       },
       {
         "name": "Bell",
@@ -13608,12 +13715,14 @@
       {
         "name": "Lantern, Bullseye",
         "cost": "10 gp",
-        "weight": "2 lb."
+        "weight": "2 lb.",
+        "description": "A lantern with a single shuttered lens that focuses light into a 60-foot cone (bright) with 60 more feet of dim light — but only 5 feet behind you."
       },
       {
         "name": "Lantern, Hooded",
         "cost": "5 gp",
-        "weight": "2 lb."
+        "weight": "2 lb.",
+        "description": "A lantern with an adjustable shutter. Bright light in a 30-foot radius, dim for another 30. Close the hood for just dim light in a 5-foot radius, or none at all."
       },
       {
         "name": "Wine (fine, bottle)",
@@ -13628,22 +13737,26 @@
       {
         "name": "Clothes, Common",
         "cost": "5 sp",
-        "weight": "3 lb."
+        "weight": "3 lb.",
+        "description": "Plain, durable clothing that lets you blend into a working crowd. Dirty or torn clothes impose disadvantage on social checks in polite company."
       },
       {
         "name": "Clothes, Costume",
         "cost": "5 gp",
-        "weight": "4 lb."
+        "weight": "4 lb.",
+        "description": "Outfits for playing a role — noble finery, merchant drab, or guard uniform. Wearing them supports Deception checks to pass as someone else (DM sets DC)."
       },
       {
         "name": "Clothes, Fine",
         "cost": "15 gp",
-        "weight": "6 lb."
+        "weight": "6 lb.",
+        "description": "Velvet, silk, and tailoring that mark you as wealthy or noble. Required for admittance to fancy balls and most royal courts."
       },
       {
         "name": "Clothes, Traveler's",
         "cost": "2 gp",
-        "weight": "4 lb."
+        "weight": "4 lb.",
+        "description": "Sturdy boots, weatherproof cloak, and reinforced fabric — clothes made for weeks on the road."
       },
       {
         "name": "Bag",
@@ -13663,17 +13776,20 @@
       {
         "name": "Disguise Kit",
         "cost": "25 gp",
-        "weight": "3 lb."
+        "weight": "3 lb.",
+        "description": "Cosmetics, hair dye, and costume pieces. Proficiency lets you change your appearance (Deception to pass inspection; 1 hour to apply)."
       },
       {
         "name": "Forgery Kit",
         "cost": "15 gp",
-        "weight": "5 lb."
+        "weight": "5 lb.",
+        "description": "Inks, quills, and seals for duplicating documents. A kit forgery can be detected by an Insight check against your Deception/check DC."
       },
       {
         "name": "Poisoner's Kit",
         "cost": "50 gp",
-        "weight": "2 lb."
+        "weight": "2 lb.",
+        "description": "Vials, reagents, and tools for brewing and applying poisons. Proficiency supports harvest and handling of toxic materials."
       },
       {
         "name": "Vestments (clergy)",
@@ -13683,7 +13799,8 @@
       {
         "name": "Fishing Tackle",
         "cost": "1 gp",
-        "weight": "4 lb."
+        "weight": "4 lb.",
+        "description": "A wooden rod, hooks, lines, lures, and a net — everything needed to catch fish for the party’s next meal."
       },
       {
         "name": "Mess Kit",
@@ -13693,7 +13810,8 @@
       {
         "name": "Mirror, Steel",
         "cost": "5 gp",
-        "weight": "1/2 lb."
+        "weight": "1/2 lb.",
+        "description": "A polished steel mirror. Useful for signaling over long distances, peeking around corners, and checking whether that fancy rug really hides a trapdoor."
       },
       {
         "name": "Seal (signet ring)",

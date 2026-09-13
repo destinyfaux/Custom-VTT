@@ -39,6 +39,7 @@ import {
   trimArrays,
   spawnHealFX,
   spawnDamageFX,
+  spawnDropFX,
 } from '../utils/FXEngine';
 
 // ========== HELPER: Check if URL is a video format (WebM/MP4) ==========
@@ -3445,14 +3446,13 @@ export default function CanvasMap({
         netInterpolation.setTarget(draggedToken.id, snappedX, snappedY, true);
         socket.emit('move_token_final', { tokenId: draggedToken.id, x: snappedX, y: snappedY });
 
-        // ── Drop juice: dust puff + snap flash + thud ──
+        // ── Drop juice: light dust puff + thud (kept subtle on purpose) ──
         const dropSize = GRID_SIZE * (token.size || 1);
         const dropCX = snappedX + dropSize / 2;
         const dropCY = snappedY + dropSize / 2;
-        spawnSmash(dropCX, dropCY + dropSize * 0.25, 'smoke', fxParticlesRef.current);
-        spawnPulse(dropCX, dropCY, dropSize * 0.45, 'force', fxParticlesRef.current);
+        spawnDropFX(dropCX, dropCY, dropSize, fxParticlesRef.current);
         trimArrays(fxParticlesRef.current, fxMissilesRef.current, fxEmittersRef.current);
-        soundSynthesizer.playTokenDrop();
+        soundSynthesizer.playTokenDrop(0.5);
 
         setTokenAnimations(prev => ({
           ...prev,

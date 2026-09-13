@@ -8,6 +8,8 @@ const path = require('path');
 const crypto = require('crypto');
 const VTTManager = require('./VTTManager');
 const accountManager = require('./services/accountManager');
+const { rollDiceFormula } = require('./utils/dice');
+const { resolveItemEffect, rollItemEffect, getUsableItemInfo } = require('./utils/itemEffects');
 const srdRoutes = require('./routes/srdRoutes');
 const srdMonsterRoutes = require('./routes/srdMonsterRoutes');
 const { 
@@ -638,6 +640,9 @@ app.get('/api/maps', (req, res) => res.json(getMaps()));
 app.get('/api/tokens', (req, res) => res.json(getTokenFiles()));
 app.get('/api/handouts', (req, res) => res.json(getHandoutFiles()));
 app.get('/api/stamps', (req, res) => res.json(getStampFiles()));
+// Implemented consumable effects (drives the inventory USE buttons)
+app.get('/api/item-effects', (req, res) => res.json(getUsableItemInfo()));
+// Implemented consumable effects (drives the inventory USE buttons)
 
 // API Route to dynamically find and stream the table-texture media format
 app.get('/api/table-texture', (req, res) => {
@@ -1079,6 +1084,101 @@ io.on('connection', (socket) => {
       console.error('[Server] update_inventory error:', err);
       if (typeof callback === 'function') callback({ success: false, error: err.message });
     }
+  });
+
+  // ─── Use a consumable item (e.g. drink a Potion of Healing) ───
+  // Rolls the registered effect, applies it to the drinker (placed token first,
+  // else the sheet), and consumes exactly ONE item from the stack.
+  socket.on('use_consumable', (payload, callback) => {
+    if (!socket.checkRateLimit(30)) return;
+    if (typeof callback !== 'function') return;
+    const { characterId: targetCharId, itemId } = payload || {};
+    if (!itemId || typeof itemId !== 'string') return callback({ success: false, error: 'Missing item id' });
+
+    const isDM = VTTManager.isDM(userId);
+    const targetId = targetCharId || userId;
+    if (!isDM && targetId !== userId) {
+      return callback({ success: false, error: 'Unauthorized item use' });
+    }
+
+    const player = VTTManager.players.get(targetId);
+    if (!player || !player.characterData) {
+      return callback({ success: false, error: 'Character record not found' });
+    }
+    const charData = player.characterData;
+    const inventory = Array.isArray(charData.inventory) ? charData.inventory : [];
+    const item = inventory.find(i => i && i.id === itemId);
+    if (!item) return callback({ success: false, error: 'Item not found in inventory' });
+    if ((Number(item.quantity) || 1) < 1) return callback({ success: false, error: 'None left to use' });
+
+    const effectDef = resolveItemEffect(item.name);
+    if (!effectDef) {
+      return callback({ success: false, error: `${item.name} has no implemented use yet` });
+    }
+
+    const rolled = rollItemEffect(effectDef.effect);
+    if (!rolled) return callback({ success: false, error: 'Effect roll failed' });
+
+    const isHeal = effectDef.effect.type === 'heal';
+    const delta = isHeal ? Math.abs(rolled.total) : -Math.abs(rolled.total);
+
+    // Prefer the placed player token — it is the authoritative combat HP and
+    // updates trigger the map heal FX for the whole table.
+    const token = VTTManager.state.tokens.find(t =>
+      t.type === 'player' && (t.id === targetId || t.ownerId === targetId));
+
+    let newHp;
+    let hpMax;
+    if (token) {
+      hpMax = Math.max(1, Number(token.hpMax) || 1);
+      newHp = Math.min(hpMax, Math.max(0, (Number(token.hpCur) || 0) + delta));
+      token.hpCur = newHp;
+      if (newHp > 0) {
+        token.isDead = false;
+        token.isStable = true;
+        token.deathSaveSuccesses = 0;
+        token.deathSaveFailures = 0;
+      }
+    } else {
+      hpMax = Math.max(1, Number(charData.hpMax) || 10);
+      newHp = Math.min(hpMax, Math.max(0, (Number(charData.hpCur) || 0) + delta));
+    }
+    charData.hpCur = newHp;
+
+    // Consume exactly one from the stack (item vanishes at zero)
+    const qtyLeft = (Number(item.quantity) || 1) - 1;
+    if (qtyLeft > 0) {
+      item.quantity = qtyLeft;
+      charData.inventory = inventory;
+    } else {
+      charData.inventory = inventory.filter(i => !i || i.id !== itemId);
+    }
+
+    const activeCharId = player.characterId || socket.auth?.characterId || `char_${targetId}`;
+    VTTManager.updatePlayerData(targetId, charData);
+    accountManager.saveCharacter(targetId, activeCharId, charData);
+    if (player.socketId) io.to(player.socketId).emit('sync_character_data', charData);
+
+    VTTManager.incrementStateVersion();
+    if (token) {
+      io.emit('token_hp_changed', { tokenId: token.id, hpCur: token.hpCur, version: VTTManager.stateVersion });
+    }
+    io.emit('state_update', VTTManager.getGameState());
+    io.emit('player_list_update', VTTManager.getPresenceList());
+
+    io.emit('new_chat', VTTManager.addChatMessage('System',
+      `${charData.name || 'An adventurer'} uses a **${effectDef.label}**: ${isHeal ? '+' : ''}${rolled.total} HP → ${newHp}/${hpMax} HP.`));
+
+    callback({
+      success: true,
+      name: item.name,
+      label: effectDef.label,
+      effect: effectDef.effect,
+      roll: rolled,
+      hpCur: newHp,
+      hpMax: hpMax,
+      quantityLeft: Math.max(0, qtyLeft)
+    });
   });
 
   // --- CHAT HANDLING ---
@@ -2032,6 +2132,46 @@ io.on('connection', (socket) => {
         io.emit('initiative_update', { initiative: VTTManager.initiativeList, version: VTTManager.stateVersion });
         io.emit('state_update', VTTManager.getGameState());
     });
+
+  // DM auto-rolls initiative for placed NPC tokens: 1d20 + DEX mod straight
+  // from the SRD monsterData (falls back to +0 when data is missing).
+  // Pass { all: true } to roll every placed, living NPC at once.
+  socket.on('roll_npc_initiative', (payload, callback) => {
+      if (!VTTManager.isDM(userId)) return;
+      if (typeof callback !== 'function') return;
+      const { tokenId, all } = payload || {};
+
+      const npcs = all
+          ? VTTManager.state.tokens.filter(t => t.type === 'npc' && t.isPlaced && (Number(t.hpCur) || 0) > 0)
+          : VTTManager.state.tokens.filter(t => t.type === 'npc' && t.isPlaced && t.id === tokenId);
+      if (npcs.length === 0) return callback({ success: false, error: 'No matching placed NPC tokens' });
+
+      const results = npcs.map(token => {
+          const dex = Number(token.monsterData?.ability_scores?.DEX);
+          const dexMod = Number.isFinite(dex) ? Math.floor((dex - 10) / 2) : 0;
+          const rolled = rollDiceFormula('1d20');
+          const roll = rolled ? rolled.total : (1 + Math.floor(Math.random() * 20));
+          const total = roll + dexMod;
+
+          let combatant = VTTManager.initiativeList.find(c => c.id === token.id);
+          if (!combatant) {
+              combatant = { id: token.id, name: token.name, initiative: total, type: token.type, dexMod };
+              VTTManager.initiativeList.push(combatant);
+          } else {
+              combatant.name = token.name;
+              combatant.type = token.type;
+              combatant.dexMod = dexMod;
+              combatant.initiative = total;
+          }
+          return { tokenId: token.id, name: token.name, roll, dexMod, total };
+      });
+
+      VTTManager.state.initiative = [...VTTManager.initiativeList];
+      VTTManager.incrementStateVersion();
+      io.emit('initiative_update', { initiative: VTTManager.initiativeList, version: VTTManager.stateVersion });
+      io.emit('state_update', VTTManager.getGameState());
+      callback({ success: true, results });
+  });
 
   // DM starts combat – orders the list and sets the first turn
   socket.on('start_combat', () => {

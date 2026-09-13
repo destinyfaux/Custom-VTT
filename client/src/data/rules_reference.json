@@ -1,0 +1,219 @@
+{
+  "meta": {
+    "version": "1.0.0",
+    "source": "SRD 5.1 (CC-BY-4.0) — condensed table rulings for quick in-session lookup",
+    "note": "Text is intentionally concise. This is a rulings quick-reference, not the full rulebook."
+  },
+  "categories": [
+    "Combat",
+    "Movement",
+    "Downtime",
+    "Exploration"
+  ],
+  "rules": [
+    {
+      "title": "Attack Roll",
+      "category": "Combat",
+      "keywords": "attack roll hit miss d20 to hit advantage disadvantage",
+      "text": "d20 + ability modifier + proficiency (if proficient) vs the target's AC. Rolling a natural 20 is a critical hit — all damage dice are rolled twice. A natural 1 always misses."
+    },
+    {
+      "title": "Dash",
+      "category": "Combat",
+      "keywords": "dash run move extra speed",
+      "text": "Action (or Bonus Action for Rogues via Cunning Action, Monks via Step of the Wind). You gain extra movement equal to your speed for the current turn."
+    },
+    {
+      "title": "Disengage",
+      "category": "Combat",
+      "keywords": "disengage withdraw escape opportunity attack",
+      "text": "Action. Your movement doesn't provoke opportunity attacks for the rest of the turn. Rogues can Disengage as a Bonus Action (Cunning Action)."
+    },
+    {
+      "title": "Dodge",
+      "category": "Combat",
+      "keywords": "dodge defend avoid",
+      "text": "Action. Until your next turn, any attack roll against you has disadvantage IF you can see the attacker, and you make Dexterity saving throws with advantage. You lose this benefit if you're incapacitated or your speed drops to 0."
+    },
+    {
+      "title": "Help",
+      "category": "Combat",
+      "keywords": "help assist aid advantage ally",
+      "text": "Action. Choose a creature within 5 ft.: it gains advantage on its next ability check to perform a task, OR on its next attack roll against a creature within 5 ft. of you (flanking-style assistance)."
+    },
+    {
+      "title": "Hide",
+      "category": "Combat",
+      "keywords": "hide stealth sneak unseen",
+      "text": "Action. Make a Dexterity (Stealth) check vs the passive Perception of creatures trying to spot you. You can't hide from a creature that can clearly see you; you need cover, concealment, or dim light/heavily obscured area to attempt it. Attacks against an unseen attacker have disadvantage."
+    },
+    {
+      "title": "Ready",
+      "category": "Combat",
+      "keywords": "ready hold action delay trigger",
+      "text": "Action + pick a trigger you can perceive. When the trigger occurs, you may react: make one weapon attack, cast a 1-action spell (requires Concentration until then), or move up to your speed. Readying uses your Reaction."
+    },
+    {
+      "title": "Search",
+      "category": "Combat",
+      "keywords": "search investigate perception find",
+      "text": "Action. Devote your attention to finding something — make a Wisdom (Perception) or Intelligence (Investigation) check depending on whether you're looking by sight/sound or by deduction."
+    },
+    {
+      "title": "Use an Object",
+      "category": "Combat",
+      "keywords": "use object interact item potion drink",
+      "text": "Action to interact with a second object during your turn (one free object interaction is already included in normal movement/attacks). Drinking a potion is commonly ruled as a Bonus Action at many tables; the DM decides. Pulling a weapon is free."
+    },
+    {
+      "title": "Opportunity Attacks",
+      "category": "Combat",
+      "keywords": "opportunity attack reaction leaving melee provoke",
+      "text": "Reaction. When a hostile creature you can see leaves your reach by moving (teleporting doesn't count; neither does Disengage), you make one melee attack against it. Casting a spell within reach does NOT provoke in 5e."
+    },
+    {
+      "title": "Grapple",
+      "category": "Combat",
+      "keywords": "grapple grab restrain hold escape",
+      "text": "Attack (replaces one attack): target must be no more than one size larger. Contest: Athletics (attacker) vs Athletics or Acrobatics (target). Grappled target's speed becomes 0. Drag: grappled creature moves with you at half speed. Escape: use your action to contest again."
+    },
+    {
+      "title": "Shove",
+      "category": "Combat",
+      "keywords": "shove push knock prone stand up",
+      "text": "Attack (replaces one attack): target must be no more than one size larger and within reach. Contest: Athletics vs Athletics/Acrobatics. Choice: knock the target PRONE, or push it 5 ft. away. Standing from prone costs half your movement and provokes opportunity attacks only if an enemy moves away, not for standing."
+    },
+    {
+      "title": "Two-Weapon Fighting",
+      "category": "Combat",
+      "keywords": "dual wield two weapon offhand bonus action",
+      "text": "Attack with a light melee weapon in each hand: first attack uses your Action; then as a Bonus Action attack with the other weapon — but WITHOUT your ability modifier to damage (unless you have the Two-Weapon Fighting style). Both weapons must be light (unless a feature says otherwise)."
+    },
+    {
+      "title": "Cover",
+      "category": "Combat",
+      "keywords": "cover shield half three-quarters protection bonus ac",
+      "text": "Half cover (+2 AC and Dexterity saves): another creature, low wall, furniture. Three-quarters cover (+5 AC and Dexterity saves): arrow slits, thick tree trunks, heavily obscured creatures. Total cover: fully behind something — can't be targeted directly by attacks or spells."
+    },
+    {
+      "title": "Concentration",
+      "category": "Combat",
+      "keywords": "concentration spell maintain focus save",
+      "text": "Some spells require it. You lose concentration if: you become incapacitated or die, OR you take damage and fail a Constitution saving throw (DC 10, or half the damage taken, whichever is higher). Casting another concentration spell ends the first. DC 10 minimum applies to any hit."
+    },
+    {
+      "title": "Surprise",
+      "category": "Combat",
+      "keywords": "surprise ambush surprised round",
+      "text": "The DM compares each side's Stealth vs the other side's passive Perception. Any creature that was unaware of the enemy at combat start is surprised: it loses its entire first turn (no action, bonus action, or movement) and can't take Reactions until that first turn ends. Surprise applies per creature, not per side."
+    },
+    {
+      "title": "Mounted Combat",
+      "category": "Combat",
+      "keywords": "mount ride horse mountdismount",
+      "text": "Mounting/dismounting costs half your speed. While mounted, the mount acts on YOUR initiative: it uses its action for Dodge/Dash/Disengage unless it's an independent, combat-trained mount (warhorse etc.) that you direct. If your mount is knocked prone or drops to 0 HP, you may use your Reaction to dismount and land on your feet — otherwise you fall prone within 5 ft. of it."
+    },
+    {
+      "title": "Underwater Combat",
+      "category": "Combat",
+      "keywords": "underwater swimming fire lightning drown",
+      "text": "Melee slashing/bludgeoning attacks have disadvantage UNLESS you have a swim speed (daggers, javelins, shortswords, spears, and tridents are exempt). Ranged weapon attacks auto-miss beyond normal range and have disadvantage within it. Fire spells fail underwater. Creatures can hold their breath for 1 + CON modifier minutes before suffocation rules kick in."
+    },
+    {
+      "title": "Falling",
+      "category": "Movement",
+      "keywords": "fall fall damage drop height",
+      "text": "1d6 bludgeoning damage per 10 feet fallen (max 20d6 at 200 ft.), and you land prone. PHB treats falls as instantaneous; the XGtE optional rule has you fall 500 ft. instantly, then 500 ft. per further round. Feather Fall and similar effects override this."
+    },
+    {
+      "title": "Death Saving Throws",
+      "category": "Combat",
+      "keywords": "death save dying stable 0 hp down",
+      "text": "At 0 HP but not dead: at the START of your turn, roll d20 (no modifiers). 10+ = success, else failure; 3 of either ends it. Nat 20: regain 1 HP and stand up. Nat 1 counts as TWO failures. 3 successes = Stable. 3 failures = dead. Damage while at 0 HP = automatic failure; crit = 2 failures."
+    },
+    {
+      "title": "Dropping to 0 Hit Points",
+      "category": "Combat",
+      "keywords": "0 hp unconscious downed knocked out",
+      "text": "You fall unconscious and are prone. You're dying unless stabilized/healed. Massive damage (remaining HP ≤ -max HP in one hit) = instant death. Healing while at 0 HP: regain HP and become conscious with no lingering penalty (no exhaustion in 5e RAW)."
+    },
+    {
+      "title": "Stabilizing a Creature",
+      "category": "Combat",
+      "keywords": "stabilize medicine check help dying",
+      "text": "Action + DC 10 Wisdom (Medicine) check on a creature at 0 HP: it becomes stable. OR use a Healer's Kit (automatic, no roll, 10 uses). A stable creature stops rolling death saves but stays unconscious at 0 HP; regains consciousness after 1d4 hours, or when healed."
+    },
+    {
+      "title": "Exhaustion",
+      "category": "Exploration",
+      "keywords": "exhaustion fatigue levels tired",
+      "text": "6 levels, cumulative: 1 = disadvantage on ability checks. 2 = speed halved. 3 = disadvantage on attacks & saves. 4 = HP max halved. 5 = speed 0. 6 = death. Finishing a Long Rest removes 1 level (5th ed. pre-2024 rules; 2024 rules remove all on a Long Rest)."
+    },
+    {
+      "title": "Short Rest",
+      "category": "Downtime",
+      "keywords": "short rest hit dice recover",
+      "text": "At least 1 hour of light activity (no fighting/casting/spelunking harder than walking). At the end: spend Hit Dice (roll + CON mod each) to heal, and regain use of some class features (per class descriptions)."
+    },
+    {
+      "title": "Long Rest",
+      "category": "Downtime",
+      "keywords": "long rest sleep recover full hp",
+      "text": "At least 8 hours (6 sleeping + 2 light activity; elves Trance 4 hrs). At the end: regain ALL lost HP, half your total Hit Dice (minimum 1), and reset spell slots + most features. Can benefit once per 16 hours; interrupted (1 hr of fighting/walking) = no benefit."
+    },
+    {
+      "title": "Carrying Capacity",
+      "category": "Exploration",
+      "keywords": "carry capacity encumbrance weight strength lift",
+      "text": "Carry = STR score × 15 lbs. Lift/drag (off the ground) = STR × 30. Push/drag/carry along the ground = STR × 30 with speed reduced to 5 ft. Size doubles (Large ×2, Huge ×4) or halves (Tiny ×½) these numbers."
+    },
+    {
+      "title": "Difficult Terrain",
+      "category": "Movement",
+      "keywords": "difficult terrain rubble mud move slow",
+      "text": "Every foot of movement through difficult terrain costs 2 feet (rub rubble, undergrowth, mud, snow, shallow bog). You CAN'T dash through it effectively (Dash still costs double per foot). Flight, swimming (with swim speed) may ignore it at DM's discretion."
+    },
+    {
+      "title": "Dashing & Movement Basics",
+      "category": "Movement",
+      "keywords": "movement speed dash disengage crawl stand prone",
+      "text": "You can move freely split between actions. Stand from prone = half your speed. Crawl = 1 extra foot per foot moved. Dropping prone is FREE. You can move through a nonhostile creature's space but not stop there; hostile creature space counts as difficult terrain."
+    },
+    {
+      "title": "Vision & Light",
+      "category": "Exploration",
+      "keywords": "vision light dark dim bright darkness sight",
+      "text": "Bright light: normal vision. Dim light (twilight, torches): lightly obscured — Perception checks relying on sight have disadvantage. Darkness: heavily obscured — effectively blinded. Darkvision: see in dim light as if bright (within range), darkness as if dim light (but only grayscale)."
+    },
+    {
+      "title": "Identifying a Potion",
+      "category": "Exploration",
+      "keywords": "identify potion taste detect magic lore",
+      "text": "Tasting a potion tells you what it is (per DMG ruling: a taste reveals its nature). A short rest handling it + Intelligence (Arcana) or an Identify spell also works. Untasted, DM describes it only by appearance."
+    },
+    {
+      "title": "Attunement",
+      "category": "Exploration",
+      "keywords": "attunement magic item equip wear",
+      "text": "Some magic items require attunement: perform it during a short rest while focused on the item (prerequisites like class/alignment must be met). Max 3 attuned items per creature at once. Attunement ends if you die, if the item is destroyed, if you no longer meet its prerequisites — or voluntarily, during a short or long rest."
+    },
+    {
+      "title": "Casting Spells in Combat",
+      "category": "Combat",
+      "keywords": "spell action bonus action reaction casting rules",
+      "text": "Casting a Bonus Action spell means your other spells THIS TURN must be cantrips with a casting time of 1 action. Reaction spells (Counterspell, Shield, Hellish Rebuke) are limited to 1 Reaction per round. You can't cast two non-cantrip spells in one turn without special features."
+    },
+    {
+      "title": "Interaction While Casting",
+      "category": "Combat",
+      "keywords": "somatic material component hands free focus",
+      "text": "Spells need Verbal/Somatic/Material components as listed. Somatic: one free hand. Material: one free hand to hold components/pouch, OR a spellcasting focus in hand. Being restrained doesn't stop casting, but being gagged stops Verbal, bound hands stop Somatic."
+    },
+    {
+      "title": "Actions in a Round",
+      "category": "Combat",
+      "keywords": "action economy bonus reaction free object interaction turn",
+      "text": "On your turn: 1 Action + up to 1 Bonus Action (only if something grants it) + your movement (split however you like) + 1 free object interaction. Between turns: up to 1 Reaction per round. Nothing stops you from acting out of turn via Reactions."
+    }
+  ]
+}

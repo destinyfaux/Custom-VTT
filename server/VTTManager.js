@@ -1334,10 +1334,12 @@ class VTTManager {
     // --- INITIATIVE TRACKING METHODS ---
 
     // Called when DM starts combat – sorts the combatants and sets the order
+    // Ties break on DEX modifier (DMG rule), then fall back to list order.
     setInitiativeOrder(combatants) {
         if (!Array.isArray(combatants)) return;
 
-        this.initiativeList = combatants.sort((a, b) => b.initiative - a.initiative);
+        this.initiativeList = combatants.sort((a, b) =>
+            (b.initiative - a.initiative) || ((Number(b.dexMod) || 0) - (Number(a.dexMod) || 0)));
         // Reset to first turn
         this.currentTurnIndex = 0;
         // Update the state that goes to all clients
