@@ -5,6 +5,10 @@ client/.env
 server/.cloudflared.env
 server/.host.env
 server/assets/avatars/
+server/assets/tokens
+server/assets/stamps
+server/assets/music
+server/assets/maps
 
 # Dependencies and build output
 node_modules/
