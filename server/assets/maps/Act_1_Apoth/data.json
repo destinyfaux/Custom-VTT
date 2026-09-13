@@ -1,0 +1,593 @@
+{
+  "walls": [
+    {
+      "id": "1781845041932eqzkgo781",
+      "x1": 845.1188640445857,
+      "y1": 1256.5371095849268,
+      "x2": 705.7668792746199,
+      "y2": 1255.6976397971562
+    },
+    {
+      "id": "1781845048818lx83vuvk7",
+      "x1": 640.2882358284913,
+      "y1": 1253.1792304338435,
+      "x2": 496.73890211967114,
+      "y2": 1254.8581700093853
+    },
+    {
+      "id": "1781845060095l0d3h811t",
+      "x1": 424.5445003713756,
+      "y1": 1251.5002908583017,
+      "x2": 281.83463645032623,
+      "y2": 1254.8581700093853
+    },
+    {
+      "id": "1781845070629wcqppuuaj",
+      "x1": 200.40606703655104,
+      "y1": 1254.8581700093853,
+      "x2": 56.01726353995992,
+      "y2": 1254.8581700093853
+    },
+    {
+      "id": "17818450706293827butuu",
+      "x1": 56.01726353995992,
+      "y1": 1254.8581700093853,
+      "x2": 57.69620311550168,
+      "y2": 899.7624497823035
+    },
+    {
+      "id": "1781845080127jw6nrks45",
+      "x1": 57.28137190497693,
+      "y1": 828.379156648081,
+      "x2": 57.82682352419578,
+      "y2": 615.6530251527286
+    },
+    {
+      "id": "1781845100651rztnfpzrp",
+      "x1": 56.732933759213005,
+      "y1": 544.7583255884816,
+      "x2": 59.01206920788188,
+      "y2": 57.02333957334254
+    },
+    {
+      "id": "1781845147838ia6nopzcr",
+      "x1": 58.92836892802768,
+      "y1": 56.757468137892985,
+      "x2": 1342.6202099827785,
+      "y2": 55.59298104154402
+    },
+    {
+      "id": "178184514783823qf53ub4",
+      "x1": 1342.6202099827785,
+      "y1": 55.59298104154402,
+      "x2": 1345.937124617253,
+      "y2": 1120.4662044306872
+    },
+    {
+      "id": "1781845147838mx34hlg8f",
+      "x1": 1345.937124617253,
+      "y1": 1120.4662044306872,
+      "x2": 1238.7495430586184,
+      "y2": 1120.0953131450171
+    },
+    {
+      "id": "17818451611199ec95c9ys",
+      "x1": 844.8866156136377,
+      "y1": 1256.1087457591211,
+      "x2": 845.4639778236609,
+      "y2": 1119.562583088624
+    },
+    {
+      "id": "1781845161119d4k3wes6b",
+      "x1": 845.4639778236609,
+      "y1": 1119.562583088624,
+      "x2": 977.1025617089604,
+      "y2": 1119.2739019836124
+    },
+    {
+      "id": "1781845191683de65nj3st",
+      "x1": 1343.6258106923106,
+      "y1": 483.1878340059855,
+      "x2": 846.8226428680601,
+      "y2": 483.1878340059855
+    },
+    {
+      "id": "17818451916831fyhcrkjr",
+      "x1": 846.8226428680601,
+      "y1": 483.1878340059855,
+      "x2": 847.2830721246164,
+      "y2": 334.46918413829985
+    },
+    {
+      "id": "17818452044713wmmmegvh",
+      "x1": 847.2830721246164,
+      "y1": 215.21800669021752,
+      "x2": 847.2830721246164,
+      "y2": 55.90948392173686
+    },
+    {
+      "id": "1781845230643lgvcmu93i",
+      "x1": 537.2136395545537,
+      "y1": 347.7091299948405,
+      "x2": 57.5570151348067,
+      "y2": 349.81288711948855
+    }
+  ],
+  "lights": [
+    {
+      "id": "light_1781844986362fi9ad",
+      "x": 998.4981646870602,
+      "y": 563.5510593797164,
+      "radius": 200,
+      "color": "#75edf5"
+    },
+    {
+      "id": "light_17818449887028srp1",
+      "x": 491.04535644861807,
+      "y": 459.18133286259,
+      "radius": 200,
+      "color": "#75edf5"
+    },
+    {
+      "id": "light_1781844992680wjx1r",
+      "x": 512.6390929694029,
+      "y": 137.07476309421716,
+      "radius": 200,
+      "color": "#75edf5"
+    },
+    {
+      "id": "light_17818449943903jajf",
+      "x": 453.25631753724474,
+      "y": 1160.9777697880952,
+      "radius": 200,
+      "color": "#75edf5"
+    },
+    {
+      "id": "light_1781845001559eg692",
+      "x": 1090.2715449003956,
+      "y": 259.4392700453309,
+      "radius": 150,
+      "color": "#75edf5"
+    },
+    {
+      "id": "light_1781845019216oyxwb",
+      "x": 1000.297642730459,
+      "y": 209.0538848301664,
+      "radius": 150,
+      "color": "#ff4000"
+    }
+  ],
+  "notes": [
+    {
+      "id": "note_1781844960106oodfd",
+      "x": 185.1340890708338,
+      "y": 783.0873806743616,
+      "text": "150 GP for Recipe\n3 free a day\n15x per week\n5gp per sale\nswears to never sale"
+    }
+  ],
+  "tokens": [
+    {
+      "id": "npc_17813134808420cynd",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "KAELIA",
+      "avatarUrl": "http://24.8.60.109:3001/assets/tokens/Kaelia_Icon.png",
+      "hpCur": 27,
+      "hpMax": 27,
+      "ac": 14,
+      "x": 280,
+      "y": 840,
+      "isPlaced": true,
+      "size": 1,
+      "conditions": [],
+      "hidden": false,
+      "monsterData": {
+        "source": "",
+        "type": "humanoid",
+        "size": "Medium",
+        "alignment": "Neutral Good",
+        "ac": 14,
+        "ac_desc": "Leather Apron",
+        "hp": 27,
+        "hp_formula": "6d8",
+        "speed": {
+          "walk": 30
+        },
+        "ability_scores": {
+          "STR": 8,
+          "DEX": 14,
+          "CON": 11,
+          "INT": 16,
+          "WIS": 14,
+          "CHA": 10
+        },
+        "saves": {
+          "DEX": 4,
+          "INT": 5
+        },
+        "skills": {
+          "Medicine": 4,
+          "Nature": 5,
+          "Sleight of Hand": 4
+        },
+        "resistances": [
+          "Necrotic"
+        ],
+        "immunities": [],
+        "vulnerabilities": [],
+        "condition_immunities": [],
+        "senses": {
+          "passive_perception": 12,
+          "darkvision": 120
+        },
+        "languages": "Common, Modern Ash-Elven",
+        "cr": "1",
+        "traits": [
+          {
+            "name": "Ashen Acclimation",
+            "description": "Kaelia can see perfectly through heavy fog, smoke, and ash storms up to a distance of 120 feet."
+          },
+          {
+            "name": "Fungal Adaptation",
+            "description": "Kaelia has advantage on saving throws against poison and being poisoned."
+          },
+          {
+            "name": "Timid Reflexes",
+            "description": "Kaelia can take the Disengage action as a bonus action on each of her turns."
+          },
+          {
+            "name": "Alchemical Bag",
+            "description": "Kaelia carries a limited supply of crafted vials. She replenishes these supplies over a long rest, provided she has access to fresh herbs, fungi, or chemical reagents."
+          }
+        ],
+        "actions": [
+          {
+            "name": "Poisoned Surgical Dagger",
+            "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 4 (1d4 + 2) piercing damage, and the target must make a DC 11 Constitution saving throw, taking 3 (1d6) poison damage on a failed save."
+          },
+          {
+            "name": "Alchemical Toss",
+            "description": "Ranged Relic Attack: +4 to hit, range 20/60 ft., one target. Kaelia hurls one of her specialized glass vials from her bandolier:\nSilt-Mire Paralytic (2/Day): On a hit: The target takes no damage but must succeed on a DC 12 Constitution saving throw. On a failed save, the target is Poisoned for 1 minute and its movement speed is reduced to 0 as its muscles lock up. The target can repeat the saving throw at the end of each of its turns, ending the effect on a success.\nNoxious Acid Vial (3/Day): On a hit: The target takes 7 (2d6) acid damage. On a miss: The vial shatters nearby, dealing 2 acid damage to the target and any other creature within 5 feet of it.\nLesser Healing Potion (2/Day): Targeting an ally: Kaelia throws a restorative vial at a friendly creature within 20 feet (the ally can choose to let the vial hit them automatically). The vial shatters on impact, releasing a vapor that restores 5 (1d4 + 3) hit points."
+          }
+        ],
+        "legendary_actions": [],
+        "reactions": [
+          {
+            "name": "Slippery Escape",
+            "description": "When a creature misses Kaelia with a melee attack, she can use her reaction to move up to half her speed. This movement does not provoke opportunity attacks."
+          }
+        ],
+        "lair_actions": [],
+        "environment": "",
+        "description": "Combat Behavior: Kaelia is not a hero. If combat starts, her first instinct is to hide behind Osric or Galvarax. She will only throw her Silt-Mire Paralytic if a monster is actively charging her or an ally, hoping to freeze them in place so she can slip away.\nThe Healing Potion Twist: Because healing magic is a lost art in the Wastes, her Lesser Healing Potions (taught to her by Rainlyn) are highly unstable. When she throws one to heal an ally, describe it as a violently fizzing, smelling-salt-like vapor that burns as it heals.\nWeakness: With only 27 HP, a single solid hit from a stronger enemy (like an Ashen Creeper or an Iron Hand Mercenary) can knock her unconscious. The players will need to actively protect her if she accompanies them into dangerous territory."
+      },
+      "timesDowned": 0,
+      "deathSaveSuccesses": 0,
+      "deathSaveFailures": 0,
+      "isStable": false,
+      "isDead": false,
+      "wounds": [],
+      "woundCount": 0
+    },
+    {
+      "id": "npc_1781846758449vgupl",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "GUILD ENFORCER",
+      "avatarUrl": "http://24.8.60.109:3001/assets/tokens/Guard_Icon.png",
+      "hpCur": 82,
+      "hpMax": 82,
+      "ac": 18,
+      "x": 560,
+      "y": 1190,
+      "isPlaced": true,
+      "size": 1,
+      "conditions": [],
+      "hidden": false,
+      "monsterData": {
+        "source": "",
+        "type": "humanoid",
+        "size": "Medium",
+        "alignment": "Lawful Neutral",
+        "ac": 18,
+        "ac_desc": "Basalt-Iron Splint Mail, Heavy Shield",
+        "hp": 82,
+        "hp_formula": "(9d8 + 18)",
+        "speed": {
+          "walk": 30
+        },
+        "ability_scores": {
+          "STR": 16,
+          "DEX": 12,
+          "CON": 15,
+          "INT": 10,
+          "WIS": 12,
+          "CHA": 10
+        },
+        "saves": {
+          "STR": 5,
+          "CON": 4
+        },
+        "skills": {
+          "Athletics": 5,
+          "Perception": 3
+        },
+        "resistances": [
+          "Necrotic"
+        ],
+        "immunities": [],
+        "vulnerabilities": [],
+        "condition_immunities": [],
+        "senses": {
+          "passive_perception": 13,
+          "darkvision": 120
+        },
+        "languages": "Common, Modern Ash-Elven",
+        "cr": "3",
+        "traits": [
+          {
+            "name": "Ashen Acclimation",
+            "description": "The Enforcer ignores all visibility penalties caused by heavy fog, ash storms, or darkness up to a distance of 120 feet."
+          },
+          {
+            "name": "Phalanx Bulwark",
+            "description": "While the Enforcer is within 5 feet of an ally carrying a shield, both the Enforcer and the ally have advantage on saving throws against being knocked prone or pushed, and they gain a +1 bonus to their AC."
+          },
+          {
+            "name": "Cyan Search-Lantern (Relic)",
+            "description": "Mounted to the Enforcer's shoulder is a Sura-Khai lens that projects a 30-foot cone of intense Ghostly Cyan light. This light cuts through magical and nonmagical fog, and any invisible creatures or objects caught in the cone are outlined in light and lose their invisibility."
+          }
+        ],
+        "actions": [
+          {
+            "name": "Multiattack",
+            "description": "The Enforcer makes two melee attacks: one with its Basalt Mace and one with its Shield Bash. Alternatively, it can make two ranged attacks with its Heavy Crossbow."
+          },
+          {
+            "name": "Basalt Mace",
+            "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 7 (1d8 + 3) bludgeoning damage."
+          },
+          {
+            "name": "Shield Bash",
+            "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 5 (1d4 + 3) bludgeoning damage. If the target is a Medium or smaller creature, it must succeed on a DC 15 Strength saving throw or be knocked Prone."
+          },
+          {
+            "name": "Harpoon-Crossbow",
+            "description": "(Recharge 5-6): Ranged Weapon Attack: +3 to hit, range 30/120 ft., one target. Hit: 10 (2d8) piercing damage, and a barbed steel harpoon lodges in the target. The target is Grappled (escape DC 14) by the wire cable. While a creature is grappled this way, the Enforcer can use a bonus action to reel the cable, pulling the target up to 15 feet closer to them."
+          }
+        ],
+        "legendary_actions": [],
+        "reactions": [
+          {
+            "name": "Interposing Shield",
+            "description": "When an enemy makes a melee attack against an ally within 5 feet of the Enforcer, the Enforcer can use its reaction to impose disadvantage on the attack roll."
+          }
+        ],
+        "lair_actions": [],
+        "environment": "VELLUM’S PORT",
+        "description": "They Abuse the Fog: Because of Ashen Acclimation, these guards can see up to 120 feet, while your players are restricted to 15 yards (45 feet) [8]. The guards will stand safely in the deep fog, using their Harpoon-Crossbows to spear a player (like Rainlyn or Osric) and drag them backward into the darkness before the party even realizes where the attack is coming from.\nOrderly Phalanx: In melee, the guards form a tight wall. They stand side-by-side to trigger their Phalanx Bulwark, raising their AC to 19 and covering each other with Interposing Shield reactions. They don't fight to kill immediately; they use Shield Bash to knock players prone, then use their weapons to keep them pinned.\nAlarm Whistles: If a fight breaks out, the first thing one of the guards will do on their turn is blow a Sura-Khai resonance whistle. The high-pitched shriek vibrates through the stones of Vellum's Port, calling 1d4 additional Enforcers to the scene every 2 rounds. This teaches the players that fighting the law is a battle of attrition they cannot win.\n\"Unlike standard fantasy guards who act as bumbling town watchmen, these enforcers are heavily disciplined, physically imposing, and specifically equipped with Sura-Khai relic technology to hunt down escaped \"stock\" and contain the Blight.\""
+      },
+      "timesDowned": 0,
+      "deathSaveSuccesses": 0,
+      "deathSaveFailures": 0,
+      "isStable": false,
+      "isDead": false,
+      "wounds": [],
+      "woundCount": 0
+    },
+    {
+      "id": "npc_1781846760960zm0ti",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "GUILD ENFORCER",
+      "avatarUrl": "http://24.8.60.109:3001/assets/tokens/Guard_Icon.png",
+      "hpCur": 82,
+      "hpMax": 82,
+      "ac": 18,
+      "x": 490,
+      "y": 560,
+      "isPlaced": true,
+      "size": 1,
+      "conditions": [],
+      "hidden": false,
+      "monsterData": {
+        "source": "",
+        "type": "humanoid",
+        "size": "Medium",
+        "alignment": "Lawful Neutral",
+        "ac": 18,
+        "ac_desc": "Basalt-Iron Splint Mail, Heavy Shield",
+        "hp": 82,
+        "hp_formula": "(9d8 + 18)",
+        "speed": {
+          "walk": 30
+        },
+        "ability_scores": {
+          "STR": 16,
+          "DEX": 12,
+          "CON": 15,
+          "INT": 10,
+          "WIS": 12,
+          "CHA": 10
+        },
+        "saves": {
+          "STR": 5,
+          "CON": 4
+        },
+        "skills": {
+          "Athletics": 5,
+          "Perception": 3
+        },
+        "resistances": [
+          "Necrotic"
+        ],
+        "immunities": [],
+        "vulnerabilities": [],
+        "condition_immunities": [],
+        "senses": {
+          "passive_perception": 13,
+          "darkvision": 120
+        },
+        "languages": "Common, Modern Ash-Elven",
+        "cr": "3",
+        "traits": [
+          {
+            "name": "Ashen Acclimation",
+            "description": "The Enforcer ignores all visibility penalties caused by heavy fog, ash storms, or darkness up to a distance of 120 feet."
+          },
+          {
+            "name": "Phalanx Bulwark",
+            "description": "While the Enforcer is within 5 feet of an ally carrying a shield, both the Enforcer and the ally have advantage on saving throws against being knocked prone or pushed, and they gain a +1 bonus to their AC."
+          },
+          {
+            "name": "Cyan Search-Lantern (Relic)",
+            "description": "Mounted to the Enforcer's shoulder is a Sura-Khai lens that projects a 30-foot cone of intense Ghostly Cyan light. This light cuts through magical and nonmagical fog, and any invisible creatures or objects caught in the cone are outlined in light and lose their invisibility."
+          }
+        ],
+        "actions": [
+          {
+            "name": "Multiattack",
+            "description": "The Enforcer makes two melee attacks: one with its Basalt Mace and one with its Shield Bash. Alternatively, it can make two ranged attacks with its Heavy Crossbow."
+          },
+          {
+            "name": "Basalt Mace",
+            "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 7 (1d8 + 3) bludgeoning damage."
+          },
+          {
+            "name": "Shield Bash",
+            "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 5 (1d4 + 3) bludgeoning damage. If the target is a Medium or smaller creature, it must succeed on a DC 15 Strength saving throw or be knocked Prone."
+          },
+          {
+            "name": "Harpoon-Crossbow",
+            "description": "(Recharge 5-6): Ranged Weapon Attack: +3 to hit, range 30/120 ft., one target. Hit: 10 (2d8) piercing damage, and a barbed steel harpoon lodges in the target. The target is Grappled (escape DC 14) by the wire cable. While a creature is grappled this way, the Enforcer can use a bonus action to reel the cable, pulling the target up to 15 feet closer to them."
+          }
+        ],
+        "legendary_actions": [],
+        "reactions": [
+          {
+            "name": "Interposing Shield",
+            "description": "When an enemy makes a melee attack against an ally within 5 feet of the Enforcer, the Enforcer can use its reaction to impose disadvantage on the attack roll."
+          }
+        ],
+        "lair_actions": [],
+        "environment": "VELLUM’S PORT",
+        "description": "They Abuse the Fog: Because of Ashen Acclimation, these guards can see up to 120 feet, while your players are restricted to 15 yards (45 feet) [8]. The guards will stand safely in the deep fog, using their Harpoon-Crossbows to spear a player (like Rainlyn or Osric) and drag them backward into the darkness before the party even realizes where the attack is coming from.\nOrderly Phalanx: In melee, the guards form a tight wall. They stand side-by-side to trigger their Phalanx Bulwark, raising their AC to 19 and covering each other with Interposing Shield reactions. They don't fight to kill immediately; they use Shield Bash to knock players prone, then use their weapons to keep them pinned.\nAlarm Whistles: If a fight breaks out, the first thing one of the guards will do on their turn is blow a Sura-Khai resonance whistle. The high-pitched shriek vibrates through the stones of Vellum's Port, calling 1d4 additional Enforcers to the scene every 2 rounds. This teaches the players that fighting the law is a battle of attrition they cannot win.\n\"Unlike standard fantasy guards who act as bumbling town watchmen, these enforcers are heavily disciplined, physically imposing, and specifically equipped with Sura-Khai relic technology to hunt down escaped \"stock\" and contain the Blight.\""
+      },
+      "timesDowned": 0,
+      "deathSaveSuccesses": 0,
+      "deathSaveFailures": 0,
+      "isStable": false,
+      "isDead": false,
+      "wounds": [],
+      "woundCount": 0
+    },
+    {
+      "id": "npc_1781846761440akmdn",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "GUILD ENFORCER",
+      "avatarUrl": "http://24.8.60.109:3001/assets/tokens/Guard_Icon.png",
+      "hpCur": 82,
+      "hpMax": 82,
+      "ac": 18,
+      "x": 770,
+      "y": 560,
+      "isPlaced": true,
+      "size": 1,
+      "conditions": [],
+      "hidden": false,
+      "monsterData": {
+        "source": "",
+        "type": "humanoid",
+        "size": "Medium",
+        "alignment": "Lawful Neutral",
+        "ac": 18,
+        "ac_desc": "Basalt-Iron Splint Mail, Heavy Shield",
+        "hp": 82,
+        "hp_formula": "(9d8 + 18)",
+        "speed": {
+          "walk": 30
+        },
+        "ability_scores": {
+          "STR": 16,
+          "DEX": 12,
+          "CON": 15,
+          "INT": 10,
+          "WIS": 12,
+          "CHA": 10
+        },
+        "saves": {
+          "STR": 5,
+          "CON": 4
+        },
+        "skills": {
+          "Athletics": 5,
+          "Perception": 3
+        },
+        "resistances": [
+          "Necrotic"
+        ],
+        "immunities": [],
+        "vulnerabilities": [],
+        "condition_immunities": [],
+        "senses": {
+          "passive_perception": 13,
+          "darkvision": 120
+        },
+        "languages": "Common, Modern Ash-Elven",
+        "cr": "3",
+        "traits": [
+          {
+            "name": "Ashen Acclimation",
+            "description": "The Enforcer ignores all visibility penalties caused by heavy fog, ash storms, or darkness up to a distance of 120 feet."
+          },
+          {
+            "name": "Phalanx Bulwark",
+            "description": "While the Enforcer is within 5 feet of an ally carrying a shield, both the Enforcer and the ally have advantage on saving throws against being knocked prone or pushed, and they gain a +1 bonus to their AC."
+          },
+          {
+            "name": "Cyan Search-Lantern (Relic)",
+            "description": "Mounted to the Enforcer's shoulder is a Sura-Khai lens that projects a 30-foot cone of intense Ghostly Cyan light. This light cuts through magical and nonmagical fog, and any invisible creatures or objects caught in the cone are outlined in light and lose their invisibility."
+          }
+        ],
+        "actions": [
+          {
+            "name": "Multiattack",
+            "description": "The Enforcer makes two melee attacks: one with its Basalt Mace and one with its Shield Bash. Alternatively, it can make two ranged attacks with its Heavy Crossbow."
+          },
+          {
+            "name": "Basalt Mace",
+            "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 7 (1d8 + 3) bludgeoning damage."
+          },
+          {
+            "name": "Shield Bash",
+            "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 5 (1d4 + 3) bludgeoning damage. If the target is a Medium or smaller creature, it must succeed on a DC 15 Strength saving throw or be knocked Prone."
+          },
+          {
+            "name": "Harpoon-Crossbow",
+            "description": "(Recharge 5-6): Ranged Weapon Attack: +3 to hit, range 30/120 ft., one target. Hit: 10 (2d8) piercing damage, and a barbed steel harpoon lodges in the target. The target is Grappled (escape DC 14) by the wire cable. While a creature is grappled this way, the Enforcer can use a bonus action to reel the cable, pulling the target up to 15 feet closer to them."
+          }
+        ],
+        "legendary_actions": [],
+        "reactions": [
+          {
+            "name": "Interposing Shield",
+            "description": "When an enemy makes a melee attack against an ally within 5 feet of the Enforcer, the Enforcer can use its reaction to impose disadvantage on the attack roll."
+          }
+        ],
+        "lair_actions": [],
+        "environment": "VELLUM’S PORT",
+        "description": "They Abuse the Fog: Because of Ashen Acclimation, these guards can see up to 120 feet, while your players are restricted to 15 yards (45 feet) [8]. The guards will stand safely in the deep fog, using their Harpoon-Crossbows to spear a player (like Rainlyn or Osric) and drag them backward into the darkness before the party even realizes where the attack is coming from.\nOrderly Phalanx: In melee, the guards form a tight wall. They stand side-by-side to trigger their Phalanx Bulwark, raising their AC to 19 and covering each other with Interposing Shield reactions. They don't fight to kill immediately; they use Shield Bash to knock players prone, then use their weapons to keep them pinned.\nAlarm Whistles: If a fight breaks out, the first thing one of the guards will do on their turn is blow a Sura-Khai resonance whistle. The high-pitched shriek vibrates through the stones of Vellum's Port, calling 1d4 additional Enforcers to the scene every 2 rounds. This teaches the players that fighting the law is a battle of attrition they cannot win.\n\"Unlike standard fantasy guards who act as bumbling town watchmen, these enforcers are heavily disciplined, physically imposing, and specifically equipped with Sura-Khai relic technology to hunt down escaped \"stock\" and contain the Blight.\""
+      },
+      "timesDowned": 0,
+      "deathSaveSuccesses": 0,
+      "deathSaveFailures": 0,
+      "isStable": false,
+      "isDead": false,
+      "wounds": [],
+      "woundCount": 0
+    }
+  ],
+  "stamps": [],
+  "shapes": []
+}

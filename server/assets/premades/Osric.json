@@ -1,0 +1,172 @@
+{
+  "name": "Osric The All-Consuming",
+  "race": "Plasmoid",
+  "subrace": "",
+  "charClass": "Paladin",
+  "subclass": "",
+  "lvl": 1,
+  "xp": 0,
+  "bg": "Soldier",
+  "alignment": "Neutral Evil",
+  "str": 18,
+  "dex": 18,
+  "con": 18,
+  "int": 7,
+  "wis": 11,
+  "cha": 18,
+  "hpCur": 16,
+  "hpTemp": 0,
+  "ac": 16,
+  "speed": 30,
+  "initiativeBonus": 4,
+  "prof_bonus": 2,
+  "heroicInspiration": false,
+  "equippedArmor": "Scale Mail",
+  "equippedShield": false,
+  "acBonus": 0,
+  "actionUsed": false,
+  "bonusActionUsed": false,
+  "reactionUsed": false,
+  "deathSaveSuccess1": false,
+  "deathSaveSuccess2": false,
+  "deathSaveSuccess3": false,
+  "deathSaveFail1": false,
+  "deathSaveFail2": false,
+  "deathSaveFail3": false,
+  "hitDiceSpent": 0,
+  "spells": [],
+  "weapons": [
+    {
+      "name": "Maul",
+      "cost": "10 gp",
+      "damage": "2d6",
+      "damage_type": "bludgeoning",
+      "weight": "10 lb.",
+      "properties": [
+        "Heavy",
+        "Two-Handed"
+      ]
+    }
+  ],
+  "inventory": [
+    {
+      "id": 1778024800596.9102,
+      "type": "weapon",
+      "name": "Maul",
+      "damage": "2d6",
+      "properties": [
+        "Heavy",
+        "Two-Handed"
+      ],
+      "weight": 10
+    },
+    {
+      "name": "Backpack",
+      "weight": 5
+    },
+    {
+      "name": "Holy Symbol: Reliquary",
+      "weight": 2
+    },
+    {
+      "name": "Oil (flask)",
+      "weight": 1
+    },
+    {
+      "name": "Oil (flask)",
+      "weight": 1
+    },
+    {
+      "name": "Hempen rope (50 feet)",
+      "weight": 10
+    },
+    {
+      "name": "Tinderbox",
+      "weight": 1
+    },
+    {
+      "name": "Torch",
+      "weight": 1
+    },
+    {
+      "name": "Torch",
+      "weight": 1
+    },
+    {
+      "name": "Torch",
+      "weight": 1
+    },
+    {
+      "name": "Torch",
+      "weight": 1
+    },
+    {
+      "name": "Torch",
+      "weight": 1
+    },
+    {
+      "name": "Torch",
+      "weight": 1
+    },
+    {
+      "name": "Torch",
+      "weight": 1
+    },
+    {
+      "name": "Torch",
+      "weight": 1
+    },
+    {
+      "name": "Torch",
+      "weight": 1
+    },
+    {
+      "name": "Torch",
+      "weight": 1
+    },
+    {
+      "name": "Waterskin",
+      "weight": 5
+    },
+    {
+      "name": "Crowbar",
+      "weight": 5
+    }
+  ],
+  "prof_Acrobatics": 0,
+  "prof_Animal Handling": 0,
+  "prof_Arcana": 0,
+  "prof_Athletics": 1,
+  "prof_Deception": 0,
+  "prof_History": 0,
+  "prof_Insight": 0,
+  "prof_Intimidation": 1,
+  "prof_Investigation": 0,
+  "prof_Medicine": 0,
+  "prof_Nature": 0,
+  "prof_Perception": 0,
+  "prof_Performance": 0,
+  "prof_Persuasion": 0,
+  "prof_Religion": 0,
+  "prof_Sleight of Hand": 0,
+  "prof_Stealth": 0,
+  "prof_Survival": 0,
+  "gender": "Blob",
+  "age": "76",
+  "faith": "Tempus",
+  "size": "8 Foots",
+  "skin": "Blob skin",
+  "eyes": "Blob eyes",
+  "hair": "Blob hair",
+  "weight": "154",
+  "traits": "I can stare down a hell hound without flinching. I enjoy being strong and like breaking things.",
+  "ideals": "Might. In life as in war, the stronger force wins. (Evil)",
+  "bonds": "My honor is my life.",
+  "flaws": "I have little respect for anyone who is not a proven warrior.",
+  "backstory": "I have none because I didn't fill it out WAAAA",
+  "notes": "DM - Says you're a little hoe",
+  "saves": "",
+  "hpMax": 15,
+  "_exportVersion": "1.0",
+  "_exportedAt": "2026-05-05T23:51:50.891Z"
+}

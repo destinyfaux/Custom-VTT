@@ -1,0 +1,251 @@
+{
+  "walls": [
+    {
+      "id": "1781745408793kvauj3jxw",
+      "x1": 0.12141763244925415,
+      "y1": 1679.3302431044249,
+      "x2": 0.45478198835401396,
+      "y2": 0.1522817693372789
+    },
+    {
+      "id": "1781745408794axfphcrnq",
+      "x1": 0.45478198835401396,
+      "y1": 0.1522817693372789,
+      "x2": 1119.384857400752,
+      "y2": 0.07883082429473234
+    },
+    {
+      "id": "17817454087948651bwhuv",
+      "x1": 1119.384857400752,
+      "y1": 0.07883082429473234,
+      "x2": 1119.60310506629,
+      "y2": 1679.865801035811
+    },
+    {
+      "id": "17817454087941bvc2m66u",
+      "x1": 1119.60310506629,
+      "y1": 1679.865801035811,
+      "x2": 0.17022687028654673,
+      "y2": 1679.5826197782985
+    }
+  ],
+  "lights": [
+    {
+      "id": "light_17817454769865mwsy",
+      "x": 560.8675151423006,
+      "y": 835.2412356806649,
+      "radius": 300,
+      "color": "#70f0e1"
+    },
+    {
+      "id": "light_1781745488529h4158",
+      "x": 85.78714305246118,
+      "y": 1214.1514919628444,
+      "radius": 90,
+      "color": "#70f0e1"
+    },
+    {
+      "id": "light_17817454905030a79k",
+      "x": 158.8764310662826,
+      "y": 1004.5006395021461,
+      "radius": 90,
+      "color": "#70f0e1"
+    },
+    {
+      "id": "light_1781745491909vu6bb",
+      "x": 153.10622411782302,
+      "y": 831.3944310483585,
+      "radius": 90,
+      "color": "#70f0e1"
+    },
+    {
+      "id": "light_1781745493156qfk56",
+      "x": 162.723235698589,
+      "y": 592.8925438453622,
+      "radius": 90,
+      "color": "#70f0e1"
+    },
+    {
+      "id": "light_17817454951255xtj8",
+      "x": 945.5479783729397,
+      "y": 598.6627507938218,
+      "radius": 90,
+      "color": "#70f0e1"
+    },
+    {
+      "id": "light_1781745496667b0nlk",
+      "x": 966.7054038506249,
+      "y": 835.2412356806649,
+      "radius": 90,
+      "color": "#70f0e1"
+    },
+    {
+      "id": "light_17817454978883ezt2",
+      "x": 953.2415876375525,
+      "y": 1008.3474441344525,
+      "radius": 90,
+      "color": "#70f0e1"
+    },
+    {
+      "id": "light_1781745499093akciz",
+      "x": 1030.1776802836803,
+      "y": 1210.3046873305382,
+      "radius": 90,
+      "color": "#70f0e1"
+    }
+  ],
+  "notes": [],
+  "tokens": [
+    {
+      "id": "npc_1781848505402820on",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "THE HOLLOW WARDEN",
+      "avatarUrl": "http://24.8.60.109:3001/assets/tokens/Warden_Icon.png",
+      "hpCur": 110,
+      "hpMax": 110,
+      "ac": 17,
+      "x": 560,
+      "y": 700,
+      "isPlaced": true,
+      "size": 2,
+      "conditions": [],
+      "hidden": false,
+      "monsterData": {
+        "source": "",
+        "type": "plant",
+        "size": "Large",
+        "alignment": "Neutral Evil",
+        "ac": 17,
+        "ac_desc": "Petrified Fungal Plating",
+        "hp": 110,
+        "hp_formula": "(10d8 + 30)",
+        "speed": {
+          "walk": 30
+        },
+        "ability_scores": {
+          "STR": 18,
+          "DEX": 14,
+          "CON": 18,
+          "INT": 10,
+          "WIS": 14,
+          "CHA": 8
+        },
+        "saves": {
+          "CON": 7,
+          "WIS": 4
+        },
+        "skills": {
+          "Athletics": 6,
+          "Perception": 4
+        },
+        "resistances": [],
+        "immunities": [
+          "Poison"
+        ],
+        "vulnerabilities": [],
+        "condition_immunities": [
+          "Frightened",
+          "Poisoned"
+        ],
+        "senses": {
+          "passive_perception": 14,
+          "darkvision": 120
+        },
+        "languages": "None",
+        "cr": "6",
+        "traits": [
+          {
+            "name": "Ashen Acclimation",
+            "description": "The Warden can see perfectly through heavy fog and darkness."
+          },
+          {
+            "name": "Mycelial Regeneration",
+            "description": "At the start of its turn, the Warden regains 5 hit points if it is in contact with the stone floor. If it takes fire or radiant damage, this trait doesn't function at the start of its next turn."
+          },
+          {
+            "name": "Spore Cloud",
+            "description": "A cloud of toxic grey spores surrounds the Warden in a 10-foot radius. Any non-plant creature that enters or starts its turn in the cloud must succeed on a DC 15 Constitution saving throw or be Poisoned until the start of its next turn."
+          }
+        ],
+        "actions": [
+          {
+            "name": "Multiattack",
+            "description": "The Warden makes two melee attacks with its Spindle-Spear."
+          },
+          {
+            "name": "Spindle-Spear",
+            "description": "Melee Weapon Attack: +6 to hit, reach 10 ft., one target. Hit: 7 (1d8 + 3) piercing damage plus 7 (2d6) force damage."
+          },
+          {
+            "name": "Void-Howl",
+            "description": "(Recharge 5-6). The Warden unleashes a soundless, psychic wave of agony. Each non-undead creature within 30 feet of the Warden must make a DC 15 Wisdom saving throw. On a failure, a creature takes 14 (4d6) psychic damage and is Frightened of the Warden for 1 minute. On a success, the creature takes half damage and isn't frightened."
+          },
+          {
+            "name": "Loom-Needle",
+            "description": "Ranged Relic Attack: +5 to hit, range 60/120 ft., one target. Hit: 10 (2d6 + 3) force damage. If the target is flying, it must succeed on a DC 13 Strength saving throw or have its flying speed reduced to 0 until the end of its next turn, causing it to fall."
+          }
+        ],
+        "legendary_actions": [
+          {
+            "name": "Skitter",
+            "description": "The Warden moves up to half its speed without provoking opportunity attacks",
+            "cost": 1
+          },
+          {
+            "name": "Spindle Strike",
+            "description": "The Warden makes one Spindle-Spear attack or one Loom-Needle attack.",
+            "cost": 1
+          },
+          {
+            "name": "Puff-Ball",
+            "description": "The Warden violently detonates a fungal sac on its shoulder. A burst of acidic rot shoots out. One creature within 15 feet of the Warden must make a DC 15 Constitution saving throw, taking 9 (2d8) poison damage on a failed save, or half as much on a successful one.",
+            "cost": 2
+          }
+        ],
+        "reactions": [
+          {
+            "name": "Void-Step",
+            "description": "(3/Day): When a creature moves within 5 feet of the Warden, the Warden can use its reaction to teleport up to 15 feet to an unoccupied space it can see. In the space it leaves behind, a puff of blinding grey ash erupts. The triggering creature must succeed on a DC 15 Dexterity saving throw or be Blinded until the end of its next turn"
+          }
+        ],
+        "lair_actions": [
+          {
+            "name": "THE RELIC VAULT",
+            "description": "[On initiative count 20 (losing initiative ties), the Warden can take a lair action to cause one of the following magical effects; the Warden can’t use the same effect two rounds in a row.]\n\nLight-Grid Weft: The glowing Sura-Khai plaques on the wall surge with power. Two 5-foot-wide, 30-foot-long lines of ghostly cyan light erupt across the room. Any creature caught in these lines must make a DC 13 Dexterity saving throw, taking 11 (2d10) force damage on a failed save, or half as much on a successful one.\n\nLoom-Grind: The giant, brass gears hanging from the ceiling grind violently. Debris and petrified stone fall from the roof. Up to two creatures must succeed on a DC 13 Strength saving throw or be pinned under the rubble, taking 5 (1d10) bludgeoning damage and being Grappled (escape DC 13).\n\nThe Great Silence: The air in the vault becomes completely, unnaturally void of sound. No sound can be made, and verbal communication is impossible within the vault until initiative count 20 of the next round. This heavily restricts verbal (V) spellcasting for players for 1 round."
+          }
+        ],
+        "environment": "",
+        "description": "LEGENDARY ACTIONS\nThe Warden can take 2 legendary actions, choosing from the options below. Only one legendary action option can be used at a time and only at the end of another creature's turn. The Warden regains spent legendary actions at the start of its turn."
+      },
+      "timesDowned": 0,
+      "deathSaveSuccesses": 0,
+      "deathSaveFailures": 0,
+      "isStable": false,
+      "isDead": false,
+      "wounds": [],
+      "woundCount": 0
+    }
+  ],
+  "stamps": [
+    {
+      "id": "stamp_1781745453440lm3co",
+      "url": "http://24.8.60.109:3001/assets/stamps/warp.webm",
+      "x": 305.3152818953473,
+      "y": 585.9104010974944,
+      "width": 500,
+      "height": 500,
+      "hidden": false
+    },
+    {
+      "id": "stamp_1781745525164s6cnt",
+      "url": "http://24.8.60.109:3001/assets/stamps/particles.webm",
+      "x": 295.43799551315965,
+      "y": 579.6424390007512,
+      "width": 500,
+      "height": 500,
+      "hidden": false
+    }
+  ],
+  "shapes": []
+}

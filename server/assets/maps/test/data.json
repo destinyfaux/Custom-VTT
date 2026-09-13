@@ -1,0 +1,14 @@
+{
+  "walls": [],
+  "lights": [],
+  "notes": [],
+  "tokens": [
+    {
+      "id": "u2",
+      "ownerId": "u2",
+      "type": "player"
+    }
+  ],
+  "stamps": [],
+  "shapes": []
+}

@@ -1,11 +1,11 @@
 @echo off
 setlocal
-title Z-Image Studio - Git Pull
+title Custom-VTT - Git Pull
 
 cd /d "%~dp0"
 
 echo ======================================================================
-echo Pulling Latest Changes from GitHub (destinyfaux/Z-Image-Studio)
+echo Pulling Latest Changes from GitHub (destinyfaux/Custom-VTT)
 echo ======================================================================
 
 REM 1. Verify Git availability

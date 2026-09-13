@@ -1,0 +1,26 @@
+How to add new maps:
+
+1. Create folders in this dir
+2. Name the folder as your map name
+3. Place images in the desired folder (Name your image "map")
+
+When you load your map image in the VTT, creating walls, placing lights etc. will automatically save a json containing all your map changes automatically. You don't need to save manually or do anything additional.
+
+We support many different files for maps:
+.png
+.jpeg
+.jpg
+.gif
+.mp4
+
+This allows for static maps 🗺 or animated maps.
+
+By default the grid adjusts to your map image and uses the standard 70px grid size. Tested resolutions are (1400x1400, 2500x1400, 2100 x 2100).
+
+Standard VTT Resolutions (70 DPI/PPI):
+Default Standard: 70 x 70 pixels per grid square.
+Common Small Map (20x20): 1400 x 1400 pixels.
+Common Large Map (30x30): 2100 x 2100 pixels.
+16:9 Horizontal (2K/4K): 2500x1400 or 3800x2100 pixels (for 38x21 grid).
+
+Using these resolutions will be hassle free, align with the grid and are natively supported by the VTT. The VTT supports zooming in/out + panning, making token movement and gameplay on screens with lower resolutions (1920x1080) smooth and seamless.

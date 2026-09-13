@@ -1,0 +1,442 @@
+{
+  "walls": [
+    {
+      "id": "17794998184881sqv3iiyu",
+      "x1": 658.8610478359907,
+      "y1": 1208.9293849658313,
+      "x2": 666.150341685649,
+      "y2": 53.57630979498856
+    },
+    {
+      "id": "1779499818488bdbbocxvm",
+      "x1": 666.150341685649,
+      "y1": 53.57630979498856,
+      "x2": 53.849658314350705,
+      "y2": 60.865603644646875
+    },
+    {
+      "id": "17794998184889qwexvbfl",
+      "x1": 53.849658314350705,
+      "y1": 60.865603644646875,
+      "x2": 53.849658314350705,
+      "y2": 1030.3416856492026
+    },
+    {
+      "id": "1779499818488ifjz968gx",
+      "x1": 53.849658314350705,
+      "y1": 1030.3416856492026,
+      "x2": 101.23006833712975,
+      "y2": 1075.8997722095671
+    },
+    {
+      "id": "1779499818488wm4bctnut",
+      "x1": 194.16856492027324,
+      "y1": 1167.0159453302958,
+      "x2": 234.25968109339397,
+      "y2": 1203.4624145785874
+    },
+    {
+      "id": "1779499818488qw70s0c6x",
+      "x1": 234.25968109339397,
+      "y1": 1203.4624145785874,
+      "x2": 658.8610478359907,
+      "y2": 1205.2847380410021
+    },
+    {
+      "id": "1779499854128xnjdhe4zr",
+      "x1": 1.0022779043279353,
+      "y1": 1433.0751708428243,
+      "x2": 2.8246013667425136,
+      "y2": -1.0933940774487885
+    },
+    {
+      "id": "177949985412892wtvb63l",
+      "x1": 2.8246013667425136,
+      "y1": -1.0933940774487885,
+      "x2": 713.530751708428,
+      "y2": 4.373576309794947
+    },
+    {
+      "id": "1779499854128oekh8b55d",
+      "x1": 713.530751708428,
+      "y1": 4.373576309794947,
+      "x2": 715.3530751708427,
+      "y2": 1434.897494305239
+    },
+    {
+      "id": "1779499854128j41i0hmnu",
+      "x1": 715.3530751708427,
+      "y1": 1434.897494305239,
+      "x2": 2.8246013667425136,
+      "y2": 1434.897494305239
+    },
+    {
+      "id": "1779500027307qlkjf5yiw",
+      "x1": 390.4328018223234,
+      "y1": 1091.9362186788155,
+      "x2": 554.4419134396354,
+      "y2": 1060.9567198177676
+    },
+    {
+      "id": "1779500027307oof3pies6",
+      "x1": 554.4419134396354,
+      "y1": 1060.9567198177676,
+      "x2": 552.6195899772209,
+      "y2": 672.8018223234624
+    },
+    {
+      "id": "1779500027307mwv3gqgtu",
+      "x1": 552.6195899772209,
+      "y1": 672.8018223234624,
+      "x2": 661.9589977220955,
+      "y2": 674.624145785877
+    }
+  ],
+  "lights": [
+    {
+      "id": "light_1779499876551q98zt",
+      "x": 128.5649202733484,
+      "y": 562.0045558086559,
+      "radius": 110,
+      "color": "#6cd9f4"
+    },
+    {
+      "id": "light_1779499878474o1k74",
+      "x": 361.82232346241443,
+      "y": 611.2072892938495,
+      "radius": 110,
+      "color": "#6cd9f4"
+    },
+    {
+      "id": "light_1779499882138liho0",
+      "x": 179.58997722095663,
+      "y": 285.01138952164,
+      "radius": 110,
+      "color": "#6cd9f4"
+    },
+    {
+      "id": "light_1779499885340pic2n",
+      "x": 454.7608200455579,
+      "y": 130.11389521640086,
+      "radius": 110,
+      "color": "#6cd9f4"
+    },
+    {
+      "id": "light_1779499887490mce3c",
+      "x": 615.1252847380408,
+      "y": 312.3462414578587,
+      "radius": 110,
+      "color": "#6cd9f4"
+    }
+  ],
+  "notes": [],
+  "tokens": [
+    {
+      "id": "npc_17814903505039i1pf",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "Beggar",
+      "avatarUrl": null,
+      "hpCur": 10,
+      "hpMax": 10,
+      "ac": 10,
+      "x": 0,
+      "y": 0,
+      "isPlaced": false,
+      "size": 1,
+      "conditions": [],
+      "hidden": false,
+      "monsterData": null
+    },
+    {
+      "id": "npc_178149040960634ty3",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "Child Elf",
+      "avatarUrl": null,
+      "hpCur": 10,
+      "hpMax": 10,
+      "ac": 10,
+      "x": 0,
+      "y": 0,
+      "isPlaced": false,
+      "size": 1,
+      "conditions": [],
+      "hidden": false,
+      "monsterData": null
+    },
+    {
+      "id": "npc_1781315969920msvud",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "Mr Beast",
+      "avatarUrl": "http://24.8.60.109:3001/assets/tokens/beast.jpg",
+      "hpCur": 10,
+      "hpMax": 10,
+      "ac": 10,
+      "x": 210,
+      "y": 1260,
+      "isPlaced": true,
+      "size": 1,
+      "conditions": [],
+      "hidden": false,
+      "monsterData": null
+    },
+    {
+      "id": "npc_1779499917101t7lk4",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "Bar Keep",
+      "avatarUrl": null,
+      "hpCur": 10,
+      "hpMax": 10,
+      "ac": 10,
+      "x": 140,
+      "y": 630,
+      "isPlaced": true,
+      "size": 1,
+      "conditions": [],
+      "hidden": false,
+      "monsterData": null
+    },
+    {
+      "id": "npc_1781325464788twosq",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "SILAS",
+      "avatarUrl": "http://24.8.60.109:3001/assets/tokens/Silas_Icon2.png",
+      "hpCur": 117,
+      "hpMax": 117,
+      "ac": 17,
+      "x": 350,
+      "y": 770,
+      "isPlaced": true,
+      "size": 1,
+      "conditions": [],
+      "hidden": false,
+      "monsterData": {
+        "source": "",
+        "type": "humanoid",
+        "size": "Medium",
+        "alignment": "Lawful Evil",
+        "ac": 17,
+        "ac_desc": "(Verdigris Breastplate, Mercury Silk",
+        "hp": 117,
+        "hp_formula": "(18d8 + 36)",
+        "speed": {
+          "walk": 30
+        },
+        "ability_scores": {
+          "STR": 11,
+          "DEX": 18,
+          "CON": 14,
+          "INT": 18,
+          "WIS": 15,
+          "CHA": 19
+        },
+        "saves": {
+          "DEX": 7,
+          "INT": 7,
+          "CHA": 7
+        },
+        "skills": {
+          "Deception": 10,
+          "Insight": 5,
+          "Persuasion": 10,
+          "Sleight of Hand": 7
+        },
+        "resistances": [
+          "Poison"
+        ],
+        "immunities": [],
+        "vulnerabilities": [],
+        "condition_immunities": [],
+        "senses": {
+          "passive_perception": 12,
+          "darkvision": 120
+        },
+        "languages": "Common, Modern Ash-Elven, Sura-Khai (Ancient script only)",
+        "cr": "8",
+        "traits": [
+          {
+            "name": "Ashen Acclimation",
+            "description": "Silas can see perfectly through heavy fog, smoke, and ash storms up to a distance of 120 feet."
+          },
+          {
+            "name": "Fungal Adaptation",
+            "description": "Silas has advantage on saving throws against poison and being poisoned."
+          },
+          {
+            "name": "Mercury Silk Ward",
+            "description": "Silas wears sashes of liquid-infused silk. While he is wearing no armor heavier than medium, he can add his Charisma modifier to his AC (included in AC)."
+          }
+        ],
+        "actions": [
+          {
+            "name": "Multiattack",
+            "description": "Silas makes two attacks with his Weaver's Caduceus."
+          },
+          {
+            "name": "Weaver's Caduceus",
+            "description": "Melee Relic Attack: +7 to hit, reach 5 ft., one target. Hit: 7 (1d6 + 4) bludgeoning damage plus 10 (3d6) force damage. If the target is a creature, Silas can choose to push the target up to 10 feet away from him."
+          },
+          {
+            "name": "Gravity Well (Recharge 5-6)",
+            "description": "Silas points his Caduceus at a point he can see within 60 feet. A 15-foot-radius sphere of distorted, ghostly cyan gravity erupts at that point. Each creature in that area must make a DC 15 Strength saving throw. On a failure, a creature takes 21 (6d6) force damage, is pulled to the center of the sphere, and is knocked Prone. On a success, a creature takes half damage and isn't pulled or knocked prone."
+          }
+        ],
+        "legendary_actions": [],
+        "reactions": [
+          {
+            "name": "Displacement Slip (3/Day)",
+            "description": "When Silas is hit by an attack, he can activate a Sura-Khai relic on his belt. He teleports up to 15 feet to an unoccupied space he can see, leaving a 10-foot-radius cloud of thick grey fog in the space he left. The fog lasts until the end of his next turn, heavily obscuring the area. The triggering attack misses Silas."
+          }
+        ],
+        "lair_actions": [],
+        "environment": "",
+        "description": ""
+      }
+    },
+    {
+      "id": "npc_1781325469569e0mq5",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "INSPECTOR VEX",
+      "avatarUrl": "http://24.8.60.109:3001/assets/tokens/Vex_Icon2.png",
+      "hpCur": 135,
+      "hpMax": 135,
+      "ac": 18,
+      "x": 420,
+      "y": 1260,
+      "isPlaced": true,
+      "size": 1,
+      "conditions": [],
+      "hidden": true,
+      "monsterData": {
+        "source": "",
+        "type": "humanoid",
+        "size": "Medium",
+        "alignment": "Lawful Evil",
+        "ac": 18,
+        "ac_desc": "Basalt-Iron Half-Plate",
+        "hp": 135,
+        "hp_formula": "(18d8 + 54)",
+        "speed": {
+          "walk": 30
+        },
+        "ability_scores": {
+          "STR": 18,
+          "DEX": 14,
+          "CON": 16,
+          "INT": 16,
+          "WIS": 14,
+          "CHA": 12
+        },
+        "saves": {
+          "STR": 7,
+          "CON": 6,
+          "WIS": 5
+        },
+        "skills": {
+          "Athletics": 7,
+          "Intimidation": 7,
+          "Investigation": 6,
+          "Perception": 5
+        },
+        "resistances": [
+          "Necrotic",
+          "Fire"
+        ],
+        "immunities": [],
+        "vulnerabilities": [],
+        "condition_immunities": [],
+        "senses": {
+          "passive_perception": 15,
+          "darkvision": 120
+        },
+        "languages": "Common, Modern Ash-Elven, Draconic (Undercommon)",
+        "cr": "8",
+        "traits": [
+          {
+            "name": "Ashen Acclimation",
+            "description": "Vex can see perfectly through heavy fog, smoke, and ash storms up to a distance of 120 feet."
+          },
+          {
+            "name": "Tactical Monocle",
+            "description": "Vex's Sura-Khai ocular eyepiece analyzes weaknesses. Vex's weapon attacks score a critical hit on a roll of 19 or 20. Additionally, his ranged attacks ignore half and three-quarters cover."
+          },
+          {
+            "name": "Brander's Aura",
+            "description": "Whenever an unbranded creature starts its turn within 10 feet of Vex, the heat radiating from his heavy basalt gauntlet forces them to make a DC 14 Constitution saving throw, taking 4 (1d8) fire damage on a failed save.\n"
+          }
+        ],
+        "actions": [
+          {
+            "name": "Multiattack",
+            "description": "Vex makes two attacks: one with his Jagged Dredge Blade and one with his Heavy Brander Gauntlet."
+          },
+          {
+            "name": "Jagged Dredge Blade",
+            "description": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 11 (2d6 + 4) slashing damage.\n"
+          },
+          {
+            "name": "Heavy Brander Gauntlet",
+            "description": "Melee Relic Attack: +7 to hit, reach 5 ft., one target. Hit: 7 (1d6 + 4) bludgeoning damage plus 9 (2d8) fire damage. If the target is a Medium or smaller creature, it is Grappled (escape DC 14). Until this grapple ends, the target takes 9 (2d8) fire damage at the start of each of its turns, and Vex cannot use the gauntlet to attack another target."
+          },
+          {
+            "name": "Dull Crimson Vent (Recharge 5-6)",
+            "description": "Vex releases a blast of superheated volcanic gas from his gauntlet in a 15-foot cone. Each creature in that area must make a DC 14 Dexterity saving throw, taking 27 (6d8) fire damage on a failed save, or half as much on a successful one."
+          }
+        ],
+        "legendary_actions": [],
+        "reactions": [
+          {
+            "name": "Tactical Parry",
+            "description": "Vex adds 3 to his AC against one melee attack that would hit him. To do so, Vex must see the attacker and be wielding a melee weapon."
+          }
+        ],
+        "lair_actions": [],
+        "environment": "",
+        "description": ""
+      }
+    }
+  ],
+  "stamps": [
+    {
+      "id": "stamp_1781494161406bxr86",
+      "url": "http://24.8.60.109:3001/assets/stamps/Crowd%20(8).png",
+      "x": 79.91320821779773,
+      "y": 888.6060005296494,
+      "width": 126,
+      "height": 124.33112582781457,
+      "hidden": false
+    },
+    {
+      "id": "stamp_17814942304390fjf4",
+      "url": "http://24.8.60.109:3001/assets/stamps/Crowd%20(15).png",
+      "x": 175.34455185180244,
+      "y": 427.3727617133067,
+      "width": 81,
+      "height": 112.69565217391305,
+      "hidden": false
+    },
+    {
+      "id": "stamp_178149427706139nss",
+      "url": "http://24.8.60.109:3001/assets/stamps/Crowd%20(10).png",
+      "x": 353.7996549135197,
+      "y": 897.65444507595,
+      "width": 106,
+      "height": 114.49789029535864,
+      "hidden": false
+    },
+    {
+      "id": "stamp_1781494303191oy77o",
+      "url": "http://24.8.60.109:3001/assets/stamps/Crowd%20(7).png",
+      "x": 480.0881408163452,
+      "y": 1225.0718594140371,
+      "width": 106,
+      "height": 149.92265193370164,
+      "hidden": false
+    }
+  ]
+}

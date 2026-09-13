@@ -1,0 +1,268 @@
+{
+  "walls": [
+    {
+      "id": "wall_1788571446310sh9qitdfg",
+      "x1": 0.4928069287111756,
+      "y1": 1399.0410714711843,
+      "x2": 1.041061167330385,
+      "y2": 975.8371162418783,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    },
+    {
+      "id": "wall_178857144631052vmakh45",
+      "x1": 1.041061167330385,
+      "y1": 975.8371162418783,
+      "x2": 2.5834115010871663,
+      "y2": 421.73081799150117,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    },
+    {
+      "id": "wall_1788571446310a6txxsocn",
+      "x1": 2.5834115010871663,
+      "y1": 421.73081799150117,
+      "x2": 2.5834115010871663,
+      "y2": 0.309023385019175,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    },
+    {
+      "id": "wall_1788571446310cibow639k",
+      "x1": 2.5834115010871663,
+      "y1": 0.309023385019175,
+      "x2": 912.20158084536,
+      "y2": -2.6587357319278815,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    },
+    {
+      "id": "wall_1788571446310yqtgxroj8",
+      "x1": 912.20158084536,
+      "y1": -2.6587357319278815,
+      "x2": 1752.8630984298247,
+      "y2": 1.7762886259329203,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    },
+    {
+      "id": "wall_1788571446310jv4c503nq",
+      "x1": 1752.8630984298247,
+      "y1": 1.7762886259329203,
+      "x2": 2398.55692453408,
+      "y2": 1.683186654231552,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    },
+    {
+      "id": "wall_17885714463100p9rmzuwl",
+      "x1": 2398.55692453408,
+      "y1": 1.683186654231552,
+      "x2": 2396.7195648828147,
+      "y2": 561.7586561044767,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    },
+    {
+      "id": "wall_1788571446310vmd19b16s",
+      "x1": 2396.7195648828147,
+      "y1": 561.7586561044767,
+      "x2": 2399.101175487827,
+      "y2": 1052.0949996781262,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    },
+    {
+      "id": "wall_178857144631062c1i9nx7",
+      "x1": 2399.101175487827,
+      "y1": 1052.0949996781262,
+      "x2": 2397.6543630553997,
+      "y2": 1399.546889681362,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    },
+    {
+      "id": "wall_1788571446310hmaji8j6i",
+      "x1": 2397.6543630553997,
+      "y1": 1399.546889681362,
+      "x2": 1400.2617375937111,
+      "y2": 1399.3981188744579,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    },
+    {
+      "id": "wall_17885714463101e4k59har",
+      "x1": 1400.2617375937111,
+      "y1": 1399.3981188744579,
+      "x2": 630.2841443084299,
+      "y2": 1396.7726651911446,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    },
+    {
+      "id": "wall_1788571446310wfefjc99x",
+      "x1": 630.2841443084299,
+      "y1": 1396.7726651911446,
+      "x2": 0.1609421498286472,
+      "y2": 1398.1431693433753,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    }
+  ],
+  "lights": [
+    {
+      "id": "light_17885713546662274s",
+      "x": 1372.0323648107349,
+      "y": 797.0624180555086,
+      "radius": 300,
+      "color": "#239be7"
+    }
+  ],
+  "notes": [],
+  "tokens": [
+    {
+      "id": "npc_1788583547815e5fap",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "Charnel-Stipe Colossus",
+      "avatarUrl": "https://midwest-millions-tue-staying.trycloudflare.com/assets/tokens/THE%20CHARNEL-STIPE%20COLOSSUS.png",
+      "hpCur": 178,
+      "hpMax": 178,
+      "ac": 17,
+      "x": 0,
+      "y": 0,
+      "isPlaced": false,
+      "size": 3,
+      "conditions": [],
+      "hidden": false,
+      "monsterData": {
+        "source": "",
+        "type": "undead",
+        "size": "Huge",
+        "alignment": "Neutral Evil",
+        "ac": 17,
+        "ac_desc": "Bone Plating, Petrified Stipe & Mimic Hide",
+        "hp": 178,
+        "hp_formula": "(17d12+68)",
+        "speed": {
+          "walk": 30
+        },
+        "ability_scores": {
+          "STR": 24,
+          "DEX": 8,
+          "CON": 19,
+          "INT": 4,
+          "WIS": 11,
+          "CHA": 5
+        },
+        "saves": {
+          "STR": 11,
+          "CON": 8,
+          "WIS": 4
+        },
+        "skills": {},
+        "resistances": [
+          "cold",
+          "fire"
+        ],
+        "immunities": [
+          "necrotic",
+          "poison",
+          "psychic",
+          "bludgeoning",
+          "piercing",
+          "slashing"
+        ],
+        "vulnerabilities": [],
+        "condition_immunities": [
+          "charmed",
+          "exhaustion",
+          "frightened",
+          "paralyzed",
+          "petrified",
+          "poisoned"
+        ],
+        "senses": {
+          "passive_perception": 10,
+          "darkvision": 120
+        },
+        "languages": "Understands Sura-Khai and Common (bound to summoner's commands)",
+        "cr": "9",
+        "traits": [
+          {
+            "name": "Adhesive Hide (from Mimic Skin)",
+            "description": "The colossus's outer flesh is rubbery and adhesive. When a creature hits the colossus with a melee weapon attack, the attacker must succeed on a DC 16 Strength saving throw or the weapon becomes stuck to the colossus's shifting hide. A creature can use an action to make a DC 16 Strength check to pull a stuck weapon free."
+          },
+          {
+            "name": "Garnet Hearth (from 1x Garnet)",
+            "description": "A smoldering volcanic garnet serves as the colossus's engine. Its melee strikes and ground stomps deal additional fire damage (included in attacks). Grants resistance to cold and fire."
+          },
+          {
+            "name": "Woven Resistance (from Operator Robes)",
+            "description": "The tattered Sura-Khai robes woven into its frame grant the colossus advantage on saving throws against spells and other magical effects."
+          },
+          {
+            "name": "Dual-Life Frenzy: Undead Fortitude",
+            "description": "From 8 Dead & 8 Live Chickens. If damage reduces the colossus to 0 hit points, it must make a Constitution saving throw with a DC of 5 + the damage taken, unless the damage is radiant or from a critical hit. On a success, it drops to 1 hit point instead."
+          },
+          {
+            "name": "Dual-Life Frenzy: Death Thrash",
+            "description": "When the colossus is finally destroyed, the eight restless spirits violently burst from its chest. Each creature within 10 feet must make a DC 15 Dexterity saving throw, taking 14 (4d6) necrotic damage on a failed save, or half as much on a successful one."
+          },
+          {
+            "name": "Siege Monster",
+            "description": "The colossus deals double damage to objects and structures. Immune to bludgeoning, piercing, and slashing from nonmagical attacks that aren't adamantine."
+          }
+        ],
+        "actions": [
+          {
+            "name": "Multiattack",
+            "description": "The Colossus makes two attacks: one with its Bladed Staff Arm and one with its Fanged Bone Slam."
+          },
+          {
+            "name": "Bladed Staff Arm",
+            "description": "Melee weapon attack: +11 to hit, reach 10ft, one target. Hit: 20 (3d8+7) slashing damage plus 4 (1d8) fire damage from the internal garnet core."
+          },
+          {
+            "name": "Fanged Bone Slam",
+            "description": "Melee weapon attack: +11 to hit, reach 10ft, one target. Hit: 18 (2d10+7) bludgeoning damage plus 7 (2d6) piercing/poison damage as four giant serpent fangs drive deep. Target must succeed on DC 16 Constitution saving throw or be poisoned until end of its next turn."
+          },
+          {
+            "name": "Charnel Loom-Quake",
+            "description": "(Recharge 5-6) The colossus stomps its bone-encrusted foot, discharging kinetic force and necrotic shrapnel in a 20-foot radius. Each creature on the ground in that area must make a DC 16 Dexterity saving throw. On failure: 22 (4d10) force damage plus 14 (4d6) necrotic damage and knocked prone. On success: half damage and not knocked prone."
+          }
+        ],
+        "legendary_actions": [],
+        "reactions": [],
+        "lair_actions": [],
+        "environment": "",
+        "description": "Huge Undead (Construct), Neutral Evil. A towering horrific fusion of ancient engineering and dark necromancy. Petrified giant mushroom wood bound by pale shifting mimic hide and interlocking ribcages. A rusted Sura-Khai helmet crowns its splintered skull, tattered operator robes hang like burial shrouds. In the center of its bone-plated chest burns a single glowing red garnet, pulsing with the erratic heartbeat of sixteen sacrificed lives."
+      },
+      "timesDowned": 0,
+      "deathSaveSuccesses": 0,
+      "deathSaveFailures": 0,
+      "isStable": false,
+      "isDead": false,
+      "wounds": [],
+      "woundCount": 0,
+      "visionRadius": 120,
+      "darkvisionRadius": 0,
+      "hasTorch": false,
+      "torchActive": false
+    }
+  ],
+  "stamps": [],
+  "shapes": []
+}

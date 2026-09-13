@@ -1,0 +1,673 @@
+{
+  "walls": [
+    {
+      "id": "wall_1788571548000w4wp22ehv",
+      "x1": -0.11735887341877965,
+      "y1": 1398.7841085008026,
+      "x2": 2.72899070755493,
+      "y2": 765.8530405768244,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    },
+    {
+      "id": "wall_178857154800069mv3bc1d",
+      "x1": 2.72899070755493,
+      "y1": 765.8530405768244,
+      "x2": 0.44935415286915875,
+      "y2": -0.09239786604802283,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    },
+    {
+      "id": "wall_17885715480001e3ayzvlz",
+      "x1": 0.44935415286915875,
+      "y1": -0.09239786604802283,
+      "x2": 839.9074543394001,
+      "y2": 1.3433175445388252,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    },
+    {
+      "id": "wall_1788571548000kxey0z4bk",
+      "x1": 839.9074543394001,
+      "y1": 1.3433175445388252,
+      "x2": 1608.1968545491761,
+      "y2": 3.639989465088805,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    },
+    {
+      "id": "wall_1788571548000qgnnjv1we",
+      "x1": 1608.1968545491761,
+      "y1": 3.639989465088805,
+      "x2": 2396.331912773,
+      "y2": 3.639989465088805,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    },
+    {
+      "id": "wall_178857154800074gvb36of",
+      "x1": 2396.331912773,
+      "y1": 3.639989465088805,
+      "x2": 2394.0138684841063,
+      "y2": 624.8758588885734,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    },
+    {
+      "id": "wall_1788571548000yaqyd5d04",
+      "x1": 2394.0138684841063,
+      "y1": 624.8758588885734,
+      "x2": 2394.0138684841063,
+      "y2": 1044.4418751783148,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    },
+    {
+      "id": "wall_1788571548000eq4sn61wp",
+      "x1": 2394.0138684841063,
+      "y1": 1044.4418751783148,
+      "x2": 2391.695824195213,
+      "y2": 1394.4665628012483,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    },
+    {
+      "id": "wall_17885715480003bq7bieks",
+      "x1": 2391.695824195213,
+      "y1": 1394.4665628012483,
+      "x2": 1399.5728685487522,
+      "y2": 1396.784607090142,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    },
+    {
+      "id": "wall_1788571548000b8cow3o2x",
+      "x1": 1399.5728685487522,
+      "y1": 1396.784607090142,
+      "x2": 488.5814630135676,
+      "y2": 1399.1026513790355,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    },
+    {
+      "id": "wall_1788571548000elef1j6sa",
+      "x1": 488.5814630135676,
+      "y1": 1399.1026513790355,
+      "x2": -0.2924869014513357,
+      "y2": 1398.2551216819327,
+      "wallType": "normal",
+      "isOpen": false,
+      "isLocked": false
+    }
+  ],
+  "lights": [
+    {
+      "id": "light_1788571486186kcap4",
+      "x": 1789.3250391051838,
+      "y": 1287.9863520485878,
+      "radius": 210,
+      "color": "#e75d23"
+    },
+    {
+      "id": "light_1788571488477k7a2h",
+      "x": 1444.5388833939478,
+      "y": 223.73313152951278,
+      "radius": 210,
+      "color": "#e75d23"
+    },
+    {
+      "id": "light_1788571489919q2ddz",
+      "x": 240.77681374315898,
+      "y": 261.59981915097796,
+      "radius": 210,
+      "color": "#e75d23"
+    },
+    {
+      "id": "light_1788571491969bi835",
+      "x": 117.21183308364091,
+      "y": 640.2666953656302,
+      "radius": 210,
+      "color": "#e75d23"
+    },
+    {
+      "id": "light_1788571493348nq4jj",
+      "x": 609.4787721626888,
+      "y": 508.72978047001413,
+      "radius": 210,
+      "color": "#e75d23"
+    },
+    {
+      "id": "light_1788571496610lcrzf",
+      "x": 2096.2445071949546,
+      "y": 271.5647369461004,
+      "radius": 360,
+      "color": "#e75d23"
+    }
+  ],
+  "notes": [],
+  "tokens": [
+    {
+      "id": "npc_1788574623199miyy3",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "Pumice Burrower",
+      "avatarUrl": null,
+      "hpCur": 0,
+      "hpMax": 114,
+      "ac": 16,
+      "x": 1120,
+      "y": 70,
+      "isPlaced": true,
+      "size": 3,
+      "conditions": [],
+      "hidden": false,
+      "monsterData": {
+        "source": "",
+        "type": "monstrosity",
+        "size": "Huge",
+        "alignment": "Unaligned",
+        "ac": 16,
+        "ac_desc": "Segmented Basalt Shell",
+        "hp": 114,
+        "hp_formula": "(12d12+36)",
+        "speed": {
+          "walk": 30,
+          "burrow": 30
+        },
+        "ability_scores": {
+          "STR": 21,
+          "DEX": 10,
+          "CON": 17,
+          "INT": 2,
+          "WIS": 10,
+          "CHA": 4
+        },
+        "saves": {},
+        "skills": {},
+        "resistances": [
+          "fire"
+        ],
+        "immunities": [],
+        "vulnerabilities": [],
+        "condition_immunities": [
+          "blinded",
+          "prone"
+        ],
+        "senses": {
+          "passive_perception": 10,
+          "blindsight": 30,
+          "tremorsense": 60
+        },
+        "languages": "",
+        "cr": "7",
+        "traits": [
+          {
+            "name": "Ash-Plume Eruption",
+            "description": "When the burrower bursts from the ground, all creatures within 10 feet must succeed on a DC 15 Dexterity saving throw or be blinded by superheated ash until the end of their next turn. Can burrow through solid porous rock, leaving a 10ft tunnel."
+          }
+        ],
+        "actions": [
+          {
+            "name": "Multiattack",
+            "description": "Makes one Bite attack and one Tail Slap attack."
+          },
+          {
+            "name": "Bite",
+            "description": "Melee weapon attack: +8 to hit, reach 10ft, one target. Hit: 18 (2d12+5) piercing damage plus 7 (2d6) fire damage. If target is Medium or smaller, it is swallowed whole. While swallowed, creature is blinded and restrained, has total cover against attacks outside burrower, and takes 10 (3d6) acid damage at start of each burrower's turns."
+          },
+          {
+            "name": "Tail Slap",
+            "description": "Melee weapon attack: +8 to hit, reach 15ft, one target. Hit: 14 (2d8+5) bludgeoning damage. Target must make DC 15 Strength saving throw or be pushed 15 feet back and knocked prone."
+          }
+        ],
+        "legendary_actions": [],
+        "reactions": [],
+        "lair_actions": [],
+        "environment": "",
+        "description": "Huge Monstrosity, segmented armored worm that swims through ash and porous stone."
+      },
+      "timesDowned": 1,
+      "deathSaveSuccesses": 0,
+      "deathSaveFailures": 0,
+      "isStable": false,
+      "isDead": false,
+      "wounds": [],
+      "woundCount": 0,
+      "visionRadius": 120,
+      "darkvisionRadius": 0,
+      "hasTorch": false,
+      "torchActive": false
+    },
+    {
+      "id": "npc_1788574643514y6tgk",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "Swarm of Silt-Ticks",
+      "avatarUrl": null,
+      "hpCur": 24,
+      "hpMax": 24,
+      "ac": 12,
+      "x": 1330,
+      "y": 70,
+      "isPlaced": true,
+      "size": 1,
+      "conditions": [],
+      "hidden": false,
+      "monsterData": {
+        "source": "",
+        "type": "beast",
+        "size": "Medium",
+        "alignment": "Unaligned",
+        "ac": 12,
+        "ac_desc": "",
+        "hp": 24,
+        "hp_formula": "(7d8-7)",
+        "speed": {
+          "walk": 20,
+          "climb": 20,
+          "burrow": 10
+        },
+        "ability_scores": {
+          "STR": 3,
+          "DEX": 15,
+          "CON": 9,
+          "INT": 1,
+          "WIS": 10,
+          "CHA": 2
+        },
+        "saves": {},
+        "skills": {},
+        "resistances": [
+          "bludgeoning",
+          "piercing",
+          "slashing"
+        ],
+        "immunities": [],
+        "vulnerabilities": [],
+        "condition_immunities": [
+          "charmed",
+          "frightened",
+          "grappled",
+          "paralyzed",
+          "petrified",
+          "prone",
+          "restrained",
+          "stunned"
+        ],
+        "senses": {
+          "passive_perception": 10,
+          "blindsight": 30
+        },
+        "languages": "",
+        "cr": "1",
+        "traits": [
+          {
+            "name": "Swarm",
+            "description": "The swarm can occupy another creature's space and vice versa. It can move through any opening large enough for a Tiny insect. It can't regain hit points or gain temporary hit points."
+          },
+          {
+            "name": "Ash-Drift Ambush",
+            "description": "The swarm has advantage on Dexterity (Stealth) checks while submerged under fine ash or loose silt."
+          }
+        ],
+        "actions": [
+          {
+            "name": "Bites",
+            "description": "Melee weapon attack: +4 to hit, reach 0ft, one target in the swarm's space. Hit: 10 (4d4) piercing damage, or 5 (2d4) if the swarm has half its hit points or fewer. Target must make DC 10 Constitution save or contract Ashen Rash - disadvantage on Stealth checks due to violent coughing for 1 hour."
+          }
+        ],
+        "legendary_actions": [],
+        "reactions": [],
+        "lair_actions": [],
+        "environment": "",
+        "description": "Medium Swarm of Tiny Beasts, nests in rotting giant mushroom stems and ash-drifts."
+      },
+      "timesDowned": 0,
+      "deathSaveSuccesses": 0,
+      "deathSaveFailures": 0,
+      "isStable": false,
+      "isDead": false,
+      "wounds": [],
+      "woundCount": 0,
+      "visionRadius": 120,
+      "darkvisionRadius": 0,
+      "hasTorch": false,
+      "torchActive": false
+    },
+    {
+      "id": "npc_1788574659508c0s6b",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "Ash Drake",
+      "avatarUrl": null,
+      "hpCur": 65,
+      "hpMax": 65,
+      "ac": 16,
+      "x": 1330,
+      "y": 210,
+      "isPlaced": true,
+      "size": 1,
+      "conditions": [],
+      "hidden": false,
+      "monsterData": {
+        "source": "",
+        "type": "dragon",
+        "size": "Medium",
+        "alignment": "Unaligned",
+        "ac": 16,
+        "ac_desc": "Natural Armor",
+        "hp": 65,
+        "hp_formula": "(10d8+20)",
+        "speed": {
+          "walk": 40
+        },
+        "ability_scores": {
+          "STR": 16,
+          "DEX": 20,
+          "CON": 14,
+          "INT": 4,
+          "WIS": 12,
+          "CHA": 7
+        },
+        "saves": {
+          "DEX": 8
+        },
+        "skills": {
+          "Acrobatics": 8,
+          "Stealth": 8
+        },
+        "resistances": [
+          "fire"
+        ],
+        "immunities": [],
+        "vulnerabilities": [],
+        "condition_immunities": [],
+        "senses": {
+          "passive_perception": 11,
+          "darkvision": 60
+        },
+        "languages": "Draconic",
+        "cr": "4",
+        "traits": [
+          {
+            "name": "Stabilizing Chase",
+            "description": "When the Ash Drake uses the Dash action, it drops into a quadrupedal stance. Until the start of its next turn, its speed is 60 feet and it has advantage on Dexterity saving throws to navigate difficult or unstable terrain."
+          },
+          {
+            "name": "Skirmish (1/Turn)",
+            "description": "The Drake deals an extra 7 (2d6) damage when it hits a target with a weapon attack and has moved at least 20 feet straight toward the target immediately before the hit."
+          }
+        ],
+        "actions": [
+          {
+            "name": "Multiattack",
+            "description": "The Ash Drake makes two Ripping Claw attacks and one Grasping Bite attack."
+          },
+          {
+            "name": "Grasping Bite",
+            "description": "Melee weapon attack: +8 to hit, reach 5ft, one target. Hit: 11 (2d6+5) piercing damage. If the target is Medium or smaller, it is grappled (escape DC 16). Until this grapple ends, the Drake can only use its Grasping Bite on that target."
+          },
+          {
+            "name": "Ripping Claws",
+            "description": "Melee weapon attack: +8 to hit, reach 5ft, one target. Hit: 14 (2d8+5) slashing damage."
+          }
+        ],
+        "legendary_actions": [],
+        "reactions": [
+          {
+            "name": "Predatory Reflexes",
+            "description": "When a creature misses the Ash Drake with a melee attack, the Drake can move up to half its speed without provoking opportunity attacks."
+          }
+        ],
+        "lair_actions": [],
+        "environment": "",
+        "description": ""
+      },
+      "timesDowned": 0,
+      "deathSaveSuccesses": 0,
+      "deathSaveFailures": 0,
+      "isStable": false,
+      "isDead": false,
+      "wounds": [],
+      "woundCount": 0,
+      "visionRadius": 120,
+      "darkvisionRadius": 0,
+      "hasTorch": false,
+      "torchActive": false
+    },
+    {
+      "id": "npc_1788574660416iqg34",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "Ash Drake",
+      "avatarUrl": null,
+      "hpCur": 65,
+      "hpMax": 65,
+      "ac": 16,
+      "x": 980,
+      "y": 140,
+      "isPlaced": true,
+      "size": 1,
+      "conditions": [],
+      "hidden": false,
+      "monsterData": {
+        "source": "",
+        "type": "dragon",
+        "size": "Medium",
+        "alignment": "Unaligned",
+        "ac": 16,
+        "ac_desc": "Natural Armor",
+        "hp": 65,
+        "hp_formula": "(10d8+20)",
+        "speed": {
+          "walk": 40
+        },
+        "ability_scores": {
+          "STR": 16,
+          "DEX": 20,
+          "CON": 14,
+          "INT": 4,
+          "WIS": 12,
+          "CHA": 7
+        },
+        "saves": {
+          "DEX": 8
+        },
+        "skills": {
+          "Acrobatics": 8,
+          "Stealth": 8
+        },
+        "resistances": [
+          "fire"
+        ],
+        "immunities": [],
+        "vulnerabilities": [],
+        "condition_immunities": [],
+        "senses": {
+          "passive_perception": 11,
+          "darkvision": 60
+        },
+        "languages": "Draconic",
+        "cr": "4",
+        "traits": [
+          {
+            "name": "Stabilizing Chase",
+            "description": "When the Ash Drake uses the Dash action, it drops into a quadrupedal stance. Until the start of its next turn, its speed is 60 feet and it has advantage on Dexterity saving throws to navigate difficult or unstable terrain."
+          },
+          {
+            "name": "Skirmish (1/Turn)",
+            "description": "The Drake deals an extra 7 (2d6) damage when it hits a target with a weapon attack and has moved at least 20 feet straight toward the target immediately before the hit."
+          }
+        ],
+        "actions": [
+          {
+            "name": "Multiattack",
+            "description": "The Ash Drake makes two Ripping Claw attacks and one Grasping Bite attack."
+          },
+          {
+            "name": "Grasping Bite",
+            "description": "Melee weapon attack: +8 to hit, reach 5ft, one target. Hit: 11 (2d6+5) piercing damage. If the target is Medium or smaller, it is grappled (escape DC 16). Until this grapple ends, the Drake can only use its Grasping Bite on that target."
+          },
+          {
+            "name": "Ripping Claws",
+            "description": "Melee weapon attack: +8 to hit, reach 5ft, one target. Hit: 14 (2d8+5) slashing damage."
+          }
+        ],
+        "legendary_actions": [],
+        "reactions": [
+          {
+            "name": "Predatory Reflexes",
+            "description": "When a creature misses the Ash Drake with a melee attack, the Drake can move up to half its speed without provoking opportunity attacks."
+          }
+        ],
+        "lair_actions": [],
+        "environment": "",
+        "description": ""
+      },
+      "timesDowned": 0,
+      "deathSaveSuccesses": 0,
+      "deathSaveFailures": 0,
+      "isStable": false,
+      "isDead": false,
+      "wounds": [],
+      "woundCount": 0,
+      "visionRadius": 120,
+      "darkvisionRadius": 0,
+      "hasTorch": false,
+      "torchActive": false
+    },
+    {
+      "id": "npc_1788576338711pdvjw",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "SPIRIT WEAPON",
+      "avatarUrl": null,
+      "hpCur": 10,
+      "hpMax": 10,
+      "ac": 10,
+      "x": 1190,
+      "y": 420,
+      "isPlaced": true,
+      "size": 1,
+      "conditions": [],
+      "hidden": false,
+      "monsterData": null,
+      "timesDowned": 0,
+      "deathSaveSuccesses": 0,
+      "deathSaveFailures": 0,
+      "isStable": false,
+      "isDead": false,
+      "wounds": [],
+      "woundCount": 0,
+      "visionRadius": 120,
+      "darkvisionRadius": 0,
+      "hasTorch": false,
+      "torchActive": false
+    },
+    {
+      "id": "npc_1788576370608888so",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "Pumice Burrower",
+      "avatarUrl": null,
+      "hpCur": 0,
+      "hpMax": 114,
+      "ac": 16,
+      "x": 1120,
+      "y": 840,
+      "isPlaced": true,
+      "size": 3,
+      "conditions": [],
+      "hidden": false,
+      "monsterData": {
+        "source": "",
+        "type": "monstrosity",
+        "size": "Huge",
+        "alignment": "Unaligned",
+        "ac": 16,
+        "ac_desc": "Segmented Basalt Shell",
+        "hp": 114,
+        "hp_formula": "(12d12+36)",
+        "speed": {
+          "walk": 30,
+          "burrow": 30
+        },
+        "ability_scores": {
+          "STR": 21,
+          "DEX": 10,
+          "CON": 17,
+          "INT": 2,
+          "WIS": 10,
+          "CHA": 4
+        },
+        "saves": {},
+        "skills": {},
+        "resistances": [
+          "fire"
+        ],
+        "immunities": [],
+        "vulnerabilities": [],
+        "condition_immunities": [
+          "blinded",
+          "prone"
+        ],
+        "senses": {
+          "passive_perception": 10,
+          "blindsight": 30,
+          "tremorsense": 60
+        },
+        "languages": "",
+        "cr": "7",
+        "traits": [
+          {
+            "name": "Ash-Plume Eruption",
+            "description": "When the burrower bursts from the ground, all creatures within 10 feet must succeed on a DC 15 Dexterity saving throw or be blinded by superheated ash until the end of their next turn. Can burrow through solid porous rock, leaving a 10ft tunnel."
+          }
+        ],
+        "actions": [
+          {
+            "name": "Multiattack",
+            "description": "Makes one Bite attack and one Tail Slap attack."
+          },
+          {
+            "name": "Bite",
+            "description": "Melee weapon attack: +8 to hit, reach 10ft, one target. Hit: 18 (2d12+5) piercing damage plus 7 (2d6) fire damage. If target is Medium or smaller, it is swallowed whole. While swallowed, creature is blinded and restrained, has total cover against attacks outside burrower, and takes 10 (3d6) acid damage at start of each burrower's turns."
+          },
+          {
+            "name": "Tail Slap",
+            "description": "Melee weapon attack: +8 to hit, reach 15ft, one target. Hit: 14 (2d8+5) bludgeoning damage. Target must make DC 15 Strength saving throw or be pushed 15 feet back and knocked prone."
+          }
+        ],
+        "legendary_actions": [],
+        "reactions": [],
+        "lair_actions": [],
+        "environment": "",
+        "description": "Huge Monstrosity, segmented armored worm that swims through ash and porous stone."
+      },
+      "timesDowned": 1,
+      "deathSaveSuccesses": 0,
+      "deathSaveFailures": 0,
+      "isStable": false,
+      "isDead": false,
+      "wounds": [],
+      "woundCount": 0,
+      "visionRadius": 120,
+      "darkvisionRadius": 0,
+      "hasTorch": false,
+      "torchActive": false
+    }
+  ],
+  "stamps": [],
+  "shapes": []
+}

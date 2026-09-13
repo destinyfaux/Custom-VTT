@@ -1,0 +1,946 @@
+Master Technical Document: Custom VTT
+
+Version: 6.7
+Date: 2026-06-18
+
+Table of Contents
+
+1.  Project Overview
+2.  Core Philosophy & Design Principles
+3.  Tech Stack
+4.  Project Structure & File Organization
+5.  Architecture & Data Flow
+      - 5.1 Core Flow
+      - 5.2 Weather System
+      - 5.3 Volumetric Weather Parallax & Physics
+      - 5.4 Dynamic Media Table Asset
+      - 5.5 Socket Listener Stability & Ref Patterns
+      - 5.6 State Versioning & Auto‑Resync
+      - 5.7 Connection Lifecycle
+6.  Key Modules & Components
+      - 6.1 Server (VTTManager.js & server.js)
+      - 6.2 Client (CanvasMap.jsx, AudioPlayer, WeatherPicker)
+      - 6.3 Canvas Engine & Visibility
+      - 6.4 Character Sheet Pop-out Modal (Option B)
+      - 6.5 DM Tools (Monster Browser, Handouts, Audio, Tokens, Stamps, Notes,
+        Check Requests)
+      - 6.6 Combat & Initiative
+      - 6.7 SRD Integration & Automation (Character & Monster SRD, SRD Manager)
+      - 6.8 Spell FX System (Particle Engine, FX Tool)
+      - 6.9 Shape Tool (Persistent Area Markers)
+      - 6.10 System Shock, Wounds & Interconnected Rests
+      - 6.11 Automated Death Saves & Turn Tracking
+7.  Feature Inventory
+      - 7.1 Completed Features (v6.7)
+      - 7.2 Recent Bugfixes & Improvements
+      - 7.3 Known Bugs and Issues
+      - 7.4 Planned Features
+8.  Pitfalls, Lessons Learned & Debugging
+9.  Setup & Deployment
+      - 9.1 Local Development
+      - 9.2 Adding Weather Assets
+      - 9.3 Changing the Table Background
+      - 9.4 Remote Play
+      - 9.5 Security Notes
+10. Usage Guide
+      - 10.1 Player Quick Start
+      - 10.2 DM Quick Guide
+11. Roadmap
+12. Changelog
+
+Project Overview
+
+A lightweight, web‑based Virtual Tabletop for Dungeons & Dragons 5th Edition.
+Replaces physical maps, tokens, and character sheets while keeping the Dungeon
+Master in control. Built for small to medium groups, with emphasis on ease of
+use, visual clarity, and extensibility.
+
+Key Principles:
+
+  - Manual over automation – no auto‑damage calculation, no enforced turn order.
+  - Server authority – Node.js backend as single source of truth.
+  - Frictionless – no accounts, UUID‑based identification, optional room code.
+  - SRD‑powered character creation & monster bestiary (334+ creatures).
+
+Core Philosophy & Design Principles
+
+1.  Digital Table, Not a Video Game – tools that enhance, not replace, human
+    judgment.
+2.  Clean, Dark UI – Tailwind dark/gold theme for low eye strain.
+3.  Canvas for Map, React for UI – separation of concerns.
+4.  Minimal Dependencies, Maximum Control – no heavy state management.
+5.  Everything is a File – maps, tokens, stamps, handouts, music, SFX,
+    pre‑mades, SRD, weather assets, table textures.
+
+Tech Stack
+
+| Layer          | Technology                                                  | Purpose                                                                                        |
+| -------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Frontend       | React 18 (Vite)                                             | UI, character sheets, sidebars, dialogs, media pre‑fetch routing                               |
+| Canvas Engine  | HTML5 Canvas API (vanilla JS)                               | Map rendering, fog, lighting, tokens, rulers, pings, weather overlays, live display table loop |
+| Backend        | Node.js + Express                                           | API routes, dynamic asset directory scanners, static file serving                              |
+| Real‑time      | Socket.IO (WebSocket only)                                  | Bi‑directional state sync, compressed messages                                                 |
+| Styling        | Tailwind CSS + custom CSS                                   | Dark/gold theme, responsive layout                                                             |
+| Persistence    | Server‑side JSON files (`data.json`)                        | Map data (walls, lights, notes, tokens, stamps, shapes)                                        |
+| Client Storage | `localStorage`                                              | User UUID, role, character sheet, UI settings                                                  |
+| Build Tool     | Vite                                                        | Fast HMR, environment variables                                                                |
+| Security       | Room code (optional), payload validation, auto‑IP detection |                                                                                                |
+| Compression    | `perMessageDeflate` (gzip) on Socket.IO                     | Reduces payload size by 60‑80%                                                                 |
+
+Project Structure & File Organization
+
+server/
+├── assets/
+│   ├── weather/
+│   │   ├── rain/
+│   │   │   ├── overlay.png  (seamless loop)
+│   │   │   └── sound.mp3    (looping weather)
+│   │   └── fog/, ash_storm/, blizzard/, snow/
+│   ├── table-texture.*         (supports .jpg, .png, .mp4, .webm, .mov)
+│   ├── maps/                   # one subfolder per map, containing image(s) + data.json
+│   ├── tokens/                 # token images
+│   ├── stamps/                 # stamp/decal images
+│   ├── handouts/               # handout media
+│   ├── music/                  # ambient music files
+│   ├── sfx/                    # sound effect files
+│   ├── login/                  # background for login screen
+│   └── premades/               # pre‑made character JSON files
+├── routes/
+│   ├── srdRoutes.js            # character SRD API
+│   └── srdMonsterRoutes.js     # monster SRD API
+├── VTTManager.js
+└── server.js                   # hosts weather & table‑texture dynamic API endpoints
+
+client/
+├── .env
+├── index.html
+├── package.js
+├── package-lock.js
+├── tailwind.config.js
+├── vite.config.js
+├── src/
+│ ├── App.css
+│ ├── App.jsx
+│ ├── auth.js
+│ ├── config.js
+│ ├── index.css
+│ ├── main.jsx
+│ ├── socket.js
+│ ├── assets/
+│ │ ├── hero.png
+│ │ ├── react.svg
+│ │ └── vite.svg
+│ ├── components/
+│ │ ├── AudioPlayer.jsx
+│ │ ├── BottomToolbar.jsx
+│ │ ├── CanvasMap.jsx
+│ │ ├── CheckPrompt.jsx
+│ │ ├── CheckRequestPanel.jsx
+│ │ ├── CombatPanel.jsx
+│ │ ├── ConnectionStatus.jsx
+│ │ ├── DeathSaveModal.jsx        # Automated death save prompts & calculations
+│ │ ├── DiceTray.jsx
+│ │ ├── DMAudioDeck.jsx
+│ │ ├── DMCharacterViewer.jsx
+│ │ ├── DMControls.jsx
+│ │ ├── DMHandouts.jsx
+│ │ ├── DMNetworkPanel.jsx
+│ │ ├── FXPanel.jsx
+│ │ ├── HandoutPicker.jsx
+│ │ ├── InitiativeBar.jsx
+│ │ ├── LoginScreen.jsx
+│ │ ├── MonsterBrowser.jsx
+│ │ ├── MonsterStatBlock.jsx
+│ │ ├── OptionsModal.jsx
+│ │ ├── PlayerPrompt.jsx
+│ │ ├── ShapePanel.jsx             # Shape tool panel
+│ │ ├── Sidebar.jsx
+│ │ ├── StampPicker.jsx
+│ │ ├── SystemShockModal.jsx       # Massive/Critical/Excessive damage modal
+│ │ ├── TokenPicker.jsx
+│ │ ├── TokenTray.jsx
+│ │ ├── WeatherPicker.jsx
+│ │ └── character/
+│ │ ├── ActionsCard.jsx
+│ │ ├── AppearanceCard.jsx
+│ │ ├── BACKUP/ (backup folder, contents not listed)
+│ │ ├── CharacterSheet.jsx
+│ │ ├── CollapsibleSection.jsx
+│ │ ├── CombatCard.jsx
+│ │ ├── FeatsCard.jsx
+│ │ ├── FeaturesCard.jsx
+│ │ ├── GearModal.jsx
+│ │ ├── JournalCard.jsx
+│ │ ├── LevelUpModal.jsx
+│ │ ├── PremadeBrowser.jsx
+│ │ ├── SensesCard.jsx
+│ │ ├── SkillsCard.jsx
+│ │ ├── SpellItem.jsx
+│ │ ├── SpellsCard.jsx
+│ │ └── StatCard.jsx
+│ ├── data/
+│ │ ├── SRD_Content.txt
+│ │ ├── srd_data.json
+│ │ └── srd_monsters.json
+│ ├── hooks/
+│ │ ├── useResizable.js
+│ │ └── useSync.js
+│ ├── tools/
+│ │ └── SRDManager/
+│ │ ├── BackgroundEditor.jsx
+│ │ ├── ClassEditor.jsx
+│ │ ├── EquipmentEditor.jsx
+│ │ ├── FeatEditor.jsx
+│ │ ├── MonsterEditor.jsx
+│ │ ├── MonsterManager.jsx
+│ │ ├── MonsterSRDContext.jsx
+│ │ ├── RaceEditor.jsx
+│ │ ├── SpellcastingEditor.jsx
+│ │ ├── SpellEditor.jsx
+│ │ ├── SRDContext.jsx
+│ │ ├── SRDManager.jsx
+│ │ └── shared/
+│ │ ├── DynamicArray.jsx
+│ │ ├── DynamicKeyValues.jsx
+│ │ ├── EntryList.jsx
+│ │ ├── NamedEntryArray.jsx
+│ │ └── ObjectMapper.jsx
+│ └── utils/
+│ ├── CharacterEngine.js
+│ ├── FXEngine.js
+│ ├── SoundSynthesizer.js
+│ └── VisibilityEngine.js
+
+Architecture & Data Flow
+
+5.1 Core Flow
+
+  - Server holds game state (VTTManager singleton).
+  - Clients send intents via Socket.IO.
+  - Server validates, mutates state, broadcasts updates.
+
+5.2 Weather System
+
+  - DM selects weather type, volume, and play state via WeatherPicker.
+  - Server stores state.weather (type, volume, isPlaying, lightningEnabled) and
+    syncs it.
+  - Client AudioPlayer loads/loops the sound and scales the channel volume using
+    localVolumeRef (master slider scale).
+  - Client CanvasMap applies a canvas clipping mask to map boundaries, rendering
+    dual‑layered parallax scrolling weather overlays.
+  - Optional secondary texture (secondary.png) adds an extra layer to break up
+    tiling.
+  - Lightning flashes can be toggled on, triggering random white flashes (10‑20s
+    intervals) with procedural thunder sound.
+
+5.3 Volumetric Weather Parallax & Physics
+
+  - Dual‑Layer Render: Reuses a single loaded texture across two layers to
+    eliminate tiling seams. Layer 1 (Foreground) renders at 1.0× scale and
+    speed 1.7. Layer 2 (Background) renders at 1.35× scale and speed 0.65
+    diagonal.
+  - Wind Vector Integration:
+      - Floating Weather (fog, ash_storm, fallback) drifts in organic cross‑wind
+        vectors (opposite directions on the X‑axis).
+      - Falling Weather (rain, snow, blizzard) slides down (positive Y) and
+        drifts right (positive X) locked to a realistic 5‑degree tilt using the
+        tangent scale factor (≈0.087).
+  - Boundary Masking: Applied via a canvas clipping path (ctx.clip()) mapped to
+    map coordinates (0, 0, mapImage.width, mapImage.height). The tabletop wood
+    grain background remains clear of weather.
+
+5.4 Dynamic Media Table Asset
+
+  - The frontend queries /api/table-texture using a lightweight HEAD fetch.
+  - If the header returned starts with video/, the frontend initializes a
+    loop‑muted, inline HTML5 video element, sets isTableVideo = true to
+    continuously repaint the canvas at 60 FPS, and draws active frames onto the
+    canvas via ctx.drawImage().
+  - If standard image formats are detected, isTableVideo = false and rendering
+    remains on‑demand to conserve resources.
+
+5.5 Socket Listener Stability & Ref Patterns
+
+  - All socket listeners registered once (empty dependency array) using
+    tokensRef to avoid stale closures.
+  - Callback props (such as onDeathSaveTrigger) that re‑evaluate on every render
+    are backed by persistent refs (onDeathSaveTriggerRef) to eliminate constant
+    listener teardown and unregister/re‑register cycles.
+  - Pings, token movements, HP changes, weather updates, FX casts, shapes,
+    system shock, and death save events are never dropped.
+
+5.6 State Versioning & Auto‑Resync
+
+  - Every state_update carries a sequential _version. Clients track the last
+    version and detect gaps.
+  - On gap, they automatically emit request_full_state; server replies with
+    init_state (full state).
+  - A manual REFRESH button is available for all users in the ConnectionStatus
+    panel.
+
+5.7 Connection Lifecycle
+
+1.  User opens page, enters name, room code (if set), chooses role.
+2.  Client connects with UUID + role + roomCode in handshake.
+3.  Server registers user, sends init_state, broadcasts player list.
+4.  Character sheet data is immediately synced via sync_character_data.
+5.  All subsequent changes are sent as intents, resulting in state_update
+    broadcasts.
+
+Key Modules & Components
+
+6.1 Server (VTTManager.js & server.js)
+
+  - Maintains state version counter; getGameState() attaches _version to every
+    broadcast.
+  - addNPCToken accepts monsterData to embed full SRD stat blocks.
+  - HP sync: adjustTokenHP pushes updated HP back to player’s character sheet
+    when token is a player.
+  - Map persistence (saveSession) includes tokens with monsterData and hidden
+    states, stamps, and shapes.
+  - Dynamic endpoints: /api/weather lists weather directories,
+    /api/table-texture serves any matching table texture file.
+  - System Shock: Automatically detects massive, critical, and excessive damage
+    on token HP changes. Fires socket notifications containing exact current HP
+    metrics (hpCur) so clients can evaluate wound conditions.
+  - Death Saves: Authoritatively updates and computes successes/failures. Resets
+    trackers when HP returns above 0.
+  - Shapes: Stores persistent area markers (circle, rectangle, cone, line) in
+    map data.
+
+6.2 Client (CanvasMap.jsx, AudioPlayer, WeatherPicker)
+
+  - CanvasMap.jsx – stable socket listeners, 60 FPS animation throttling using
+    delta‑time, parallax weather overlay, dynamic table background (including
+    video), extended measuring tool (line, circle, cone, square) with
+    pill‑shaped text badges, anchor handles, rotated text.
+  - AudioPlayer.jsx – syncs music, SFX, and weather sounds. Weather loops scale
+    with master volume slider.
+  - WeatherPicker.jsx – draggable, resizable modal with error‑catching JSON
+    parser, lightning toggle, and preview audio cleanup.
+
+6.3 Canvas Engine & Visibility
+
+  - VisibilityEngine.js – raycasting against walls generates visibility polygons
+    for fog of war.
+  - Hidden lights: point‑in‑polygon check ensures only lights visible to at
+    least one player token illuminate the fog.
+  - Right‑click token menu: Heal, Damage (all users), Conditions (DM only), View
+    Stat Block (DM, for NPCs with monsterData).
+  - Hide/Reveal tool (shortcut 7) toggles token/stamp visibility.
+  - Measure tool (M key) and Ping tool (P key) with smooth animations.
+  - Token movement throttled to 100ms, final position on mouseup.
+
+6.4 Character Sheet Pop-out Modal (Option B)
+
+  - Unified Dashboard pop-out: The core character sheet (👤 tab in Sidebar) has
+    been converted from a sliding panel into a wide-aspect overlay modal
+    (max-w-[1260px] h-[92vh]). Senses (SensesCard) has been integrated directly
+    into this pop-out, eliminating the redundant eye (👁️) sidebar dock button.
+  - Optimized 3-Column Grid:
+      - Column 1 (Identity & Presets): Full character details header, photo
+        avatar file uploader, JSON export/import utilities, and collapsible
+        pre-made sheets browser.
+      - Column 2 (Attributes & Senses): Side-by-side core stats (StatCard) on
+        top of passive perception, investigation, and insight meters
+        (SensesCard).
+      - Column 3 (Combat & Vitality): Vitals (CombatCard - with manual, unlinked
+        death save checkboxes completely removed) on top of the newly integrated
+        Wounds, Debuffs, and automated Rest pipeline.
+  - Adaptive Design: Sizing and tight padding blocks (p-4 to p-3) utilize
+    vertically efficient bounds to completely avoid excessive scrollbars.
+  - Sliding Drawers: Specialised sheets (Skills, Spells, Features, Feats,
+    Appearance, and Journal) continue to open as quick-access sliding drawers,
+    preserving horizontal battlefield view during combat.
+
+6.5 DM Tools
+
+  - Monster Browser – search 334+ SRD monsters by name, CR, type; one‑click add
+    to token tray with full stat block.
+  - Monster Stat Block Viewer – right‑click NPC token → full stats, traits,
+    actions, legendary actions.
+  - Handouts – push images/video to all players.
+  - Audio deck – ambient music + one‑shot SFX; players have local volume slider.
+  - Token Tray – manage unplaced tokens; NPC avatar customisation, size override
+    from SRD.
+  - Stamps – resizable, click to place; hidden stamps not rendered for players.
+  - DM Notes – map‑persistent pushpins with text editing.
+  - Check Requests – DM sends skill/save DC to player; result in chat.
+  - Session persistence – save entire map state (tokens, stamps, walls, lights,
+    notes, shapes) to data.json.
+  - SRD Manager (/srd-manager) – GUI for editing character and monster SRD,
+    auto‑backups (keeps last 20), restore.
+
+6.6 Combat & Initiative
+
+  - Initiative carousel with player prompts, DM controls, manual roll override
+    for players.
+  - HP changes sync across token, party tab, character sheet.
+  - Visual flash on heal/damage (expanding ring).
+  - Death Saves: Automated turn-start checks trigger targeted modal prompts
+    based on player ownership, keeping other players' view unobstructed.
+  - System Shock: Automatic massive, critical, and excessive damage saving
+    throws.
+
+6.7 SRD Integration & Automation
+
+  - Character SRD – 15+ sourcebooks (races, classes, backgrounds, feats, spells,
+    equipment).
+  - Monster SRD – 334 creatures with full stat blocks (ability scores, saves,
+    skills, resistances, traits, actions, legendary actions, CR/XP,
+    environments).
+  - Character Engine – live calculations for stats, skills, AC, HP,
+    spellcasting, encumbrance.
+  - Visibility Engine – raycasting for fog of war and light visibility.
+
+6.8 Spell FX System (Particle Engine, FX Tool)
+
+  - FXEngine.js – core particle system supporting 10 shapes and 12 visual
+    styles.
+      - Shapes: AOE, Cone, Beam, Missile, Burn, Glow, Slash, Smash, Pulse, Ring.
+      - Styles: Fire, Water, Blood, Holy, Dark, Frost, Acid, Smoke, Slash Spark,
+        Impact Dust, Lightning, Force.
+      - Particle types include flame, droplet, smoke, star, void, shard, bubble,
+        debris, streak, dust, splat, bloodstreak, spark, arc, force, ray,
+        tendril, steam, haze, ember, shockwave, ripple.
+      - Emitters for Burn, Glow, and Ring effects.
+  - FXPanel.jsx – draggable, resizable modal for shape/style selection.
+  - CanvasMap.jsx – integrates FX rendering, handles drag‑to‑cast, syncs via
+    cast_fx socket event.
+  - Preview – live distance measurement and shape outline during drag.
+  - Performance limits – MAX_PARTICLES=3000, MAX_MISSILES=20, MAX_EMITTERS=10.
+
+6.9 Shape Tool (Persistent Area Markers)
+
+  - Shapes – Circle, Rectangle, Cone, Line.
+  - Interaction – Click‑drag to place; right‑click to delete when shape tool is
+    active.
+  - Persistence – Shapes are stored on the server and saved in map data, visible
+    to all players.
+  - UI – ShapePanel for selecting shape type and color; accessible via sidebar
+    button.
+  - Socket – add_shape and remove_shape events sync across clients.
+
+6.10 System Shock, Wounds & Interconnected Rests
+
+  - Massive Damage: Damage >= 1/2 max HP → DC 15 CON save or suffer 1 wound +
+    d10 effect from Massive Damage table.
+  - Critical Damage: Damage >= max HP → DC 15 CON save or suffer 1-2 wounds +
+    d10 effect from Critical Damage table.
+  - Excessive Damage: Downed for 3rd+ time since rest → DC 15+3*(timesDowned-3)
+    CON save or suffer 1 wound.
+  - Automated Drops to 0 HP: If a d10 table result dictates that the target
+    drops to 0 hit points, the client dynamically checks their remaining HP
+    (hpCur) and emits an automatic damage event with sender "System Shock
+    Wound". This applies the precise remaining damage and logs the exact damage
+    source and HP reduction to the global chat.
+  - Wounds & Debuffs: Stack with death save failures. Apply debuffs (speed
+    penalty, disadvantage, capped healing). Wounds are displayed on the sheet
+    and can be cleared by the DM.
+  - Interconnected Rests:
+      - Short Rest: Prompts players to roll their available Hit Dice. Rolls
+        1d[HitDie] + CON modifier (minimum 1) per die spent, updating character
+        sheet values and emitting standard token healing socket events.
+      - Long Rest: Heals the player to full, clears death saves/stables, resets
+        downs, and authoritatively reclaims up to half of their total maximum
+        Hit Dice (minimum of 1).
+
+6.11 Automated Death Saves & Turn Tracking
+
+  - Turn‑Triggered Prompts: At the start of a combat turn, if a token is at 0
+    HP, is not stable, and is not dead, a DeathSaveModal prompts the player for
+    a roll.
+  - Ownership Validation: By matching the active player's ID with the token's
+    owner, only the affected player sees the prompt on their screen (DM receives
+    prompts for NPC tokens), preventing global modal spam.
+  - Visual Glowing Indicators: An automated, non-interactable status panel in
+    the character sheet displays death save progress using custom square
+    indicators:
+      - Successes (S): Emerald-green glowing filled boxes.
+      - Failures (F): Crimson-red glowing filled boxes.
+  - Critical Rolls:
+      - Natural 20: Immediately regains 1 HP, stands back up, and clears all
+        death save progress.
+      - Natural 1: Counts as 2 failures.
+  - Damage at 0 HP: Taking any damage while at 0 HP counts as 1 failure. If a
+    single damage source equals or exceeds the token's Max HP, they suffer
+    Instant Death (sets current HP to 0, sets status as dead, and applies the
+    "Dead" condition, represented on the map by a skull badge 💀).
+
+Feature Inventory
+
+7.1 Completed Features (v6.7)
+
+  - ✅ Centralized Pop-out Character Sheet Modal (max-w-[1260px] h-[92vh]) in 3
+    vertical columns
+  - ✅ Consolidation of Passive Senses and removal of the separate eye (👁️)
+    sidebar dock button
+  - ✅ Redesigned automated Death Saves tracker with high-contrast emerald-green
+    and crimson-red glowing boxes
+  - ✅ Clean removal of unlinked, manual checkbox blocks in CombatCard
+  - ✅ Automated drop-to-zero HP adjustment with custom "System Shock Wound"
+    combat log integration
+  - ✅ Interconnected short and long rest hit-dice expenditure and recovery
+    pipeline
+  - ✅ Target-specific turn-triggered death save prompts (owner-verified,
+    prevents global prompt spam)
+  - ✅ Natural 1 (two failures) and Natural 20 (+1 HP recovery/reset) death save
+    rules
+  - ✅ Damage at 0 HP failure penalty & Instant Death massive damage threshold
+    checks
+  - ✅ Skull badge condition overlay (💀) for dead tokens
+  - ✅ Dynamic table asset loader (auto‑serves and renders .jpg, .png, .mp4,
+    .webm, .mov)
+  - ✅ Parallax weather engine (dual‑layered, wind‑aligned scrolling, custom
+    presets)
+  - ✅ Boundary‑masked weather (restricted to map coordinates)
+  - ✅ Strict 60 FPS throttle (eliminates accelerated speed on high‑refresh
+    displays)
+  - ✅ Weather audio slider sync (master volume scales weather loops)
+  - ✅ Stable socket listeners (using tokensRef and onDeathSaveTriggerRef)
+  - ✅ Ping color picker (stored in localStorage)
+  - ✅ Extended measuring tool (line, circle, cone, square) with pill badges,
+    anchor handles, rotated text
+  - ✅ Prepared spells (right‑click toggle, visual highlight)
+  - ✅ Sura‑Khai (SK) currency in GearModal
+  - ✅ Resizable left sidebar & chat height
+  - ✅ Procedural audio synthesis (heal, damage, dice, criticals, level‑up, gold
+    clink, spell cast, turn notification, UI clicks, thunder)
+  - ✅ Visual flash on heal/damage (expanding ring)
+  - ✅ Level‑up modal (manual/average/skip HP, ASI reminder, feature/spell slot
+    display)
+  - ✅ Auto‑unlock audio (first click anywhere enables sounds; fallback button)
+  - ✅ Network decoupling (lightweight events: token_final_position,
+    token_hp_changed, npc_added)
+  - ✅ DM live network tuning panel
+  - ✅ Monster browser & stat block viewer (334 creatures)
+  - ✅ Token size from SRD (auto grid multiplier) + manual override
+  - ✅ NPC avatar customisation with persistence
+  - ✅ Hide/Reveal tool, session persistence, undo/redo
+  - ✅ Chat system (global, whisper, party) with auto‑scroll
+  - ✅ Dice tray (d4‑d100, modifiers, chat output)
+  - ✅ Handout push (images/videos)
+  - ✅ Fog of war with player‑token vision; lights hidden when not in LoS
+  - ✅ Wall drawing/erasing
+  - ✅ SRD‑powered character creation
+  - ✅ Pre‑made character browser
+  - ✅ DM viewing & editing player character sheets
+  - ✅ Saving throw / skill check request system
+  - ✅ Initiative carousel with DM controls, player prompts, manual override
+  - ✅ Right‑click token heal/damage/conditions
+  - ✅ Keyboard shortcuts (1‑7, Space, Esc, M, P, F, Ctrl+Z, Ctrl+Y)
+  - ✅ Connection status panel (ping, sync indicator, manual refresh)
+  - ✅ Changelog served from file (assets/changelog.md)
+  - ✅ Login screen with custom background, version, changelog
+  - ✅ Export/import character sheet as JSON
+  - ✅ Weapon, spell, feat search with browse‑all pop‑outs (spells by level, feats with search)
+  - ✅ Collapsible sections in character sheet
+  - ✅ Map thumbnail previews in bottom toolbar
+  - ✅ Basic payload validation (chat, notes, HP amounts)
+  - ✅ Auto‑IP script for remote play
+  - ✅ SRD Homebrew Content Manager (character & monster editing, auto‑backups)
+  - ✅ Expanded inventory – all SRD items available in GearModal
+  - ✅ Weather secondary textures (optional secondary.png for enhanced visuals)
+  - ✅ Lightning flashes with procedural thunder (toggle in WeatherPicker)
+  - ✅ Spell FX system (particle engine with 10 shapes, 12 styles, real‑time preview)
+  - ✅ Enhanced FX styles: Fire (ember/haze/flame), Blood (splat/streak), Holy (ray), Dark (tendril), Frost (steam), Lightning (spark/arc), Force (pulsing energy)
+  - ✅ New shapes: Pulse (shockwave) and Ring (persistent aura)
+  - ✅ Higher‑quality sprite cache (64px) for smoother visuals
+  - ✅ DrawEmitters function for rendering Ring aura
+  - ✅ Shape Tool – persistent area markers (circle, rectangle, cone, line) with sync
+  - ✅ System Shock – massive, critical, and excessive damage with wounds and debuffs
+  - ✅ Death Saves – turn‑triggered prompts, success/failure tracking, stable/dead states
+  - ✅ Wounds & Debuffs UI in character sheet with rest mechanics
+  - ✅ Excessive Damage DC scaling (15 + 3*(timesDowned-3))
+
+7.2 Bugfixes & Improvements
+
+🔧 Fixed weather spillover using canvas clipping masks
+🔧 Fixed accelerated weather pacing with delta‑timestamp gates
+🔧 Fixed hoisting errors (component declaration order)
+🔧 Mitigated 404 parsing failures using content‑type inspection
+🔧 Fixed ping unreliability – socket listeners moved to stable useEffect
+🔧 Fixed right‑click condition menu (missing event binding)
+🔧 Fixed ping animation jitter (requestAnimationFrame loop)
+🔧 Fixed measure tool panning conflict
+🔧 Fixed DM character sheet viewer fallback
+🔧 Fixed audio unlock, volume slider, and DM audio controls
+🔧 Fixed WebSocket transport (forced WebSocket only + client update)
+🔧 Fixed version gap threshold (default 10)
+🔧 Fixed state desync across continents (state versioning + auto‑resync)
+🔧 Fixed audio overlapping (only change src when track URL differs)
+🔧 Fixed token move packet storms (throttled to 100ms)
+🔧 Fixed lighting revealing hidden rooms (point‑in‑polygon clip)
+🔧 Fixed invalid hook calls (useRef inside useEffect)
+🔧 Fixed stamp placement persistence (save all tokens after avatar changes) 🔧
+Fixed token tray not updating (added npc_added and token_final_position
+listeners)
+🔧 Fixed SRD Manager spell creation (name field now correctly populated)
+🔧 Fixed weather preview audio stacking (stop preview on apply/close)
+🔧 Fixed secondary texture panning speeds (converted to per‑second values)
+🔧 Fixed weather flicker during drag (drawRef pattern)
+🔧 Fixed lightning flashes confined to map bounds
+🔧 Fixed FX tool panning conflict (tool='fx' disables pan)
+🔧 Fixed combat carousel and bottom toolbar shrinking (flex-none + min-h)
+🔧 Fixed UI bar heights (InitiativeBar and BottomToolbar now stay fixed)
+🔧 Fixed spell browser close button position (top‑right corner)
+🔧 Fixed spell class filtering and alphabetical sorting
+🔧 Fixed batch updates for reset/restore actions (all slots now restore)
+
+7.3 Known Bugs and Issues
+
+  - ❌ None known in the current build.
+
+7.4 Planned Features
+
+🔲 VFX tool (particle effects for spells, slashes, etc.)
+🔲 NPC token icon image expansion (monster SRD images)
+🔲 Audio player expansion (backend volume normalisation)
+🔲 Condition auto‑clear on long rest
+🔲 UI polish and theme selection (4+ themes)
+🔲 Player companion tokens
+🔲 Coin flip as part of the dice tray
+🔲 Improve the look/feel of the combat carousel / notify players when it's the
+start and end of their turn (SFX)
+🔲 Permanent damage from Critical Damage table (facial scars, stat reductions,
+etc.)
+🔲 Heal Check mechanics for stabilizing when downed
+
+Pitfalls, Lessons Learned & Debugging
+
+Hoisting & React's Temporal Dead Zone (TDZ): Declaring const draw =
+useCallback(...) below useEffect hooks that include draw in their dependency
+list causes a fatal mount crash. All state hooks, references, selectors, and
+core canvas drawing routines must be declared before any lifecycle triggers.
+
+Display Refresh‑Rate Discrepancy: Standard requestAnimationFrame loops run at
+the monitor's refresh rate. An animation designed for 60Hz will move 4× faster
+on a 240Hz monitor. Throttling frame‑ticks using millisecond deltas (timestamp -
+lastTime >= 16.67ms) is necessary to lock animation speeds.
+
+404 Fetch Responses and JSON Errors: When fetching directory list data from a
+missing or unconfigured API route, standard Express routers return HTML
+templates (<!DOCTYPE html>). Parsing this with r.json() throws syntax errors due
+to the leading <. Fallbacks must inspect the response's content‑type header.
+
+Memory Leaks from Active Streams: Creating video elements on canvas mount
+without unloading them when the component unmounts leaves video buffers running
+in the browser's background, leading to CPU lag. Elements must be paused and
+have their sources nullified on unmount.
+
+React Prop Recreation causing Socket Churn: Passing transient, inline handlers
+(such as onDeathSaveTrigger) to components that register WebSocket listener
+hooks triggers continuous listener teardown and re‑registration on every minor
+state update. Storing callbacks in persistent React Refs (onDeathSaveTriggerRef)
+resolves this, preventing stale closures while keeping continuous socket uptime.
+
+Ping unreliability: Socket listeners re‑registered on every tokens change,
+creating a window where events were lost. Fixed by moving listeners to an
+empty‑deps useEffect and using tokensRef.
+
+Audio overlapping: multiple state_update broadcasts caused music to restart.
+Fixed by only changing src when track URL actually differs.
+
+Token move packet storms: throttled to 100ms, with final precise position on
+mouseup.
+
+Lighting revealed hidden rooms: clipped each light to player visibility polygons
+using point‑in‑polygon test.
+
+Stamp placement persistence: fixed by saving all tokens (including unplaced) and
+calling saveMapData() after avatar changes.
+
+State desync across continents: missing state_update packets caused stale maps.
+Solution: state version numbers and automatic full‑state resync, plus manual
+refresh button.
+
+WebSocket transport forced to websocket only: prevented initial handshake. Fix:
+revert to default ['polling', 'websocket'] to allow upgrade.
+
+Invalid hook calls in AudioPlayer and App.jsx: useRef was placed inside
+useEffect callback. Fix: move all hooks to top level of component.
+
+drawRef pattern for weather: Weather textures were reloading on every drag frame
+because draw was in the dependency array. Fixed by using drawRef and removing
+draw from useEffect dependencies.
+
+Secondary texture panning: Speeds were per‑frame, not per‑second. Fixed by
+multiplying by 60 for delta‑time animation.
+
+FX tool panning conflict: FX tool now sets tool='fx' and panning condition
+excludes tool === 'fx'.
+
+Particle system performance: Optimized by using refs instead of state for
+particle arrays, and by using a separate animation loop for FX updates.
+
+Shape tool deletion: Right‑click only deletes shapes when shape tool is active,
+preserving context menu for tokens.
+
+System Shock integration: Wounds and debuffs are now applied to character data
+and synced to server. Death saves reset on healing. Excessive damage scaling
+implemented.
+
+Setup & Deployment
+
+9.1 Local Development
+
+  - Node.js v18+
+  - cd server && npm install
+  - cd ../client && npm install
+  - Run start-vtt.bat or manually node server/server.js and npm run dev in
+    client.
+  - Open http://localhost:5173.
+
+9.2 Adding Weather Assets
+
+  - Create server/assets/weather/{type}/overlay.png (seamless, 512×512
+    recommended).
+  - Add server/assets/weather/{type}/sound.mp3 (looping).
+  - Optional: add server/assets/weather/{type}/secondary.png for enhanced
+    visuals.
+  - Weather type appears in picker automatically.
+
+9.3 Changing the Table Background
+
+  - Upload any file named table-texture.* (e.g., table-texture.jpg or an
+    animated table-texture.mp4) into server/assets/. The server handles
+    extension detection.
+
+9.4 Remote Play
+
+  - Auto‑IP script updates client/.env (run npm run predev or included in start
+    script).
+  - Port forward 3001 (server) and 5173 (client).
+  - Share http://<public-ip>:5173.
+  - Optional: set VTT_ROOM_CODE environment variable.
+
+9.5 Security Notes
+
+  - Room code prevents unauthorised connections.
+  - Basic payload validation (chat, notes, HP amounts).
+  - No third‑party services; traffic stays within local network/forwarded ports.
+
+Usage Guide
+
+10.1 Player Quick Start
+
+  - Login, choose role, enter room code (if any).
+  - Character sheet → pre‑made or manual creation.
+  - Use 👤 (Character Sheet tab) to launch your widescreen attributes, vitality,
+    and passive senses dashboard modal.
+  - Use 📋, ⚔️, ⭐, 🏆, 🧙🏻‍♂️, 🧬, 📖 tabs to quickly reference skills, class
+    actions, spell lists, or journal logs in quick-access sliding panels.
+  - Use 📏 (M) to measure (right‑click to cycle modes).
+  - Use 📍 (P) to ping (color chosen in settings).
+  - Use ✨ (F) to open the Spell FX tool – select a shape and style, then
+    click‑drag on the map to cast visual effects.
+  - Use ⬡ (Shape Tool) to place persistent area markers (circle, rectangle,
+    cone, line) – right‑click to delete when shape tool is active.
+  - Right‑click tokens to heal/damage.
+  - Right‑click spells to prepare/unprepare.
+  - Volume slider appears after first click anywhere (auto‑unlock).
+  - Monitor connection health at bottom‑right status bar; click REFRESH if sync
+    is out.
+  - When at 0 HP at the start of your turn, you will be prompted for a Death
+    Save. Roll manually or auto‑roll.
+  - Check the Wounds & Debuffs section in your character sheet to track wounds
+    and rest.
+
+10.2 DM Quick Guide
+
+  - Weather button (🌦️) in bottom toolbar → pick weather, adjust volume, apply
+    lightning flashes.
+  - Table background animations – drop a video file named table-texture.mp4 on
+    the server and load the board.
+  - Token Tray → Monster Browser, avatar change, size override.
+  - Stamps: resizable slider, click to place.
+  - Save Session persists everything.
+  - Network Tuning panel for ping/timeout settings.
+  - SRD Manager (/srd-manager) for homebrew content.
+  - Use Hide tool (7) to pre‑place hidden traps/NPCs.
+  - REQUEST CHECK sends skill/save DC to a player.
+  - Undo/Redo with Ctrl+Z / Ctrl+Y or toolbar buttons.
+  - View player sheets (👁️) → edit → “Save to Player”.
+  - Use Spell FX tool to add visual flair to combat spells and abilities.
+  - Use Shape Tool to mark persistent areas (walls, traps, etc.).
+  - System Shock: Damage triggers will automatically prompt players/DM for CON
+    saves and apply wounds; monitor wounds in character sheets.
+
+Roadmap
+
+  - Immediate: NPC token icon image expansion (monster SRD images).
+  - Short‑term: Condition auto‑clear on rest, audio normalisation.
+  - Long‑term: mobile‑friendly UI, full theme selection (4+ themes).
+
+Changelog
+
+v6.7 (2026-06-18)
+
+  - Character Sheet Pop-out Modal (Option B): Converted the main sheet layout
+    into a wide-aspect overlay modal (max-w-[1260px] h-[92vh]) utilizing an
+    elegant 3-column configuration.
+  - Unified Passive Senses: Merged passive perception, investigation, and
+    insight meters directly into the Attributes dashboard column, removing the
+    redundant 👁️ dock button.
+  - Visual Death Saves Redesign: Added a custom glowing checkbox-style indicator
+    panel inside the Wounds panel. Successes fill with emerald green and
+    failures with crimson red.
+  - Hit-die Rest Pipeline Integration: Connected short and long rest mechanics
+    directly to hit-dice expenditure and recovery loops, utilizing client-side
+    math and authoritative server safeguards.
+  - Target-Specific Turn Prompts: Bound player ownership checks to
+    turn-triggered death save events, restricting prompts strictly to affected
+    players and utilizing onDeathSaveTriggerRef to avoid socket churn.
+  - Damage at 0 HP & Instant Death: Programmed a custom HP adjustment hook that
+    inflicts 1 death save failure upon taking damage while already at 0 HP, and
+    inflicts Instant Death (condition: Dead 💀) if single-source damage equals or
+    exceeds Max HP.
+  - Natural 1 & Natural 20 Rules: Programmed natural 1s on death saves to
+    apply 2 failures, and natural 20s to immediately heal 1 HP and reset death
+    save progress.
+
+v6.6 (2026-06-18)
+
+  - System Shock & Wounds: Massive, Critical, and Excessive damage triggers with
+    CON saves, d10 effects, wounds, and debuffs. Wounds stack with death save
+    failures.
+  - Death Saves: Automated turn‑triggered prompts, success/failure tracking,
+    stable/dead states, reset on healing.
+  - Shape Tool: Persistent area markers (circle, rectangle, cone, line) with
+    server persistence and sync.
+  - Wounds & Debuffs UI: New section in character sheet displaying wounds, death
+    saves, times downed; Short/Long Rest buttons.
+  - Excessive Damage: Tracks times downed since rest; DC scales (15
+    \+ 3*(timesDowned-3)).
+  - Spell Browser: Class filtering (default) with toggle for all spells,
+    alphabetical sorting, class tags in modal.
+  - Reset/Restore fix: Batch updates now correctly restore all spell slots and
+    actions.
+  - Modal close button: Moved to top-right corner of spell browser modal.
+  - Performance limits for FX particles (MAX_PARTICLES=3000, MAX_MISSILES=20,
+    MAX_EMITTERS=10).
+
+v6.5 (2026-06-17)
+
+  - Spell FX System – full particle engine with 10 shapes and 12 visual styles,
+    real‑time preview, socket sync.
+  - Enhanced FX styles: Fire (ember/haze/flame), Blood (splat/streak), Holy
+    (ray), Dark (tendril), Frost (steam), Lightning (spark/arc), Force (pulsing
+    energy).
+  - New shapes: Pulse (shockwave) and Ring (persistent aura).
+  - Higher‑quality sprite cache (64px) for smoother visuals.
+  - FXPanel – draggable, resizable modal for shape/style selection.
+  - FX tool – accessible via sidebar ✨ button or F key; disables panning while
+    active.
+  - Procedural thunder – added playThunder() to SoundSynthesizer for lightning
+    flash audio.
+  - Weather secondary textures – optional secondary.png in weather folders for
+    enhanced visuals.
+  - Lightning flashes – toggle in WeatherPicker; random white flashes (10‑20s
+    intervals) with thunder sound.
+  - Inventory expansion – tools (artisan, gaming, instruments, other) and trade
+    goods now available in GearModal.
+  - UI fixes – combat carousel and bottom toolbar no longer shrink (flex-none +
+    min-h).
+  - Weather audio fix – preview audio stops when applying or closing the
+    WeatherPicker (prevents stacking).
+  - Token tray fix – listens to npc_added and token_final_position for real‑time
+    updates.
+  - SRD Manager fix – spell name field now correctly populated on creation.
+  - Weather flicker fix – drawRef pattern prevents texture reloading during
+    drag.
+  - FX panning fix – FX tool disables map panning while active.
+  - DrawEmitters – added function to render Ring aura on canvas.
+
+v6.4 (2026-06-15)
+
+  - Dynamic table asset – wildcard serving of table textures; automatic
+    detection and live canvas rendering of animated table videos (.mp4, .webm,
+    .mov).
+  - 60 FPS Animation Throttle – frame‑ticks locked to delta‑time intervals to
+    normalize rendering across high‑refresh‑rate monitors.
+  - Volumetric Weather Parallax – dual‑layer out‑of‑phase scrolling with custom
+    speeds and 5‑degree tilt falling vectors for precipitation.
+  - Boundary‑Clipped Weather Overlay – canvas masking added to constrain
+    scrolling effects to battlemap dimensions.
+  - Audio Volume Slider Sync – scaled looping weather volumes with the master
+    local volume ref.
+
+v6.3 (2026-06-15 – earlier)
+
+  - Weather system – DM‑controlled visual overlays + looping ambient sounds.
+  - Extended measuring tool – line, circle, cone, square; pill text badges,
+    anchor handles, rotated text.
+  - Stable socket listeners – ping reliability fully fixed.
+
+v6.2 (2026-06-14)
+
+  - Refactored CanvasMap socket listeners to empty deps + tokensRef – eliminated
+    event loss.
+  - Ping color picker (Options modal).
+  - Measurement tool improvements (white text, larger font, transparent fill).
+
+v6.1 (2026-06-13)
+
+  - Lightweight events (token_final_position, token_hp_changed, npc_added).
+  - Prepared spells (right‑click toggle, visual highlight).
+  - Sura‑Khai (SK) currency.
+  - Reorganized sidebar (character sheet on top, gear below, settings at
+    bottom).
+  - Fixed 400 Bad Request (client transport set to WebSocket only).
+  - Version gap threshold default changed to 10.
+  - Audio auto‑unlock (first click anywhere enables sounds; queued playback;
+    fallback button).
+  - Changelog served from file.
+
+v6.0 (2026-06-10)
+
+  - Resizable left sidebar & chat height.
+  - Procedural audio synthesis (Web Audio).
+  - Visual flash on heal/damage.
+  - Level‑up modal (manual/average/skip HP, ASI reminder, feature/spell slot
+    display).
+  - Token size from SRD + manual override.
+  - DM network tuning panel.
+  - Network decoupling (token movement no longer mutates server state until
+    final).
+
+v5.0 (2026-06-09)
+
+  - Monster SRD (334 creatures) with Monster Browser and Stat Block Viewer.
+  - Feats tab with browse‑all modal.
+  - Spell browser with level filter pop‑out.
+  - Subclass & subrace features now populate Features tab.
+  - Full bidirectional HP sync (sheet ↔ party tab ↔ token).
+  - Connection status panel (ping, sync indicator, manual refresh).
+  - State versioning with auto‑resync.
+  - Room code security, auto‑IP detection script.
+  - Various bugfixes (right‑click crash, ping animation, measure panning, hook
+    violations, WebSocket transport, stat block crash)
+
+v4.0 (2026-05-21)
+
+  - Hide/reveal tool for tokens and stamps (DM tool, shortcut 7).
+  - Session persistence (save all token states and stamps with map, restore on
+    load).
+  - Login screen polish (custom video/image background, version, changelog).
+  - Measuring tool (all users – M key or sidebar 📏).
+  - Ping system (all users – P key or sidebar 📍, radial pulse animation).
+  - Player‑adjustable music volume (local slider in AudioPlayer).
+  - DM viewing and editing player character sheets (👁️ in party list, Save to
+    Player).
+  - Pre‑made character browser (load from server/assets/premades/).
+  - Saving throw / skill check request system (DM panel → player prompt → chat
+    result).
+  - Undo/Redo for map edits (walls, lights, stamps, notes) with Ctrl+Z / Ctrl+Y.
+
+v3.0 (2026-05-05) and earlier
+
+  - Core VTT: dynamic battlemap, fog of war, wall drawing, token system,
+    drag‑and‑drop movement.
+  - Character sheet with SRD integration, export/import.
+  - Chat, dice tray, audio deck, handouts, stamps, notes.
+  - Initiative carousel with player prompts.
+
+End of Document
+

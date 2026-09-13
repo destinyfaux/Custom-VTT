@@ -1,0 +1,48 @@
+{
+  "testaccount": {
+    "userId": "77cfb301-78a1-479f-99b6-375f7e8714d6",
+    "username": "TestAccount",
+    "salt": "37df86fd388816667abb61f57cb11c17",
+    "hash": "41131741d35a61f9dbf78b6b0e10a11a1c857bcdc968b8e9839faacc069468e4afa53e7a1899fff913e48464870d95f8aa8ade876e579a487a36acd2f3f8d86b",
+    "createdAt": "2026-08-26T18:44:05.604Z"
+  },
+  "destinyfaux": {
+    "userId": "773ee4ad-5fb6-4905-bd80-32380117f856",
+    "username": "Destinyfaux",
+    "salt": "b902f1d8534929d644124a25e78f5048",
+    "hash": "4ccb00dff530b4851a5ad27b277fc9ff3b2ad36cc939540e756e7ef7f29ffb315f91b7ecdd6d4aa4ddadd189e41c560188239d10b9234a80d8f9a928ed374d56",
+    "createdAt": "2026-08-26T23:32:21.766Z"
+  },
+  "destinydm": {
+    "userId": "df765a89-75a3-44bd-91e9-174108de37e3",
+    "username": "DestinyDM",
+    "role": "DM",
+    "salt": "dffd914ac74b7104937012e05d481e91",
+    "hash": "f6eebfccb7e8320a414dbb666d3bd4fdf387975b9024fe8f61b01de44ce361af1519fefc091397d0295710dc3c71061994ef7085d746e476b83061aa8c297e01",
+    "createdAt": "2026-09-03T18:31:53.507Z"
+  },
+  "latoral": {
+    "userId": "0843753b-aac7-4c91-bc1f-9adefd750735",
+    "username": "Latoral",
+    "role": "Player",
+    "salt": "6a70ddecb07c1859532f1043d74cfe30",
+    "hash": "3710cb90975b2d94e45ca58e9d481994765ace2af010acab2d81ae5c022f9de0fa5328705554a0b73ab05dca7ea3468f1d1748353b7928ab4b8cdef2eabf71f6",
+    "createdAt": "2026-09-05T01:42:25.797Z"
+  },
+  "beau": {
+    "userId": "19c760b9-6490-49a4-a5f9-3fc543540a5d",
+    "username": "beau",
+    "role": "Player",
+    "salt": "b7971cc202af3a65ffe4bf5de8e569cf",
+    "hash": "a1118b3c5e2db12505285249067042ded0efc868c8fa1ee768bfd95aeb13bc86b338f61bcdd6d9d81dde5ef1ddb3836efdcc2b5fec06a8a0792bf82241d1665e",
+    "createdAt": "2026-09-05T01:48:10.071Z"
+  },
+  "fuckjews2311": {
+    "userId": "68c086fc-12f1-4787-890a-ffdde925bd1c",
+    "username": "FuckJews2311",
+    "role": "Player",
+    "salt": "f74204d12ae9294f919facd311a55d15",
+    "hash": "99c2c4fdc39a15f645ed3c8ec1fa22ce84e71390eb11c8bb4089edf28b9896ff944a53b18c23d805142182e1f0576a344116f0d985a3529e3e9b89532502fc2e",
+    "createdAt": "2026-09-05T02:01:09.253Z"
+  }
+}

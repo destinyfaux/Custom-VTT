@@ -1,0 +1,447 @@
+{
+  "walls": [
+    {
+      "id": "178019636306698fk8ff7z",
+      "x1": -0.7486413273574785,
+      "y1": 1396.864983907985,
+      "x2": -0.7486413273574785,
+      "y2": 2.6654723748221674
+    },
+    {
+      "id": "17801963630667wi3arn5t",
+      "x1": -0.7486413273574785,
+      "y1": 2.6654723748221674,
+      "x2": 2792.804538898056,
+      "y2": 0.08839379527842807
+    },
+    {
+      "id": "1780196363066g6wbg2pgw",
+      "x1": 2792.804538898056,
+      "y1": 0.08839379527842807,
+      "x2": 2808.267010375318,
+      "y2": 1394.2879053284414
+    },
+    {
+      "id": "17801963630666db49mbdu",
+      "x1": 2808.267010375318,
+      "y1": 1394.2879053284414,
+      "x2": -0.7486413273574785,
+      "y2": 1396.864983907985
+    }
+  ],
+  "lights": [],
+  "notes": [],
+  "tokens": [
+    {
+      "id": "npc_1780198912339f7uzs",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "Silt-Crawler",
+      "avatarUrl": null,
+      "hpCur": 13,
+      "hpMax": 13,
+      "ac": 13,
+      "x": 840,
+      "y": 280,
+      "isPlaced": true,
+      "size": 1,
+      "conditions": [],
+      "hidden": true,
+      "monsterData": {
+        "source": "",
+        "type": "monstrosity",
+        "size": "Small",
+        "alignment": "Unaligned",
+        "ac": 13,
+        "ac_desc": "",
+        "hp": 13,
+        "hp_formula": "3d6 + 3",
+        "speed": {
+          "walk": 20,
+          "swim": 30
+        },
+        "ability_scores": {
+          "STR": 14,
+          "DEX": 12,
+          "CON": 13,
+          "INT": 3,
+          "WIS": 11,
+          "CHA": 4
+        },
+        "saves": {},
+        "skills": {
+          "Athletics": 4,
+          "Stealth": 3
+        },
+        "resistances": [],
+        "immunities": [],
+        "vulnerabilities": [],
+        "condition_immunities": [],
+        "senses": {
+          "passive_perception": 10,
+          "blindsight": 30
+        },
+        "languages": "",
+        "cr": "1/4",
+        "traits": [
+          {
+            "name": "Silt Glide",
+            "description": "The Silt-Crawler ignores difficult terrain caused by mud, swamps, or shallow water."
+          },
+          {
+            "name": "Mud Camouflage",
+            "description": "The Silt-Crawler has advantage on Dexterity (Stealth) checks made to hide in muddy or swampy terrain. While fully submerged in mud, it is indistinguishable from a rotting log or a mound of sludge."
+          },
+          {
+            "name": "Vibration Sense",
+            "description": "The Silt-Crawler is blind, but can detect the exact location of any creature touching the ground or water within 30 feet, provided the creature has moved or made a sound in the last round."
+          }
+        ],
+        "actions": [
+          {
+            "name": "Serrated Pincer",
+            "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) slashing damage. If the target is a Medium or smaller creature, it is Grappled (escape DC 12). The Silt-Crawler has two pincers, each of which can grapple only one target."
+          },
+          {
+            "name": "Submerge / Drag Under",
+            "description": "If the Silt-Crawler has a creature grappled and is currently in mud or water, it can use its bonus action to move up to half its swim speed (15 feet) into deeper mud. The grappled creature is dragged with it."
+          }
+        ],
+        "legendary_actions": [],
+        "reactions": [],
+        "lair_actions": [],
+        "environment": "",
+        "description": ""
+      }
+    },
+    {
+      "id": "npc_1780198945670hku46",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "Silt-Crawler",
+      "avatarUrl": null,
+      "hpCur": 13,
+      "hpMax": 13,
+      "ac": 13,
+      "x": 980,
+      "y": 1050,
+      "isPlaced": true,
+      "size": 1,
+      "conditions": [],
+      "hidden": true,
+      "monsterData": {
+        "source": "",
+        "type": "monstrosity",
+        "size": "Small",
+        "alignment": "Unaligned",
+        "ac": 13,
+        "ac_desc": "",
+        "hp": 13,
+        "hp_formula": "3d6 + 3",
+        "speed": {
+          "walk": 20,
+          "swim": 30
+        },
+        "ability_scores": {
+          "STR": 14,
+          "DEX": 12,
+          "CON": 13,
+          "INT": 3,
+          "WIS": 11,
+          "CHA": 4
+        },
+        "saves": {},
+        "skills": {
+          "Athletics": 4,
+          "Stealth": 3
+        },
+        "resistances": [],
+        "immunities": [],
+        "vulnerabilities": [],
+        "condition_immunities": [],
+        "senses": {
+          "passive_perception": 10,
+          "blindsight": 30
+        },
+        "languages": "",
+        "cr": "1/4",
+        "traits": [
+          {
+            "name": "Silt Glide",
+            "description": "The Silt-Crawler ignores difficult terrain caused by mud, swamps, or shallow water."
+          },
+          {
+            "name": "Mud Camouflage",
+            "description": "The Silt-Crawler has advantage on Dexterity (Stealth) checks made to hide in muddy or swampy terrain. While fully submerged in mud, it is indistinguishable from a rotting log or a mound of sludge."
+          },
+          {
+            "name": "Vibration Sense",
+            "description": "The Silt-Crawler is blind, but can detect the exact location of any creature touching the ground or water within 30 feet, provided the creature has moved or made a sound in the last round."
+          }
+        ],
+        "actions": [
+          {
+            "name": "Serrated Pincer",
+            "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) slashing damage. If the target is a Medium or smaller creature, it is Grappled (escape DC 12). The Silt-Crawler has two pincers, each of which can grapple only one target."
+          },
+          {
+            "name": "Submerge / Drag Under",
+            "description": "If the Silt-Crawler has a creature grappled and is currently in mud or water, it can use its bonus action to move up to half its swim speed (15 feet) into deeper mud. The grappled creature is dragged with it."
+          }
+        ],
+        "legendary_actions": [],
+        "reactions": [],
+        "lair_actions": [],
+        "environment": "",
+        "description": ""
+      }
+    },
+    {
+      "id": "npc_17801989462481re9o",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "Silt-Crawler",
+      "avatarUrl": null,
+      "hpCur": 13,
+      "hpMax": 13,
+      "ac": 13,
+      "x": 1680,
+      "y": 770,
+      "isPlaced": true,
+      "size": 1,
+      "conditions": [],
+      "hidden": true,
+      "monsterData": {
+        "source": "",
+        "type": "monstrosity",
+        "size": "Small",
+        "alignment": "Unaligned",
+        "ac": 13,
+        "ac_desc": "",
+        "hp": 13,
+        "hp_formula": "3d6 + 3",
+        "speed": {
+          "walk": 20,
+          "swim": 30
+        },
+        "ability_scores": {
+          "STR": 14,
+          "DEX": 12,
+          "CON": 13,
+          "INT": 3,
+          "WIS": 11,
+          "CHA": 4
+        },
+        "saves": {},
+        "skills": {
+          "Athletics": 4,
+          "Stealth": 3
+        },
+        "resistances": [],
+        "immunities": [],
+        "vulnerabilities": [],
+        "condition_immunities": [],
+        "senses": {
+          "passive_perception": 10,
+          "blindsight": 30
+        },
+        "languages": "",
+        "cr": "1/4",
+        "traits": [
+          {
+            "name": "Silt Glide",
+            "description": "The Silt-Crawler ignores difficult terrain caused by mud, swamps, or shallow water."
+          },
+          {
+            "name": "Mud Camouflage",
+            "description": "The Silt-Crawler has advantage on Dexterity (Stealth) checks made to hide in muddy or swampy terrain. While fully submerged in mud, it is indistinguishable from a rotting log or a mound of sludge."
+          },
+          {
+            "name": "Vibration Sense",
+            "description": "The Silt-Crawler is blind, but can detect the exact location of any creature touching the ground or water within 30 feet, provided the creature has moved or made a sound in the last round."
+          }
+        ],
+        "actions": [
+          {
+            "name": "Serrated Pincer",
+            "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) slashing damage. If the target is a Medium or smaller creature, it is Grappled (escape DC 12). The Silt-Crawler has two pincers, each of which can grapple only one target."
+          },
+          {
+            "name": "Submerge / Drag Under",
+            "description": "If the Silt-Crawler has a creature grappled and is currently in mud or water, it can use its bonus action to move up to half its swim speed (15 feet) into deeper mud. The grappled creature is dragged with it."
+          }
+        ],
+        "legendary_actions": [],
+        "reactions": [],
+        "lair_actions": [],
+        "environment": "",
+        "description": ""
+      }
+    },
+    {
+      "id": "npc_1780198946734j7fya",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "Silt-Crawler",
+      "avatarUrl": null,
+      "hpCur": 13,
+      "hpMax": 13,
+      "ac": 13,
+      "x": 1890,
+      "y": 350,
+      "isPlaced": true,
+      "size": 1,
+      "conditions": [],
+      "hidden": true,
+      "monsterData": {
+        "source": "",
+        "type": "monstrosity",
+        "size": "Small",
+        "alignment": "Unaligned",
+        "ac": 13,
+        "ac_desc": "",
+        "hp": 13,
+        "hp_formula": "3d6 + 3",
+        "speed": {
+          "walk": 20,
+          "swim": 30
+        },
+        "ability_scores": {
+          "STR": 14,
+          "DEX": 12,
+          "CON": 13,
+          "INT": 3,
+          "WIS": 11,
+          "CHA": 4
+        },
+        "saves": {},
+        "skills": {
+          "Athletics": 4,
+          "Stealth": 3
+        },
+        "resistances": [],
+        "immunities": [],
+        "vulnerabilities": [],
+        "condition_immunities": [],
+        "senses": {
+          "passive_perception": 10,
+          "blindsight": 30
+        },
+        "languages": "",
+        "cr": "1/4",
+        "traits": [
+          {
+            "name": "Silt Glide",
+            "description": "The Silt-Crawler ignores difficult terrain caused by mud, swamps, or shallow water."
+          },
+          {
+            "name": "Mud Camouflage",
+            "description": "The Silt-Crawler has advantage on Dexterity (Stealth) checks made to hide in muddy or swampy terrain. While fully submerged in mud, it is indistinguishable from a rotting log or a mound of sludge."
+          },
+          {
+            "name": "Vibration Sense",
+            "description": "The Silt-Crawler is blind, but can detect the exact location of any creature touching the ground or water within 30 feet, provided the creature has moved or made a sound in the last round."
+          }
+        ],
+        "actions": [
+          {
+            "name": "Serrated Pincer",
+            "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) slashing damage. If the target is a Medium or smaller creature, it is Grappled (escape DC 12). The Silt-Crawler has two pincers, each of which can grapple only one target."
+          },
+          {
+            "name": "Submerge / Drag Under",
+            "description": "If the Silt-Crawler has a creature grappled and is currently in mud or water, it can use its bonus action to move up to half its swim speed (15 feet) into deeper mud. The grappled creature is dragged with it."
+          }
+        ],
+        "legendary_actions": [],
+        "reactions": [],
+        "lair_actions": [],
+        "environment": "",
+        "description": ""
+      }
+    },
+    {
+      "id": "npc_17801989479554nz4n",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "Silt-Crawler",
+      "avatarUrl": null,
+      "hpCur": 13,
+      "hpMax": 13,
+      "ac": 13,
+      "x": 2450,
+      "y": 420,
+      "isPlaced": true,
+      "size": 1,
+      "conditions": [],
+      "hidden": true,
+      "monsterData": {
+        "source": "",
+        "type": "monstrosity",
+        "size": "Small",
+        "alignment": "Unaligned",
+        "ac": 13,
+        "ac_desc": "",
+        "hp": 13,
+        "hp_formula": "3d6 + 3",
+        "speed": {
+          "walk": 20,
+          "swim": 30
+        },
+        "ability_scores": {
+          "STR": 14,
+          "DEX": 12,
+          "CON": 13,
+          "INT": 3,
+          "WIS": 11,
+          "CHA": 4
+        },
+        "saves": {},
+        "skills": {
+          "Athletics": 4,
+          "Stealth": 3
+        },
+        "resistances": [],
+        "immunities": [],
+        "vulnerabilities": [],
+        "condition_immunities": [],
+        "senses": {
+          "passive_perception": 10,
+          "blindsight": 30
+        },
+        "languages": "",
+        "cr": "1/4",
+        "traits": [
+          {
+            "name": "Silt Glide",
+            "description": "The Silt-Crawler ignores difficult terrain caused by mud, swamps, or shallow water."
+          },
+          {
+            "name": "Mud Camouflage",
+            "description": "The Silt-Crawler has advantage on Dexterity (Stealth) checks made to hide in muddy or swampy terrain. While fully submerged in mud, it is indistinguishable from a rotting log or a mound of sludge."
+          },
+          {
+            "name": "Vibration Sense",
+            "description": "The Silt-Crawler is blind, but can detect the exact location of any creature touching the ground or water within 30 feet, provided the creature has moved or made a sound in the last round."
+          }
+        ],
+        "actions": [
+          {
+            "name": "Serrated Pincer",
+            "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) slashing damage. If the target is a Medium or smaller creature, it is Grappled (escape DC 12). The Silt-Crawler has two pincers, each of which can grapple only one target."
+          },
+          {
+            "name": "Submerge / Drag Under",
+            "description": "If the Silt-Crawler has a creature grappled and is currently in mud or water, it can use its bonus action to move up to half its swim speed (15 feet) into deeper mud. The grappled creature is dragged with it."
+          }
+        ],
+        "legendary_actions": [],
+        "reactions": [],
+        "lair_actions": [],
+        "environment": "",
+        "description": ""
+      }
+    }
+  ],
+  "stamps": []
+}

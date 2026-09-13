@@ -1,0 +1,392 @@
+AGENTS.md — System Architecture & AI Agent Operating Manual
+
+Document Version: 7.5 (Current Active Build)
+Target Audience: AI Assistants, Autonomous Coding Agents, and Core Engine
+Contributors
+System Architecture: Real-Time Virtual Tabletop (Node.js + Socket.IO + React 18
++ HTML5 2D Canvas)
+
+1. Project Philosophy & Core Invariants
+
+The VTT is designed as a digital tabletop, not a video game engine. It automates
+math, line-of-sight geometry, particle dynamics, and network synchronization
+while preserving human judgment and tabletop agency (dice rolling, narrative
+decisions, and DM discretion).
+
+Non-Negotiable Core Invariants
+
+1.  Server as the Single Source of Truth: VTTManager.js holds the authoritative
+    game state tree and persistence contracts. Clients send user intents; the
+    server validates authorization, checks payload boundaries, mutates state,
+    and emits events.
+2.  Targeted Events Over Broadcast Storms: High-frequency, atomic mutations
+    (e.g., token_moved, light_added, turn_update) must emit lightweight,
+    targeted socket payloads. Never emit a full state_update unless performing a
+    scene reset (change_map) or answering an explicit resync request
+    (init_state, request_full_state).
+3.  Non-Blocking Asynchronous Disk I/O: Never execute fs.writeFileSync in
+    runtime request/socket paths. Persistence operations must use
+    saveMapDataDebounced() (fs.promises.writeFile with a 500ms trailing
+    debounce) or saveSession() (with explicit .flush()).
+4.  Preserve Unplaced Tokens in Memory: Recalling a token (remove_token) sets
+    isPlaced = false. Never filter/delete recalled tokens from canvas memory
+    (tokens state array). Deleting unplaced tokens breaks Fog of War raycasting,
+    wipes local avatar caches, and causes spawn failures.
+5.  No Blind Full-State Overwrites on the Client: Components must update
+    localized React state slices based on targeted events rather than relying on
+    global full-state replacements.
+6.  Zero-Lock Session Authentication: Authentication is identity-based via
+    browser UUIDs stored in localStorage (vtt_user_id) and optional room codes.
+    Never introduce mandatory external OAuth or relational database user account
+    schemes.
+
+2. Directory Tree & Component Topology
+
+custom-vtt/
+├── server/
+│   ├── assets/                 # Dynamic assets served statically (/assets/...)
+│   │   ├── maps/               # Subfolders per map: image/video + data.json
+│   │   ├── tokens/             # Token artwork (.png, .jpg, .webp, .gif)
+│   │   ├── stamps/             # Decals & map overlays (.png, .webm, .mp4)
+│   │   ├── weather/            # Presets (overlay.png, secondary.png, sound.mp3)
+│   │   ├── music/ & sfx/       # Audio tracks (.mp3, .ogg, .wav, .webm, .opus)
+│   │   ├── handouts/ & login/  # Handout media and login screen backgrounds
+│   │   ├── premades/           # Pre-made character sheet templates (.json)
+│   │   └── table-texture.*     # Background table asset (.jpg, .png, .mp4, .webm)
+│   ├── routes/
+│   │   ├── srdRoutes.js        # Character SRD CRUD routes (/api/srd)
+│   │   └── srdMonsterRoutes.js # Monster SRD CRUD routes (/api/srd-monsters)
+│   ├── portUtils.js            # Port discovery, auto-IP detection & runtime state writing
+│   ├── VTTManager.js           # Singleton game engine, state tree, map persistence
+│   └── server.js               # Express API, Socket.IO middleware, event routers
+│
+└── client/
+    ├── src/
+    │   ├── components/
+    │   │   ├── CanvasMap.jsx           # Core HTML5 Canvas renderer (visibility, FX, weather)
+    │   │   ├── TokenTray.jsx           # Unplaced stack manager, NPC spawner, avatar overrides
+    │   │   ├── TokenPicker.jsx         # 2D Draggable/Resizable token art selector
+    │   │   ├── BottomToolbar.jsx       # DM control strip (scenes, lights, weather, day/night)
+    │   │   ├── InitiativeBar.jsx       # Combat carousel and active turn highlight
+    │   │   ├── AudioPlayer.jsx         # Ambient music, sound effect, and weather audio mixer
+    │   │   ├── DMAudioDeck.jsx         # DM audio controls & live ambient broadcast triggers
+    │   │   ├── WeatherPicker.jsx       # Weather presets, volume, and lightning controls
+    │   │   ├── DiceTray.jsx            # Polyhedral roll builder & 3D roll animator bridge
+    │   │   ├── DiceRollAnimation.jsx   # Procedural SVG polyhedral roll animation overlay
+    │   │   ├── MonsterBrowser.jsx      # SRD Bestiary search (334+ creatures)
+    │   │   ├── MonsterStatBlock.jsx    # Pop-out interactive monster stat block
+    │   │   ├── DeathSaveModal.jsx      # Automated turn-start death save prompt
+    │   │   ├── SystemShockModal.jsx    # Massive/Critical/Excessive damage CON save prompt
+    │   │   ├── CheckRequestPanel.jsx   # DM skill/ability prompt dispatcher
+    │   │   ├── CheckPrompt.jsx         # Player skill/saving throw response prompt
+    │   │   ├── PlayerPrompt.jsx        # Player initiative roll submission prompt
+    │   │   ├── CombatPanel.jsx         # DM initiative tracker & manual combatant manager
+    │   │   ├── DMCharacterViewer.jsx   # DM remote sheet inspector & editor
+    │   │   ├── DMHandouts.jsx          # DM handout launcher & clear dispatcher
+    │   │   ├── HandoutPicker.jsx       # Floating handout library selector
+    │   │   ├── DMNetworkPanel.jsx      # Network tuning interface (ping, buffers, thresholds)
+    │   │   ├── ConnectionStatus.jsx    # Top-right FPS, ping latency, and sync indicator
+    │   │   ├── LoginScreen.jsx         # Unauthenticated entrance gate & changelog viewer
+    │   │   ├── Sidebar.jsx             # Sliding drawer dock & modal launch buttons
+    │   │   ├── FXPanel.jsx             # Visual spell effect casting configuration panel
+    │   │   ├── ShapePanel.jsx          # Area-of-effect template configuration panel
+    │   │   ├── StampPicker.jsx         # Decal/stamp artwork library selector
+    │   │   ├── OptionsModal.jsx        # User settings (fonts, theme, procedural audio, webhook)
+    │   │   └── character/
+    │   │       ├── CharacterSheet.jsx  # 3-column wide-aspect pop-out dashboard (1260px)
+    │   │       ├── StatCard.jsx        # Core attributes, mod calculations, racial suggestions
+    │   │       ├── SavingThrowsCard.jsx# Saving throw proficiencies & calculated modifiers
+    │   │       ├── SensesCard.jsx      # Passive perception, insight, investigation
+    │   │       ├── CombatCard.jsx      # HP, AC, Speed, Initiative, Worn Armor, Inspiration
+    │   │       ├── SkillsCard.jsx      # 18 standard skills, proficiency cycling (P/E/½)
+    │   │       ├── ActionsCard.jsx     # Equipped weapon attacks, spell slots, action economy
+    │   │       ├── SpellsCard.jsx      # Spellbook browser, prepared spell filters
+    │   │       ├── SpellItem.jsx       # Individual spell accordion card (V/S/M, details)
+    │   │       ├── GearModal.jsx       # Full-screen inventory hub, commerce, beast companions
+    │   │       ├── FeaturesCard.jsx    # Racial traits, class features, subclass bonuses
+    │   │       ├── FeatsCard.jsx       # Feat library browser & selected perks
+    │   │       ├── AppearanceCard.jsx  # Physical descriptions & party nameplate styling
+    │   │       ├── JournalCard.jsx     # Multi-tab WYSIWYG notes & backup export/import
+    │   │       ├── LevelUpModal.jsx    # Automated level advancement & HP calculation wizard
+    │   │       └── PremadeBrowser.jsx  # Pre-made character template loader
+    │   ├── data/
+    │   │   ├── srd_data.json           # SRD rules (races, classes, feats, spells, equipment)
+    │   │   └── srd_monsters.json       # 334 monster stat blocks
+    │   ├── hooks/
+    │   │   ├── useDraggableResizable.js# 2D floating window drag/resize hook
+    │   │   ├── useResizable.js         # 1D sidebar horizontal/vertical splitter hook
+    │   │   ├── useSync.js              # Character sheet auto-sync debounce hook
+    │   │   └── useTokenList.js         # Token artwork library asset query hook
+    │   ├── utils/
+    │   │   ├── CharacterEngine.js      # D&D 5e math, modifiers, AC/HP formulas
+    │   │   ├── VisibilityEngine.js     # Spatial hashing grid & 2D raycasting Fog of War
+    │   │   ├── FXEngine.js             # Particle engine (10 shapes, 12 styles, emitters)
+    │   │   ├── SoundSynthesizer.js     # Web Audio API procedural sound synthesizer
+    │   │   ├── inventoryCommerce.js    # Coin math (PP/GP/EP/SP/CP), buy/sell transactions
+    │   │   ├── theme.js                # Dynamic palette switcher (9 custom themes)
+    │   │   └── tokenTrayUtils.js       # Unplaced NPC filtering utilities
+    │   ├── socket.js                   # WebSocket client instance
+    │   └── App.jsx                     # Top-level state coordinator and layout root
+
+3. Real-Time Socket Protocol & Event Matrix
+
+Socket.IO is configured with transports: ['websocket'] and perMessageDeflate
+(compression enabled above 1KB). All handlers pass through connection
+rate-limiting middleware (socket.checkRateLimit(limit, windowMs)).
+
+   [ Client Action ] ──► socket.emit('event', payload)
+                                │
+                                ▼
+                       [ Socket.IO Server ]
+                                │
+                      Rate & Auth Validation
+                                │
+                                ▼
+                       [ VTTManager.js ]
+                     (State Mutation & _version++)
+                                │
+                                ▼
+         ┌──────────────────────┴──────────────────────┐
+         ▼                                             ▼
+ [ Targeted Broadcast ]                       [ Debounced Disk Write ]
+io.emit('token_hp_changed', { ... })         saveMapDataDebounced() (500ms)
+
+3.1 Socket Event Reference Catalog
+
+| Event Name                | Role / Auth       | Payload Structure                                                      | Server Execution & Broadcasts                                                  |
+| :------------------------ | :---------------- | :--------------------------------------------------------------------- | :----------------------------------------------------------------------------- |
+| `move_token`              | DM / Owner        | `{ tokenId, x, y }`                                                    | Throttled peer-only broadcast `token_moved` (drag preview).                    |
+| `move_token_final`        | DM / Owner        | `{ tokenId, x, y }`                                                    | Snaps position, sets `isPlaced: true`, emits `token_final_position`.           |
+| `remove_token`            | DM / Minion Owner | `tokenId` (string)                                                     | Sets `isPlaced: false` (recalls to tray), emits `token_removed`.               |
+| `delete_token`            | DM Only           | `tokenId` (string)                                                     | Erases token from state array, emits `token_deleted`.                          |
+| `delete_tokens`           | DM Only           | `{ tokenIds: string[] }`                                               | Batch erases tokens from state, emits `tokens_deleted`.                        |
+| `add_npc`                 | DM Only           | `{ name, avatarUrl, hp, ac, monsterData }`                             | Spawns single NPC in unplaced state, emits `npc_added`.                        |
+| `add_npcs`                | DM Only           | `{ creatures: NPCDef[] }`                                              | Spawns batch in unplaced state, emits `npc_batch_added`.                       |
+| `spawn_owned_token`       | Player / DM       | `{ name, avatarUrl, hp, ac, monsterData, size }`                       | Spawns companion offset from owner token, emits `token_added`.                 |
+| `set_token_size`          | DM Only           | `{ tokenId, size: number }`                                            | Updates token scale multiplier, emits `token_size_updated`.                    |
+| `update_token_avatar`     | DM Only           | `{ tokenId, avatarUrl: string }`                                       | Updates artwork, persists to map, emits `token_avatar_updated`.                |
+| `toggle_token_hidden`     | DM Only           | `tokenId` (string)                                                     | Toggles DM-only visibility flag, emits `token_hidden_toggled`.                 |
+| `update_token_hp`         | DM / Owner        | `{ tokenId, amount, isHeal, senderName }`                              | Calculates delta, handles death saves/instant death, emits `token_hp_changed`. |
+| `death_save_roll`         | DM / Owner        | `{ tokenId, roll, success }`                                           | Updates success/failure/wounds, emits `new_chat` & `token_hp_changed`.         |
+| `take_rest`               | DM / Owner        | `{ tokenId, type: 'short'\|'long' }`                                   | Resets downs, recalculates Hit Dice, emits `token_hp_changed`.                 |
+| `toggle_condition`        | DM Only           | `{ tokenId, condition }`                                               | Toggles condition badge, emits `condition_toggled`.                            |
+| `clear_conditions`        | DM Only           | `{ tokenId }`                                                          | Clears all badges on token, emits `conditions_cleared`.                        |
+| `batch_inventory`         | DM / Owner        | `{ characterId, operations: Op[] }`                                    | Processes queued item transactions, emits `player_list_update`.                |
+| `update_inventory`        | DM / Owner        | `{ characterId, ...singleOp }`                                         | Single item fallback, emits `player_list_update`.                              |
+| `sync_character_data`     | Player / DM       | `CharacterData` (object)                                               | Synchronizes sheet state, updates token stats, emits `player_list_update`.     |
+| `add_walls`               | DM Only           | `WallSegment[]`                                                        | Validates finite numbers, stores walls, emits `wall_added`.                    |
+| `erase_wall`              | DM Only           | `wallId` (string)                                                      | Removes wall, emits `wall_erased`.                                             |
+| `add_light`               | DM Only           | `{ x, y, radius, color }`                                              | Validates and adds dynamic light, emits `light_added`.                         |
+| `erase_light`             | DM Only           | `lightId` (string)                                                     | Removes dynamic light, emits `light_erased`.                                   |
+| `add_stamp`               | DM Only           | `{ url, x, y, width, height }`                                         | Adds decal/stamp, emits `stamp_added`.                                         |
+| `erase_stamp`             | DM Only           | `stampId` (string)                                                     | Removes decal/stamp, emits `stamp_erased`.                                     |
+| `toggle_stamp_hidden`     | DM Only           | `stampId` (string)                                                     | Toggles stamp visibility flag, emits `stamp_hidden_toggled`.                   |
+| `add_note`                | DM Only           | `{ x, y, text }`                                                       | Adds persistent pushpin note, emits `note_added`.                              |
+| `update_note`             | DM Only           | `{ noteId, text }`                                                     | Updates note content, emits `note_updated`.                                    |
+| `erase_note`              | DM Only           | `noteId` (string)                                                      | Deletes pushpin note, emits `note_erased`.                                     |
+| `add_shape`               | All Users         | `{ type, x, y, endX, endY, color }`                                    | Enforces 3-shape limit per player, emits `shape_added`.                        |
+| `remove_shape`            | DM / Owner        | `shapeId` (string)                                                     | Removes shape template, emits `shape_removed`.                                 |
+| `clear_my_shapes`         | All Users         | *None*                                                                 | Clears caller shapes (or all if DM), emits `shapes_cleared`.                   |
+| `move_shape`              | DM / Owner        | `{ shapeId, x, y, endX, endY }`                                        | Peer broadcast `shape_moved` (drag preview).                                   |
+| `move_shape_final`        | DM / Owner        | `{ shapeId, x, y, endX, endY }`                                        | Persists shape coordinates, emits `shape_moved_final`.                         |
+| `cast_fx`                 | All Users         | `{ shape, style, startX, startY, endX, endY }`                         | Validates bounds, broadcasts `cast_fx` to all peers.                           |
+| `place_ping`              | All Users         | `{ x, y, playerName, playerColor }`                                    | Attaches temporary unique ID, broadcasts `place_ping`.                         |
+| `change_map`              | DM Only           | `mapName` (string)                                                     | Resets tokens to unplaced, loads data.json, emits full `state_update`.         |
+| `change_weather`          | DM Only           | `{ type, volume, isPlaying, lightningEnabled }`                        | Updates weather state, emits `weather_updated`.                                |
+| `change_day_night`        | DM Only           | `{ mode, dayColor, nightColor, ... }`                                  | Updates ambient tint, emits `day_night_updated`.                               |
+| `audio_music_update`      | DM Only           | `{ track, volume, isPlaying }`                                         | Updates ambient music track, emits `music_updated`.                            |
+| `audio_play_sfx`          | DM Only           | `{ track, volume, loop }`                                              | Broadcasts ephemeral sound trigger `trigger_sfx`.                              |
+| `audio_stop_sfx`          | DM Only           | *None*                                                                 | Broadcasts `stop_all_sfx`.                                                     |
+| `request_initiative`      | DM Only           | `tokenIds: string[]`                                                   | Dispatches `initiative_prompt` to target players' sockets.                     |
+| `submit_initiative`       | All Users         | `{ tokenId, roll, bonus }`                                             | Inserts/updates combatant initiative, emits `initiative_update`.               |
+| `add_npc_initiative`      | DM Only           | `{ tokenId, initiative }`                                              | Manually inserts NPC into initiative, emits `initiative_update`.               |
+| `start_combat`            | DM Only           | *None*                                                                 | Sorts initiative list, sets `currentTurn`, emits `combat_started`.             |
+| `next_turn`               | DM Only           | *None*                                                                 | Advances `currentTurnIndex`, emits `turn_update` & `turn_started`.             |
+| `set_turn`                | DM Only           | `tokenId` (string)                                                     | Jumps to specific combatant turn, emits `turn_update` & `turn_started`.        |
+| `reset_combat`            | DM Only           | *None*                                                                 | Clears combat tracking, emits `combat_reset`.                                  |
+| `request_check`           | DM Only           | `{ targetUserId, checkType, skillOrAbility, dc, reason }`              | Dispatches `check_request` modal prompt to target player socket.               |
+| `submit_check`            | Player Only       | `{ targetUserId, checkType, skillOrAbility, dc, roll, bonus, reason }` | Calculates total vs DC, emits result to `new_chat`.                            |
+| `request_character_sheet` | DM Only           | `targetUserId` (string)                                                | Returns target `character_sheet_data` to DM socket.                            |
+| `save_player_sheet`       | DM Only           | `{ targetUserId, data }`                                               | Overwrites player character data, pushes `sync_character_data`.                |
+| `toggle_catalog_hidden`   | DM Only           | `itemName` (string)                                                    | Toggles item in hidden\_items.json, emits `catalog_hidden_toggled`.            |
+| `update_network_settings` | DM Only           | `settings` (object)                                                    | Updates ping intervals, timeouts, payload limits live on Engine.               |
+| `save_session`            | DM Only           | *None*                                                                 | Flushes current tokens, stamps, and shapes directly to disk.                   |
+
+4. Subsystem Deep Dives
+
+4.1 Canvas Rendering Engine (CanvasMap.jsx)
+
+  - Execution Model: Driven by requestAnimationFrame with delta-time throttling
+    (locking animations to 60 FPS across high-refresh monitors).
+  - Layer Rendering Order:
+    1.  Background Table Texture (static image or 60 FPS looping HTML5 <video>).
+    2.  Map Image (mapImage).
+    3.  Decals & Stamps (stamps).
+    4.  Ambient Day/Night Lighting overlay tint (clipped to map bounds).
+    5.  Dynamic Fog of War (offscreen canvas fogCanvasRef clipped to player
+        visibility + visible lights).
+    6.  Grid lines (when showGrid === true).
+    7.  Wall segments & Light source handles (DM edit mode only).
+    8.  Rulers, Measurement Badges, Movement Trails.
+    9.  Spell FX Particle Buffers (Particles, Missiles, Emitters).
+    10. Active Tokens, Turn Pulse Rings, Condition Badges, HP Bars.
+    11. Weather Parallax Dual-Layer Overlays (clipped to map bounds).
+    12. Floating Ping Animations & DM Pushpins.
+
+Fog of War Raycasting (VisibilityEngine.js)
+
+  - Spatial wall hashing via buildWallGrid(walls, width, height).
+  - Only player-controlled tokens (type === 'player' && isPlaced === true)
+    generate base vision polygons.
+  - Lights are hidden unless their coordinates fall within at least one player
+    token's line-of-sight (pointInPolygon).
+  - Critical Rule: When tokens move or are placed/recalled, visibilityData
+    recalculates automatically. Keep token state pure.
+
+4.2 Token Management & Tray Synchronization
+
+  - Tokens exist in one of two states:
+      - Unplaced (isPlaced: false): Displayed inside TokenTray.jsx stacked by
+        name/avatar.
+      - Placed (isPlaced: true): Positioned on CanvasMap.jsx at coordinates (x,
+        y).
+  - The Placement Flow:
+    1.  DM clicks Spawn in TokenTray.jsx \rightarrow sets placingTokenId.
+    2.  DM clicks coordinates on canvas \rightarrow CanvasMap snaps to grid step
+        and emits move_token_final.
+    3.  Server updates token.x, token.y, token.isPlaced = true and emits
+        token_final_position.
+    4.  CanvasMap upserts the token into its local state; TokenTray updates its
+        unplaced filter.
+  - The Recall Flow:
+    1.  DM or owner right-clicks token \rightarrow clicks Recall \rightarrow
+        emits remove_token.
+    2.  Server sets token.isPlaced = false and emits token_removed.
+    3.  CanvasMap updates token to isPlaced: false (hiding it from the field and
+        removing its vision polygon).
+    4.  TokenTray shows the token back in the unplaced list.
+
+4.3 Combat, Death Saves & Vitality Pipeline
+
+[ Damage Event: update_token_hp ]
+                │
+                ├─► Single hit >= Max HP at 0 HP ──► [ Instant Death (💀 Dead) ]
+                │
+                ├─► Damage while at 0 HP ──────────► [ +1 Death Save Failure ]
+                │                                             │
+                │                                    Failures + Wounds >= 3?
+                │                                      ├── Yes ──► [ 💀 Dead ]
+                │                                      └── No  ──► [ Maintain Downed ]
+                │
+                ├─► Damage >= 1/2 Max HP ──────────► [ System Shock: Massive Damage ]
+                │                                      (Triggers CON Save Prompt)
+                │
+                └─► Downed for 3rd+ Time ──────────► [ System Shock: Excessive Damage ]
+                                                       (DC = 15 + 3 * (timesDowned - 3))
+
+  - Turn Start Check: turn_started checks if the current token is at 0 HP, not
+    stable, and not dead. If true, it triggers onDeathSaveTrigger strictly on
+    the token owner's client or DM client (avoiding global modal popups).
+  - Rest Pipeline:
+      - Short Rest: Prompts player for Hit Dice expenditure; heals token and
+        updates character sheet.
+      - Long Rest: Restores HP to max, resets deathSaveSuccesses,
+        deathSaveFailures, timesDowned, clears isDead, and reclaims up to
+        \lfloor \text{Total HD} / 2 \rfloor (minimum 1).
+
+4.4 Spell FX System (FXEngine.js)
+
+  - Limits: MAX_PARTICLES = 3000, MAX_MISSILES = 20, MAX_EMITTERS = 10.
+  - Shapes: AOE, Cone, Beam, Missile, Burn, Glow, Slash, Smash, Pulse, Ring.
+  - Styles: Fire, Water, Blood, Holy, Dark, Frost, Acid, Smoke, Slash Spark,
+    Impact Dust, Lightning, Force.
+  - Lifecycle: When a user casts, executeCastLocal() runs locally and
+    socket.emit('cast_fx', ...) is broadcast to peers. The engine runs in a
+    separate requestAnimationFrame loop on CanvasMap.
+
+5. Critical Pitfalls & Agent Guardrails
+
+| Trap                         | Root Cause                                                                            | Mandatory Pattern                                                                                       |
+| :--------------------------- | :------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------ |
+| **Variable Shadowing**       | Re-declaring `const token = ...` inside a block that already defined `token`.         | Rename destructured outputs explicitly (e.g., `const { token: updatedToken } = result;`).               |
+| **Scope Re-Declaration**     | Re-extracting `const { userId } = socket.auth` inside nested socket callbacks.        | Use the connection-level `userId` inherited via lexical closure.                                        |
+| **Canvas Mount Crash (TDZ)** | Declaring `const draw = useCallback(...)` below `useEffect` hooks that call `draw()`. | Declare all state, refs, and the `draw` function **before** any lifecycle `useEffect`.                  |
+| **Video Memory Leaks**       | Leaving `<video>` elements active on canvas unmount or asset reload.                  | Call `.pause()`, set `.src = ""`, and call `.load()` during cleanup lifecycles.                         |
+| **Socket Listener Churn**    | Passing inline callback functions to socket hooks with changing references.           | Wrap dynamic callbacks in persistent React refs (e.g., `onDeathSaveTriggerRef`).                        |
+| **Version Gap Deadlock**     | Dropping `state_update` payloads when `_version` advances via targeted events.        | Always apply incoming state in `App.jsx` immediately; never lock updates behind a version delta filter. |
+| **Synchronous Disk Stalls**  | Calling `fs.writeFileSync` inside map drawing / token update paths.                   | Always call `this.saveMapDataDebounced()` inside `VTTManager.js`.                                       |
+
+6. Standard Patterns for Extending the System
+
+Pattern A: Adding a New Targeted Action
+
+1.  Server (server.js):
+    socket.on('custom_action', (payload) => {
+      if (!socket.checkRateLimit(20)) return;
+      if (!VTTManager.isDM(userId) && !isAuthorized(payload)) return;
+
+      const result = VTTManager.performCustomAction(payload);
+      if (result) {
+        VTTManager.incrementStateVersion();
+        io.emit('custom_action_applied', { data: result, version: VTTManager.stateVersion });
+      }
+    });
+2.  Manager (VTTManager.js): Mutate the state object, increment version, and
+    trigger this.saveMapDataDebounced().
+3.  Client (CanvasMap.jsx / App.jsx):
+    useEffect(() => {
+      const handleActionApplied = ({ data, version }) => {
+        setCustomState(prev => applyDelta(prev, data));
+        if (version) lastStateVersion.current = version;
+      };
+
+      socket.on('custom_action_applied', handleActionApplied);
+      return () => socket.off('custom_action_applied', handleActionApplied);
+    }, []);
+
+Pattern B: Creating a Floating UI Modal
+
+Always utilize useDraggableResizable to avoid duplicating window drag and resize
+logic:
+
+import { useDraggableResizable } from '../hooks/useDraggableResizable';
+
+export default function CustomModal({ onClose }) {
+  const { pos, size, handleMouseDown, handleResizeDown } = useDraggableResizable(
+    { x: 200, y: 150 },
+    { w: 450, h: 550 },
+    { w: 250, h: 250 }
+  );
+
+  return (
+    <div
+      className="fixed z-[1000] bg-bgPanel border border-accentGold rounded-lg shadow-2xl flex flex-col overflow-hidden"
+      style={{ left: `${pos.x}px`, top: `${pos.y}px`, width: `${size.w}px`, height: `${size.h}px` }}
+      onMouseDown={handleMouseDown}
+    >
+      <header className="bg-bgCard p-3 flex justify-between items-center cursor-move border-b border-borderDark shrink-0">
+        <span className="text-accentGold font-bold text-xs uppercase tracking-wider">Custom Tool</span>
+        <button onClick={onClose} className="text-textMuted hover:text-white">✕</button>
+      </header>
+      <div className="flex-1 p-3 overflow-y-auto bg-[#0b0c10]">
+        {/* Content */}
+      </div>
+      <div className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize" onMouseDown={handleResizeDown} />
+    </div>
+  );
+}
+
+7. Verification Checklist Before Submitting Code Changes
+
+- [ ] No fs.writeFileSync added in server/ mutation routines.
+- [ ] No variable shadowing in socket handlers (token vs updatedToken).
+- [ ] DM permissions verified on administrative endpoints (isDM(userId)).
+- [ ] Character ownership verified on player mutation endpoints (token.ownerId
+  === userId).
+- [ ] Coordinates and numeric inputs validated with Number.isFinite().
+- [ ] Socket listeners in React components properly unbound in the useEffect
+  cleanup return.
+- [ ] Recalled tokens preserved with isPlaced = false rather than removed from
+  arrays.
+- [ ] Client state updates apply instantly without requiring manual page refresh
+  (F5).

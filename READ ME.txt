@@ -1,0 +1,150 @@
+INSTRUCTIONS 
+
+To start the VTT simply create a .bat file:
+
+____________________________________________
+@echo off
+title Custom VTT Launcher
+echo =======================================
+echo    Starting Custom VTT Environment
+echo =======================================
+
+:: Start the Node Server in a new window
+echo Starting Backend Server (Port 3001)...
+cd server
+start "VTT Backend Server" cmd /k "node server.js"
+cd ..
+
+:: Start the Vite Client in a new window
+echo Starting Frontend Client (Port 5173)...
+cd client
+start "VTT Frontend Client" cmd /k "npm run dev"
+cd ..
+
+echo.
+echo Both servers have been launched in separate windows!
+echo You can close this window.
+pause
+____________________________________________
+
+Copy this and make a new file named "start-vtt.bat" and paste the contents into that .bat
+
+To add custom content go into the server folder and open up the assets dir.
+"custom-vtt\server\assets"
+
+In this dir/folder 📂 you will see a series of folders where you can place your custom content.
+
+- handouts
+- maps
+- music
+- sfx
+- stamps
+- tokens
+
+In each of these folders you'll place the appropriate files, some directories contain additional "READ ME" files detailing what types of files you can be used.
+
+*Additionally brief descriptions of the tools are included.
+
+The VTT was designed to be simple and straight forward, generally clicking around and exploring the tools will make it clear on how everything works. 
+I designed the VTT to be user friendly and expandable, meaning you can contribute your own code to expand features or add additional content.
+
+IMPORTANT!
+
+The folder path the srd_data.json is located in "custom-vtt\client\src\data"
+
+This srd contains over 15+ books worth of content for character creation. It should only be used for expanding character driven content (Races, classes, items, spells, etc.) 
+It was NOT designed to include monster data or npc data. However I might add a monster_srd.json in the future to auto-build monster tokens.
+
+WHAT THIS VTT DOES NOT DO:
+
+* Auto calculate/apply damage to monsters and players
+* Handle complex spells and cantrips
+* Automate combat (Actions are player and DM driven)
+
+WHAT THIS VTT DOES DO:
+
+* Automate character creation (Handles building the character sheet)
+* Auto populate fields via search or drop downs for quickly making a character
+* Auto applies FEATS+SKILLS
+* Automatically handles leveling up and applying bonuses to stats and skills
+* Changes core stats + skills natively on race, class and background selections
+* Calculates AC, DC, HP
+* Updates Passives (Perception, Insight and Investigation)
+* Allows player to track actions, bonus actions and reactions (Adds additional slots based on class and level)
+* Allows player to easily manage inventory via search features (pulled from the srd)
+* Easy to add spells (pulled from the srd)
+* Has tabs for appearance and character journals
+* Includes chat/combat logs
+* Tracks combat initiatives w/ combat carousel for handling combat turns (This is manual)
+* Features a dice roller with all standard dice
+* Has build in audio player (Uses custom content)
+* Has a map area for game play and traversal
+* FOG OF WAR + LOS
+* DM can request saving throws from players at will (via right clicking on tokens)
+* DM can inspect players character sheets at will
+* Map builder has placeable gradient lights + custom stamps
+* Map builder includes easy wall placement
+* DM can make unlimited maps and save them to be used later
+* Token traversal includes movement helper (Ruler tool is activated when tokens are dragged and dropped showing you how far a token is being moved)
+* Maps are auto saved in the backend (saves on map changes - placing walls, lights, notes)
+* Note placement tool (for DM notes) these can be placed directly on the map and are hidden from players
+* DM login and player login (every user is assigned a UUID and always connect to previously made characters)
+
+Cloudflare Tunnel setup
+-----------------------
+The included `start-vtt.bat` intentionally starts a randomized Cloudflare Quick Tunnel. The server also supports an optional stable named tunnel when launched outside that batch file, using these environment variables on the host (do not put credentials, tokens, or IP addresses in the repository):
+
+    CLOUDFLARE_TUNNEL_NAME=your-tunnel-name
+    CLOUDFLARE_TUNNEL_ID=your-tunnel-uuid
+    CLOUDFLARE_TUNNEL_URL=https://your-public-hostname.example
+
+Install and authenticate cloudflared on the host, then configure the named tunnel's origin service for the backend (normally http://127.0.0.1:3001). The server runs `cloudflared tunnel run` using cloudflared's local configuration. If these variables are absent, the existing randomized Quick Tunnel behavior is retained.
+
+For a remotely-managed tunnel, the dashboard's **Install connector** page provides a tunnel token. Store it only as a host environment variable and use:
+
+    CLOUDFLARE_TUNNEL_TOKEN=your-tunnel-token
+    CLOUDFLARE_TUNNEL_URL=https://game.your-domain.example
+
+A token is sensitive: never put it in a batch file, source file, screenshot, or committed `.env` file. When the VTT is published through Vite on port 5173, the Vite proxy forwards `/api`, `/assets`, and `/socket.io` to the backend on port 3001.
+
+When using named-tunnel mode outside the batch launcher, fill in either the tunnel ID (locally-managed tunnel) or the dashboard connector token (remotely-managed tunnel), and set the exact public hostname shown in Cloudflare. In the dashboard route, use `http://127.0.0.1:5173` (Vite is HTTP by default), not `https://localhost:5173`. A hostname such as `game.customvtt` only works if `customvtt` is an actual DNS zone/domain in the Cloudflare account; otherwise use the full hostname Cloudflare assigned to your real domain.
+
+An ID, tunnel name, and replica ID are identifiers, not credentials. A locally-managed tunnel also needs a `cert.pem`/tunnel credentials JSON referenced by `CLOUDFLARE_TUNNEL_CONFIG`; a remotely-managed tunnel needs the connector token from Cloudflare's **Install connector** command. If neither is available, cloudflared exits with code 1 and the server intentionally falls back to a direct-IP URL.
+
+Authenticated accounts are Players by default. To designate the host account as DM without trusting browser-supplied roles, set `VTT_DM_USER_ID` or `VTT_DM_USERNAME` in the server environment.
+
+DM login
+--------
+The direct DM button opens the account login because browser-supplied DM roles are not trusted. Sign in with the account designated by `VTT_DM_USER_ID` or `VTT_DM_USERNAME`; the server assigns the DM role and unlocks map and table controls. For example:
+
+    VTT_DM_USERNAME=your-host-username
+
+The included `start-vtt.bat` loads these host settings from the ignored `server/.host.env` file. Copy `server/.host.env.example` to `server/.host.env`, set `VTT_DM_USERNAME=DestinyDM` (or the correct account name), then restart the launcher. The existing account will log in as DM and skip the character vault.
+
+To register the first DM account through the UI, set a private `VTT_DM_SETUP_SECRET` environment variable before starting the server. In the Register tab, enter that value in the optional **DM setup key** field. Only an exact server-side match creates a DM account; all other registrations remain Players. Never put this secret in the repository or batch file.
+
+The complete first-time DM flow is:
+1. Copy `server/.host.env.example` to `server/.host.env`.
+2. For an existing account, set `VTT_DM_USERNAME=that-username` (or add names to `VTT_DM_USERNAMES`), restart `start-vtt.bat`, then use **Account Login**.
+3. For a new DM account, generate a random secret in PowerShell, put it in `VTT_DM_SETUP_SECRET`, restart the server, choose **Register**, enter the secret, and click **Create DM Account**.
+4. After login, the server reports `role=DM`; the DM enters the table directly and never needs a character.
+
+Character avatar storage
+------------------------
+Avatars are uploaded through the authenticated `/api/avatars` endpoint and stored as files under `server/assets/avatars`, not embedded as base64 in `characters_db.json`. Uploads are limited to PNG, JPG, WEBP, or GIF images under 5 MB. Character records store only a compact `/assets/avatars/...` URL, and older embedded avatars are migrated automatically when the server starts.
+
+Second-monitor character sheet
+------------------------------
+Players can click **Full Sheet** beside Active Party to open a separate window, or navigate directly to `/character-sheet` on the same VTT origin. The window verifies the logged-in account, loads the active server character, connects with the account session, and provides the full Stats, Skills, Senses, Actions, Gear, Features, Spells, Appearance, and Journal tabs. A second monitor must use the same tunnel URL as the main table because Quick Tunnel origins have separate browser storage.
+
+Player token lifecycle
+----------------------
+Player tokens and player-owned companion tokens are session-scoped. A temporary disconnect, including a browser refresh, keeps them available for reconnecting, but an explicit logout removes them from the active table and saved map data. The server also removes all player-owned tokens before shutdown so stale entries do not accumulate in the token tray; DM and ordinary NPC tokens remain persistent.
+
+DMs can use **CLEAR PLAYERS** in the Token Tray to remove legacy or stale player/player-owned companion tokens, including entries with outdated placement metadata. The button is disabled when none are present and asks for confirmation because the removal is permanent for the current session. Map files no longer restore or save player tokens, so switching scenes cannot bring back disconnected players. Tokens are recreated when their players join again.
+
+Torch and fog of war
+--------------------
+An active player torch is treated as a primary vision source, not merely a colored light effect. It therefore reveals fog of war for characters without darkvision, including at night. Static map lights remain subject to the player's currently revealed area.
+
+Vision ranges are displayed and stored in feet. The canvas converts them to pixels using the active 5-foot grid, so a 60-foot darkvision value reveals the expected 12 squares rather than being interpreted as 60 pixels.

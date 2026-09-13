@@ -1,11 +1,11 @@
 @echo off
 setlocal
-title Z-Image Studio - Git Push
+title Custom-VTT - Git Push
 
 cd /d "%~dp0"
 
 echo ======================================================================
-echo Pushing Local Changes to GitHub (destinyfaux/Z-Image-Studio)
+echo Pushing Local Changes to GitHub (destinyfaux/Custom-VTT)
 echo ======================================================================
 
 REM 1. Verify Git is available
@@ -39,7 +39,7 @@ if %errorlevel% neq 0 goto :PUSH_FAIL
 echo.
 echo ======================================================================
 echo Changes successfully pushed to GitHub!
-echo Repository: https://github.com/destinyfaux/Z-Image-Studio
+echo Repository: https://github.com/destinyfaux/Custom-VTT
 echo ======================================================================
 goto :DONE
 
