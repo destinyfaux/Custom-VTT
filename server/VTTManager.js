@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
+const { rollDiceFormula } = require('./utils/dice');
 
 // Grid size used for token placement offset (matches client)
 const GRID_SIZE = 70;
@@ -794,7 +795,21 @@ class VTTManager {
 
     addNPCToken(name, avatarUrl, hp, ac, monsterData = null, size = 1, ownerId = 'DM') {
         const npcId = 'npc_' + Date.now() + Math.random().toString(36).substr(2, 5);
-        const safeHp = Number(hp) > 0 ? Number(hp) : 10;
+
+        // ── HP ROLLING ──
+        // Prefer the SRD hp_formula (e.g. "4d6+4") over the static hp average so
+        // identical creatures spawned in a batch get varied HP for encounters.
+        // Falls back to the static value when no formula exists or it is malformed.
+        let safeHp = Number(hp) > 0 ? Number(hp) : 10;
+        let hpRoll = null;
+        const hpFormula = monsterData && typeof monsterData.hp_formula === 'string' ? monsterData.hp_formula : null;
+        if (hpFormula && hpFormula.trim()) {
+            const rolled = rollDiceFormula(hpFormula);
+            if (rolled && Number.isFinite(rolled.total)) {
+                safeHp = Math.min(9999, Math.max(1, Math.round(rolled.total)));
+                hpRoll = { formula: rolled.formula, total: safeHp };
+            }
+        }
 
         const vision = this.getVisionSettings(monsterData || {});
         const token = {
@@ -805,6 +820,7 @@ class VTTManager {
             avatarUrl: avatarUrl || null,
             hpCur: safeHp,
             hpMax: safeHp,
+            hpRoll: hpRoll,
             ac: Number(ac) >= 0 ? Number(ac) : 10,
             x: 0,
             y: 0,
@@ -963,6 +979,15 @@ class VTTManager {
         token.hidden = !token.hidden;
         this.incrementStateVersion();
         return token.hidden;
+    }
+
+    // FLIGHT — toggles the flying flag used by the client for hover visuals
+    toggleTokenFlying(tokenId) {
+        const token = this.state.tokens.find(t => t.id === tokenId);
+        if (!token) return null;
+        token.flying = !token.flying;
+        this.incrementStateVersion();
+        return token;
     }
 
     // ─── STAMPS, LIGHTS, WALLS, SHAPES, NOTES ─────────────────────────────

@@ -9,6 +9,8 @@ import { SERVER_URL } from '../config';
 import soundSynthesizer from '../utils/SoundSynthesizer';
 import { renderOffscreenFog, pointInPolygon } from '../utils/canvasFogRenderer';
 import { netInterpolation } from '../utils/netInterpolation';
+import { buildMapLabels, getTokenLabel } from '../utils/tokenNaming';
+import { drawConditionAuras, CONDITION_BURST_STYLE } from '../utils/conditionFX';
 import {
   drawTextBadge,
   drawAnchor,
@@ -172,6 +174,22 @@ export default function CanvasMap({
   // HP Change Animations State & Ref
   const [tokenAnimations, setTokenAnimations] = useState({});
   const prevTokensRef = useRef([]);
+
+  // ── Animation Juice State ──
+  // Floating combat text (damage/heal numbers rising off tokens)
+  const floatingTextsRef = useRef([]);
+  const [floatTextCount, setFloatTextCount] = useState(0);
+  // Downed "tip-over" animations (tokenId -> startTime); persists while hpCur <= 0
+  const downedAnimRef = useRef({});
+
+  // ── Group Movement State (per-client, transient) ──
+  const [moveGroupIds, setMoveGroupIds] = useState([]);
+  const moveGroupIdsRef = useRef([]);
+  // Snapshot while dragging a grouped token: { leaderId, leaderOrigX, leaderOrigY, members: [{id, origX, origY}] }
+  const groupDragRef = useRef(null);
+
+  // ── Display Labels (render-time only; never mutates token.name) ──
+  const mapLabels = useMemo(() => buildMapLabels(tokens), [tokens]);
   
   // Interaction State
   const [draggedToken, setDraggedToken] = useState(null);
@@ -1201,6 +1219,8 @@ export default function CanvasMap({
 
       // Tokens drawing
       const placedTokens = tokens.filter(t => t.isPlaced);
+      const nowMs = performance.now();
+
       placedTokens.forEach(t => {
         if (t.hidden && role !== 'DM') return;
 
@@ -1229,25 +1249,62 @@ export default function CanvasMap({
         const centerX = renderPos.x + radius;
         const centerY = renderPos.y + radius;
 
+        // ── FLIGHT: hover lift + bobbing ──
+        const isFlying = Boolean(t.flying);
+        const lift = isFlying ? 14 + Math.sin(nowMs / 380) * 3.5 : 0;
+
+        // ── ANIMATION STATE: shake (damage), scale pop (heal/pickup), tip-over (downed) ──
+        const anim = tokenAnimations[t.id];
+        const animDur = anim?.dur || 800;
+        const animActive = anim && Date.now() < anim.endTime;
+        const animProgress = animActive ? (Date.now() - anim.startTime) / animDur : 0;
+        const shakeX = animActive && anim.type === 'damage'
+          ? Math.sin(animProgress * 28) * 6 * (1 - animProgress)
+          : 0;
+        const popScale = animActive && anim.type === 'heal'
+          ? 1 + 0.10 * Math.sin(animProgress * Math.PI)
+          : animActive && anim.type === 'pickup'
+            ? 1 + 0.12 * (1 - animProgress)
+            : 1;
+
+        const downStart = downedAnimRef.current[t.id];
+        let downAngle = 0;
+        if (t.hpCur <= 0 && downStart) {
+          const dp = Math.min(1, (nowMs - downStart) / 700);
+          downAngle = (1 - Math.pow(1 - dp, 3)) * Math.PI / 2; // ease-out tip-over
+        }
+
+        const bodyCenterX = centerX + shakeX;
+        const bodyCenterY = centerY - lift;
+
         ctx.save();
+
         if (t.hidden && role === 'DM') ctx.globalAlpha = 0.25;
+        else if (t.conditions && t.conditions.includes('Invisible')) ctx.globalAlpha = 0.55;
+
+        // Apply heal pop / downed tip-over around the (lifted) token center
+        ctx.translate(bodyCenterX, bodyCenterY);
+        if (downAngle) ctx.rotate(downAngle);
+        if (popScale !== 1) ctx.scale(popScale, popScale);
+        ctx.translate(-bodyCenterX, -bodyCenterY);
+
         ctx.strokeStyle = t.type === 'player' ? '#e6b422' : '#ff4444';
         ctx.lineWidth = 4 / vs.scale;
         ctx.beginPath();
-        ctx.arc(centerX, centerY, radius - 2, 0, Math.PI * 2);
+        ctx.arc(bodyCenterX, bodyCenterY, radius - 2, 0, Math.PI * 2);
         ctx.stroke();
 
         ctx.beginPath();
-        ctx.arc(centerX, centerY, radius - 4, 0, Math.PI * 2);
+        ctx.arc(bodyCenterX, bodyCenterY, radius - 4, 0, Math.PI * 2);
         ctx.clip();
 
         const cachedImg = tokenImageCache.current[t.avatarUrl];
         if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0 && cachedImg.naturalHeight > 0) {
-          ctx.drawImage(cachedImg, renderPos.x, renderPos.y, size, size);
+          ctx.drawImage(cachedImg, renderPos.x + shakeX, renderPos.y - lift, size, size);
         } else {
-          ctx.fillRect(renderPos.x, renderPos.y, size, size);
+          ctx.fillRect(renderPos.x + shakeX, renderPos.y - lift, size, size);
           ctx.beginPath();
-          ctx.arc(centerX, centerY, radius - 6, 0, Math.PI * 2);
+          ctx.arc(bodyCenterX, bodyCenterY, radius - 6, 0, Math.PI * 2);
           ctx.fillStyle = '#222';
           ctx.fill();
           // Draw first letter in white
@@ -1256,13 +1313,26 @@ export default function CanvasMap({
           ctx.font = `bold ${size / 1.5}px sans-serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(letter, centerX, centerY);
+          ctx.fillText(letter, bodyCenterX, bodyCenterY);
         }
         ctx.restore();
 
+        // ── Group movement highlight (dashed cyan ring) ──
+        if (moveGroupIdsRef.current.includes(t.id)) {
+          ctx.save();
+          ctx.strokeStyle = '#4dd8ff';
+          ctx.lineWidth = 2.2 / vs.scale;
+          ctx.setLineDash([7 / vs.scale, 5 / vs.scale]);
+          ctx.lineDashOffset = -(nowMs / 40) / vs.scale; // marching ants
+          ctx.beginPath();
+          ctx.arc(centerX, bodyCenterY, radius + 6 / vs.scale, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+
         // Pulse the token whose initiative turn is currently active
         if (t.id === currentTurn) {
-          const pulse = (Math.sin(performance.now() / 180) + 1) / 2;
+          const pulse = (Math.sin(nowMs / 180) + 1) / 2;
           const pulseRadius = radius + 8 + pulse * 12;
 
           ctx.save();
@@ -1272,27 +1342,25 @@ export default function CanvasMap({
           ctx.lineWidth = (3 + pulse * 2) / vs.scale;
           ctx.globalAlpha = 0.7 + pulse * 0.3;
           ctx.beginPath();
-          ctx.arc(centerX, centerY, pulseRadius, 0, Math.PI * 2);
+          ctx.arc(centerX, bodyCenterY, pulseRadius, 0, Math.PI * 2);
           ctx.stroke();
           ctx.restore();
         }
 
-        // HP Change Animation Overlay
-        const anim = tokenAnimations[t.id];
-        if (anim && Date.now() < anim.endTime) {
-          const progress = (Date.now() - anim.startTime) / 800;
-          const radius = size / 2;
+        // HP Change Animation Overlay (ring pulse) — only for damage/heal
+        if (animActive && (anim.type === 'damage' || anim.type === 'heal')) {
+          const progress = animProgress;
           const maxRadius = radius + (progress * 25);
           const alpha = 1 - progress;
           ctx.save();
           ctx.beginPath();
-          ctx.arc(centerX, centerY, maxRadius, 0, Math.PI * 2);
+          ctx.arc(centerX, bodyCenterY, maxRadius, 0, Math.PI * 2);
           ctx.fillStyle = anim.type === 'heal' 
               ? `rgba(0, 200, 0, ${alpha * 0.5})` 
               : `rgba(200, 0, 0, ${alpha * 0.5})`;
           ctx.fill();
           ctx.beginPath();
-          ctx.arc(centerX, centerY, maxRadius - 4, 0, Math.PI * 2);
+          ctx.arc(centerX, bodyCenterY, maxRadius - 4, 0, Math.PI * 2);
           ctx.strokeStyle = anim.type === 'heal' ? '#00ff00' : '#ff0000';
           ctx.lineWidth = 2;
           ctx.stroke();
@@ -1303,23 +1371,26 @@ export default function CanvasMap({
         if (role === 'DM') {
           const hpPct = Math.max(0, Math.min(1, t.hpCur / t.hpMax));
           ctx.fillStyle = '#000';
-          ctx.fillRect(renderPos.x, renderPos.y + size, size, 6 / vs.scale);
+          ctx.fillRect(renderPos.x + shakeX, renderPos.y - lift + size, size, 6 / vs.scale);
           ctx.fillStyle = hpPct > 0.5 ? '#44ff44' : hpPct > 0.2 ? '#ffff44' : '#ff4444';
-          ctx.fillRect(renderPos.x, renderPos.y + size, size * hpPct, 6 / vs.scale);
+          ctx.fillRect(renderPos.x + shakeX, renderPos.y - lift + size, size * hpPct, 6 / vs.scale);
         }
 
-        // Labels (Floating text)
+        // ── Condition auras (procedural, per-condition unique visuals) ──
+        drawConditionAuras(ctx, t, centerX, bodyCenterY, size, vs.scale, nowMs);
+
+        // Labels (Floating text) — uses the disambiguated map label ("Goblin A")
         ctx.fillStyle = "white";
         ctx.font = `bold ${12 / vs.scale}px sans-serif`;
         ctx.textAlign = "center";
         ctx.shadowColor = "black";
         ctx.shadowBlur = 4;
-        ctx.fillText(t.name, centerX, renderPos.y - 10 / vs.scale);
+        ctx.fillText(getTokenLabel(mapLabels, t) + (isFlying ? ' 🪶' : ''), centerX, renderPos.y - lift - 10 / vs.scale);
 
         // AC text (DM only)
         if (role === 'DM') {
           ctx.fillStyle = "#e6b422";
-          ctx.fillText(`AC ${t.ac}`, centerX, renderPos.y - 25 / vs.scale);
+          ctx.fillText(`AC ${t.ac}`, centerX, renderPos.y - lift - 25 / vs.scale);
         }
         ctx.shadowBlur = 0;
 
@@ -1328,7 +1399,7 @@ export default function CanvasMap({
           const iconSize = 16 / vs.scale;
           const iconGap = 2 / vs.scale;
           const startX = renderPos.x + (size - (t.conditions.length * iconSize + (t.conditions.length - 1) * iconGap)) / 2;
-          const iconY = renderPos.y + size + 10 / vs.scale;
+          const iconY = renderPos.y - lift + size + 10 / vs.scale;
           ctx.font = `${iconSize}px sans-serif`;
           ctx.textBaseline = 'middle';
           t.conditions.forEach((cond, idx) => {
@@ -1336,7 +1407,62 @@ export default function CanvasMap({
             ctx.fillText(emoji, startX + idx * (iconSize + iconGap), iconY);
           });
         }
+
+        // ── FLIGHT INDICATOR (drawn last so nothing covers it) ──
+        if (isFlying) {
+          const groundY = renderPos.y - lift + size + 28 / vs.scale;
+          ctx.save();
+          // soft detached shadow on the ground
+          ctx.globalAlpha = 0.45;
+          ctx.fillStyle = '#000';
+          ctx.beginPath();
+          ctx.ellipse(centerX, groundY, radius * 0.75, radius * 0.16, 0, 0, Math.PI * 2);
+          ctx.fill();
+          // dashed hover disc below the shadow
+          ctx.globalAlpha = 0.9;
+          ctx.strokeStyle = '#7fdcff';
+          ctx.lineWidth = 2.2 / vs.scale;
+          ctx.setLineDash([6 / vs.scale, 5 / vs.scale]);
+          ctx.lineDashOffset = (nowMs / 60) / vs.scale;
+          ctx.beginPath();
+          ctx.ellipse(centerX, groundY, radius * 1.0, radius * 0.26, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          // cyan glow ring hugging the lifted token
+          ctx.globalAlpha = 0.55 + Math.sin(nowMs / 300) * 0.15;
+          ctx.strokeStyle = '#7fdcff';
+          ctx.lineWidth = 2 / vs.scale;
+          ctx.shadowColor = '#7fdcff';
+          ctx.shadowBlur = 8 / vs.scale;
+          ctx.beginPath();
+          ctx.arc(centerX, bodyCenterY, radius + 2 / vs.scale, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
       });
+
+      // ── Floating combat text (rising damage / heal numbers) ──
+      if (floatingTextsRef.current.length > 0) {
+        const before = floatingTextsRef.current.length;
+        floatingTextsRef.current = floatingTextsRef.current.filter(ft => nowMs - ft.startTime < ft.dur);
+        if (floatingTextsRef.current.length !== before) {
+          setFloatTextCount(floatingTextsRef.current.length);
+        }
+        floatingTextsRef.current.forEach(ft => {
+          const p = (nowMs - ft.startTime) / ft.dur;
+          const alpha = p < 0.15 ? p / 0.15 : 1 - (p - 0.15) / 0.85;
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+          ctx.fillStyle = ft.color;
+          ctx.font = `bold ${16 / vs.scale}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.shadowColor = 'black';
+          ctx.shadowBlur = 4;
+          ctx.fillText(ft.text, ft.x, ft.y - p * 46);
+          ctx.restore();
+        });
+        ctx.shadowBlur = 0;
+      }
 
       // 8. Persistent Shapes
       drawShapes(ctx);
@@ -1584,7 +1710,7 @@ export default function CanvasMap({
         ctx.restore();
       });
     }
-  }, [mapImage, viewStateRef, showGrid, walls, tokens, lights, stamps, notes, drawPoints, previewPoint, role, placingTokenId, placingStamp, tool, wallType, lightRadius, lightColor, stampSize, previewHeight, stampOriginalSize, tokenAnimations, currentTurn, visibilityData, pings, measureActive, measureStart, measureEnd, measureMode, draggedToken, dragOrigin, weather, flashOpacity, fxParticlesRef, fxActive, isFxDragging, fxDragStart, fxDragEnd, fxShape, shapes, isShapeDragging, shapeStart, shapeEnd, shapeActive, shapeType, shapeColor, drawShapes, drawWallsAndDoors, dayNight]);
+  }, [mapImage, viewStateRef, showGrid, walls, tokens, lights, stamps, notes, drawPoints, previewPoint, role, placingTokenId, placingStamp, tool, wallType, lightRadius, lightColor, stampSize, previewHeight, stampOriginalSize, tokenAnimations, currentTurn, visibilityData, pings, measureActive, measureStart, measureEnd, measureMode, draggedToken, dragOrigin, weather, flashOpacity, fxParticlesRef, fxActive, isFxDragging, fxDragStart, fxDragEnd, fxShape, shapes, isShapeDragging, shapeStart, shapeEnd, shapeActive, shapeType, shapeColor, drawShapes, drawWallsAndDoors, dayNight, mapLabels]);
 
   // Keep a mutable reference to the latest draw function to prevent dependency array thrashing
   const drawRef = useRef(draw);
@@ -1916,7 +2042,7 @@ export default function CanvasMap({
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
-      console.log("Canvas Engine: Map Loaded", mapSrc);
+      console.log("Canvas Engine: Map Loaded", rawMapSrc);
       setMapImage(img);
       isFogDirtyRef.current = true;
 
@@ -2019,10 +2145,16 @@ export default function CanvasMap({
         const hasOtherAnimations = currentTurn || 
           pings.length > 0 || 
           Object.keys(tokenAnimations).length > 0 || 
+          floatTextCount > 0 ||
           isTableVideo || 
           hasVideoStamps;
 
-        if (hasTokenMotion || hasOtherAnimations) {
+        // Condition auras & flight hover are continuous — keep redrawing while any exist
+        const hasContinuousFx = tokensRef.current.some(t =>
+          t.isPlaced && ((t.conditions && t.conditions.length > 0) || t.flying)
+        );
+
+        if (hasTokenMotion || hasOtherAnimations || hasContinuousFx) {
           if (hasTokenMotion) isFogDirtyRef.current = true;
           if (drawRef.current) drawRef.current();
         }
@@ -2034,7 +2166,7 @@ export default function CanvasMap({
     return () => {
       if (animId) cancelAnimationFrame(animId);
     };
-  }, [currentTurn, pings.length, tokenAnimations, isTableVideo, hasVideoStamps]);
+  }, [currentTurn, pings.length, tokenAnimations, floatTextCount, isTableVideo, hasVideoStamps]);
 
   // FX Animation Loop
   useEffect(() => {
@@ -2063,6 +2195,46 @@ export default function CanvasMap({
 
   // Socket state sync bindings
   useEffect(() => {
+    // ── Shared HP-change juice: floating text, downed tip-over, particle bursts ──
+    // Used by both the broad state-sync path and the targeted token_hp_changed path.
+    const spawnHpChangeEffects = (oldToken, newToken) => {
+      const type = newToken.hpCur > oldToken.hpCur ? 'heal' : 'damage';
+      const size = GRID_SIZE * (newToken.size || 1);
+      const centerX = newToken.x + size / 2;
+      const centerY = newToken.y + size / 2;
+
+      // Floating combat number (-12 / +8)
+      floatingTextsRef.current.push({
+        id: `${newToken.id}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        text: `${type === 'heal' ? '+' : '-'}${Math.abs(newToken.hpCur - oldToken.hpCur)}`,
+        color: type === 'heal' ? '#5dff8a' : '#ff6b6b',
+        x: centerX,
+        y: centerY - size * 0.3,
+        startTime: performance.now(),
+        dur: 1400
+      });
+      setFloatTextCount(floatingTextsRef.current.length);
+
+      // Particle bursts (existing FXEngine behaviour)
+      if (type === 'heal') {
+        spawnHealFX(centerX, centerY, size, fxParticlesRef.current);
+      } else {
+        spawnDamageFX(centerX, centerY, size, fxParticlesRef.current);
+      }
+      trimArrays(fxParticlesRef.current, fxMissilesRef.current, fxEmittersRef.current);
+
+      // Downed / revived transitions
+      if (oldToken.hpCur > 0 && newToken.hpCur <= 0) {
+        downedAnimRef.current[newToken.id] = Date.now();
+        spawnSmash(centerX, centerY + size * 0.2, 'blood', fxParticlesRef.current);
+        soundSynthesizer.playTokenDrop(0.12);
+      } else if (oldToken.hpCur <= 0 && newToken.hpCur > 0) {
+        delete downedAnimRef.current[newToken.id];
+      }
+
+      return type;
+    };
+
     // 1. Initial State / Full Resync
     const handleStateSync = (state) => {
       if (!state) return;
@@ -2107,23 +2279,12 @@ export default function CanvasMap({
       mergedTokens.forEach(newToken => {
         const oldToken = oldTokens.find(t => t.id === newToken.id);
         if (oldToken && oldToken.hpCur !== newToken.hpCur) {
-          const type = newToken.hpCur > oldToken.hpCur ? 'heal' : 'damage';
+          const type = spawnHpChangeEffects(oldToken, newToken);
           animations[newToken.id] = {
             type,
             startTime: Date.now(),
             endTime: Date.now() + 800
           };
-
-          // FX: Spawn local particle bursts during broad state updates
-          const size = GRID_SIZE * (newToken.size || 1);
-          const centerX = newToken.x + size / 2;
-          const centerY = newToken.y + size / 2;
-          if (type === 'heal') {
-            spawnHealFX(centerX, centerY, size, fxParticlesRef.current);
-          } else {
-            spawnDamageFX(centerX, centerY, size, fxParticlesRef.current);
-          }
-          trimArrays(fxParticlesRef.current, fxMissilesRef.current, fxEmittersRef.current);
         }
       });
 
@@ -2193,18 +2354,7 @@ export default function CanvasMap({
       setTokens(prev => {
         const oldToken = prev.find(t => t.id === tokenId);
         if (oldToken && oldToken.hpCur !== hpCur) {
-          const type = hpCur > oldToken.hpCur ? 'heal' : 'damage';
-
-          // FX: Spawn local particle bursts for targeted lightweight network updates
-          const size = GRID_SIZE * (oldToken.size || 1);
-          const centerX = oldToken.x + size / 2;
-          const centerY = oldToken.y + size / 2;
-          if (type === 'heal') {
-            spawnHealFX(centerX, centerY, size, fxParticlesRef.current);
-          } else {
-            spawnDamageFX(centerX, centerY, size, fxParticlesRef.current);
-          }
-          trimArrays(fxParticlesRef.current, fxMissilesRef.current, fxEmittersRef.current);
+          const type = spawnHpChangeEffects(oldToken, { ...oldToken, hpCur });
 
           setTokenAnimations(prevAnim => ({
             ...prevAnim,
@@ -2309,11 +2459,25 @@ export default function CanvasMap({
       if (version) lastStateVersion.current = version;
     };
 
+    const handleTokenFlyingToggled = ({ tokenId, flying, version }) => {
+      setTokens(prev => prev.map(t => t.id === tokenId ? { ...t, flying: Boolean(flying) } : t));
+      if (version) lastStateVersion.current = version;
+    };
+
     const handleConditionToggled = ({ tokenId, condition, version }) => {
       setTokens(prev => prev.map(t => {
         if (t.id !== tokenId) return t;
         const currentConditions = t.conditions || [];
         const exists = currentConditions.includes(condition);
+        if (!exists) {
+          // One-shot particle burst when a condition is APPLIED
+          const size = GRID_SIZE * (t.size || 1);
+          const centerX = t.x + size / 2;
+          const centerY = t.y + size / 2;
+          const style = CONDITION_BURST_STYLE[condition] || 'force';
+          spawnPulse(centerX, centerY, size * 0.6, style, fxParticlesRef.current);
+          trimArrays(fxParticlesRef.current, fxMissilesRef.current, fxEmittersRef.current);
+        }
         return {
           ...t,
           conditions: exists 
@@ -2507,6 +2671,7 @@ export default function CanvasMap({
     socket.on('token_deleted', handleTokenDeleted);
     socket.on('tokens_deleted', handleTokensDeleted);
     socket.on('token_hidden_toggled', handleTokenHiddenToggled);
+    socket.on('token_flying_toggled', handleTokenFlyingToggled);
     socket.on('condition_toggled', handleConditionToggled);
     socket.on('conditions_cleared', handleConditionsCleared);
     socket.on('wall_added', handleWallAdded);
@@ -2549,6 +2714,7 @@ export default function CanvasMap({
       socket.off('token_deleted', handleTokenDeleted);
       socket.off('tokens_deleted', handleTokensDeleted);
       socket.off('token_hidden_toggled', handleTokenHiddenToggled);
+      socket.off('token_flying_toggled', handleTokenFlyingToggled);
       socket.off('condition_toggled', handleConditionToggled);
       socket.off('conditions_cleared', handleConditionsCleared);
       socket.off('wall_added', handleWallAdded);
@@ -2605,6 +2771,10 @@ export default function CanvasMap({
         setIsShapeDragging(false);
         setDraggedShape(null);
         draggedShapeRef.current = null;
+        // Clear the movement group too
+        setMoveGroupIds([]);
+        moveGroupIdsRef.current = [];
+        groupDragRef.current = null;
       } else if (e.code >= 'Digit1' && e.code <= 'Digit7') {
         const toolsList = ['pan', 'draw', 'erase', 'lights', 'stamps', 'notes', 'hide'];
         const idx = parseInt(e.code.replace('Digit', '')) - 1;
@@ -2990,9 +3160,43 @@ export default function CanvasMap({
       const isOwner = clickedToken.ownerId === socket.auth.userId;
       // Allow dragging if DM or owner (players can drag their own tokens, including owned NPCs)
       if (role === 'DM' || (role !== 'DM' && isOwner)) {
+        // ★ SHIFT+CLICK: toggle this token in/out of the personal move group
+        if (e.shiftKey) {
+          setMoveGroupIds(prev => {
+            const next = prev.includes(clickedToken.id)
+              ? prev.filter(id => id !== clickedToken.id)
+              : [...prev, clickedToken.id];
+            moveGroupIdsRef.current = next;
+            return next;
+          });
+          soundSynthesizer.playUIClick();
+          return;
+        }
+
+        // Snapshot the movement group so grouped tokens follow this drag
+        const groupIds = moveGroupIdsRef.current;
+        if (groupIds.includes(clickedToken.id) && groupIds.length > 1) {
+          const members = tokens
+            .filter(t => groupIds.includes(t.id) && t.isPlaced &&
+                        (role === 'DM' || t.ownerId === socket.auth.userId) &&
+                        t.id !== clickedToken.id)
+            .map(t => ({ id: t.id, origX: t.x, origY: t.y }));
+          groupDragRef.current = members.length > 0
+            ? { leaderId: clickedToken.id, leaderOrigX: clickedToken.x, leaderOrigY: clickedToken.y, members }
+            : null;
+        } else {
+          groupDragRef.current = null;
+        }
+
         setDraggedToken({ id: clickedToken.id, offsetX: pos.x - clickedToken.x, offsetY: pos.y - clickedToken.y });
         draggedTokenRef.current = { id: clickedToken.id };
         setDragOrigin({ x: clickedToken.x, y: clickedToken.y });
+        // Pickup juice: brief scale-up + whoosh
+        setTokenAnimations(prev => ({
+          ...prev,
+          [clickedToken.id]: { type: 'pickup', startTime: Date.now(), endTime: Date.now() + 220, dur: 220 }
+        }));
+        soundSynthesizer.playTokenPickup();
         return;
       }
     }
@@ -3123,12 +3327,24 @@ export default function CanvasMap({
       // Update local position and interpolation target
       netInterpolation.setTarget(draggedToken.id, newX, newY, true);
 
-      setTokens(prev => prev.map(t => t.id === draggedToken.id ? { ...t, x: newX, y: newY } : t));
+      // Grouped tokens follow the leader with the same delta
+      const gd = groupDragRef.current;
+      const memberDeltas = gd && gd.leaderId === draggedToken.id
+        ? gd.members.map(m => ({ id: m.id, x: m.origX + (newX - gd.leaderOrigX), y: m.origY + (newY - gd.leaderOrigY) }))
+        : [];
 
-      // ★ Throttle socket emit to every 100ms, increased from 50ms to reduce network bloat, especially on high-latency connections
+      setTokens(prev => prev.map(t => {
+        if (t.id === draggedToken.id) return { ...t, x: newX, y: newY };
+        const m = memberDeltas.find(md => md.id === t.id);
+        return m ? { ...t, x: m.x, y: m.y } : t;
+      }));
+      memberDeltas.forEach(m => netInterpolation.setTarget(m.id, m.x, m.y, true));
+
+      // ★ Throttle socket emit to every 25ms, increased from 50ms to reduce network bloat, especially on high-latency connections
       const now = Date.now();
         if (now - lastMoveEmit.current > 25) { // change 50 to 100
         socket.emit('move_token', { tokenId: draggedToken.id, x: newX, y: newY });
+        memberDeltas.forEach(m => socket.emit('move_token', { tokenId: m.id, x: m.x, y: m.y }));
         lastMoveEmit.current = now;
       }
     } else if ((isPanningRef.current || (e.buttons === 1 && spaceHeld)) && (tool === 'pan' || spaceHeld) && !isShapeDragging && !isFxDragging && !draggedShape) {
@@ -3219,7 +3435,7 @@ export default function CanvasMap({
         
         const snappedX = Math.round(token.x / snapStep) * snapStep;
         const snappedY = Math.round(token.y / snapStep) * snapStep;
-        
+
         settleLockRef.current[draggedToken.id] = {
           x: snappedX,
           y: snappedY,
@@ -3228,7 +3444,48 @@ export default function CanvasMap({
 
         netInterpolation.setTarget(draggedToken.id, snappedX, snappedY, true);
         socket.emit('move_token_final', { tokenId: draggedToken.id, x: snappedX, y: snappedY });
+
+        // ── Drop juice: dust puff + snap flash + thud ──
+        const dropSize = GRID_SIZE * (token.size || 1);
+        const dropCX = snappedX + dropSize / 2;
+        const dropCY = snappedY + dropSize / 2;
+        spawnSmash(dropCX, dropCY + dropSize * 0.25, 'smoke', fxParticlesRef.current);
+        spawnPulse(dropCX, dropCY, dropSize * 0.45, 'force', fxParticlesRef.current);
+        trimArrays(fxParticlesRef.current, fxMissilesRef.current, fxEmittersRef.current);
+        soundSynthesizer.playTokenDrop();
+
+        setTokenAnimations(prev => ({
+          ...prev,
+          [draggedToken.id]: { type: 'drop', startTime: Date.now(), endTime: Date.now() + 240, dur: 240 }
+        }));
       }
+
+      // ── Grouped tokens land with the leader (same TOTAL delta, individually snapped) ──
+      const gd = groupDragRef.current;
+      if (gd && gd.leaderId === draggedToken.id && gd.members.length > 0) {
+        // Total drag delta = leader's snapped landing spot minus its pre-drag origin
+        const totalDelta = { x: snappedX - gd.leaderOrigX, y: snappedY - gd.leaderOrigY };
+        gd.members.forEach(m => {
+          const member = tokensRef.current.find(t => t.id === m.id);
+          if (!member) return;
+          const mSize = member.size || 1;
+          const mSnapStep = mSize < 1 ? GRID_SIZE * mSize : GRID_SIZE;
+          const targetX = m.origX + totalDelta.x;
+          const targetY = m.origY + totalDelta.y;
+          const mSnappedX = Math.round(targetX / mSnapStep) * mSnapStep;
+          const mSnappedY = Math.round(targetY / mSnapStep) * mSnapStep;
+
+          settleLockRef.current[m.id] = {
+            x: mSnappedX,
+            y: mSnappedY,
+            expiresAt: Date.now() + 1500
+          };
+          netInterpolation.setTarget(m.id, mSnappedX, mSnappedY, true);
+          socket.emit('move_token_final', { tokenId: m.id, x: mSnappedX, y: mSnappedY });
+        });
+      }
+      groupDragRef.current = null;
+
       setDraggedToken(null);
       setDragOrigin(null);
       draggedTokenRef.current = null;
@@ -3243,6 +3500,22 @@ export default function CanvasMap({
       {measureActive && (
         <div className="absolute bottom-4 left-4 z-50 bg-bgCard/80 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] text-accentGold border border-accentGold pointer-events-none">
           Measure: {['Line', 'Circle', 'Cone', 'Square'][measureMode]} — Right‑click to cycle
+        </div>
+      )}
+
+      {/* Move Group indicator chip */}
+      {moveGroupIds.length > 0 && (
+        <div className="absolute bottom-14 left-4 z-50 bg-bgCard/90 backdrop-blur-sm px-3 py-1.5 rounded-lg text-[10px] text-cyan-300 border border-cyan-500/60 flex items-center gap-2">
+          <span>
+            🧩 Move Group: <b>{moveGroupIds.length}</b> — drag any member to move all · Esc clears
+          </span>
+          <button
+            type="button"
+            onClick={() => { setMoveGroupIds([]); moveGroupIdsRef.current = []; }}
+            className="text-red-400 hover:text-red-300 font-bold"
+          >
+            ✕
+          </button>
         </div>
       )}
 
@@ -3355,6 +3628,18 @@ export default function CanvasMap({
           tokens={tokens}
           role={role}
           userId={userId}
+          mapLabels={mapLabels}
+          moveGroupIds={moveGroupIds}
+          onToggleMoveGroup={(tokenId) => {
+            setMoveGroupIds(prev => {
+              const next = prev.includes(tokenId)
+                ? prev.filter(id => id !== tokenId)
+                : [...prev, tokenId];
+              moveGroupIdsRef.current = next;
+              return next;
+            });
+          }}
+          onClearMoveGroup={() => { setMoveGroupIds([]); moveGroupIdsRef.current = []; }}
           onClose={() => setContextMenu(null)}
           onViewMonster={(monsterData) => setViewingMonster(monsterData)}
         />

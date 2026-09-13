@@ -1,12 +1,16 @@
 // client/src/components/InitiativeBar.jsx
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { socket } from '../socket';
 import soundSynthesizer from '../utils/SoundSynthesizer';
+import { buildMapLabels } from '../utils/tokenNaming';
 
 export default function InitiativeBar({ role }) {
   const [initiative, setInitiative] = useState([]);
   const [currentTurn, setCurrentTurn] = useState(null);
   const [tokens, setTokens] = useState([]);
+
+  // Disambiguated display labels ("Goblin A/B/C") — render-time only, never mutates token.name
+  const mapLabels = useMemo(() => buildMapLabels(tokens), [tokens]);
 
   useEffect(() => {
     const handleState = (state) => {
@@ -189,10 +193,10 @@ export default function InitiativeBar({ role }) {
                 </span>
               </div>
 
-              {/* Bottom Name Banner */}
+              {/* Bottom Name Banner — shows disambiguated label ("Goblin A") + flight marker */}
               <div className="absolute bottom-0 left-0 right-0 bg-black/85 border-t border-borderDark/40 py-1 text-center z-20 px-1">
                 <p className="text-[9px] font-extrabold text-white tracking-wider uppercase truncate select-none">
-                  {comb.name}
+                  {(mapLabels[comb.id] || comb.name || '')}{token?.flying ? ' 🪶' : ''}
                 </p>
               </div>
             </div>

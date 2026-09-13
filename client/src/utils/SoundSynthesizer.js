@@ -1154,6 +1154,121 @@ class SoundSynthesizer {
         bodyOsc.stop(now + 0.015);
     }
 
+    // Soft rising "whoosh" when a token is picked up / takes flight
+    playTokenPickup(volume = 0.06) {
+        if (!this.enabled) return;
+        if (!this.unlocked) {
+            this.queue.push(() => this.playTokenPickup(volume));
+            return;
+        }
+        if (!this.ensureContext()) return;
+        const now = this.ctx.currentTime;
+        const dest = this.getMasterInput();
+
+        // Filtered noise sweep upward
+        const noiseBufferSize = Math.floor(this.ctx.sampleRate * 0.12);
+        const noiseBuffer = this.ctx.createBuffer(1, noiseBufferSize, this.ctx.sampleRate);
+        const noiseData = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < noiseBufferSize; i++) noiseData[i] = Math.random() * 2 - 1;
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = noiseBuffer;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.Q.setValueAtTime(1.4, now);
+        filter.frequency.setValueAtTime(400, now);
+        filter.frequency.exponentialRampToValueAtTime(2400, now + 0.1);
+
+        const noiseGain = this.ctx.createGain();
+        noiseGain.gain.setValueAtTime(0.0001, now);
+        noiseGain.gain.exponentialRampToValueAtTime(volume, now + 0.03);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+        noise.connect(filter).connect(noiseGain).connect(dest);
+        noise.start(now);
+        noise.stop(now + 0.13);
+    }
+
+    // Low thud + scuff when a token lands (drop on the grid)
+    playTokenDrop(volume = 0.09) {
+        if (!this.enabled) return;
+        if (!this.unlocked) {
+            this.queue.push(() => this.playTokenDrop(volume));
+            return;
+        }
+        if (!this.ensureContext()) return;
+        const now = this.ctx.currentTime;
+        const dest = this.getMasterInput();
+
+        // Body thud
+        const thud = this.ctx.createOscillator();
+        const thudGain = this.ctx.createGain();
+        thud.type = 'sine';
+        thud.frequency.setValueAtTime(180, now);
+        thud.frequency.exponentialRampToValueAtTime(60, now + 0.09);
+        thudGain.gain.setValueAtTime(volume, now);
+        thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        thud.connect(thudGain).connect(dest);
+        thud.start(now);
+        thud.stop(now + 0.11);
+
+        // Dusty scuff tail
+        const noiseBufferSize = Math.floor(this.ctx.sampleRate * 0.07);
+        const noiseBuffer = this.ctx.createBuffer(1, noiseBufferSize, this.ctx.sampleRate);
+        const noiseData = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < noiseBufferSize; i++) noiseData[i] = Math.random() * 2 - 1;
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = noiseBuffer;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(900, now);
+        const noiseGain = this.ctx.createGain();
+        noiseGain.gain.setValueAtTime(volume * 0.5, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+        noise.connect(filter).connect(noiseGain).connect(dest);
+        noise.start(now);
+        noise.stop(now + 0.08);
+    }
+
+    // Quick airy gust for take-off / landing flight transitions
+    playFlightGust(up = true) {
+        if (!this.enabled) return;
+        if (!this.unlocked) {
+            this.queue.push(() => this.playFlightGust(up));
+            return;
+        }
+        if (!this.ensureContext()) return;
+        const now = this.ctx.currentTime;
+        const dest = this.getMasterInput();
+
+        const noiseBufferSize = Math.floor(this.ctx.sampleRate * 0.22);
+        const noiseBuffer = this.ctx.createBuffer(1, noiseBufferSize, this.ctx.sampleRate);
+        const noiseData = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < noiseBufferSize; i++) noiseData[i] = Math.random() * 2 - 1;
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = noiseBuffer;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.Q.setValueAtTime(0.9, now);
+        if (up) {
+            filter.frequency.setValueAtTime(300, now);
+            filter.frequency.exponentialRampToValueAtTime(1800, now + 0.18);
+        } else {
+            filter.frequency.setValueAtTime(1800, now);
+            filter.frequency.exponentialRampToValueAtTime(250, now + 0.2);
+        }
+
+        const noiseGain = this.ctx.createGain();
+        noiseGain.gain.setValueAtTime(0.0001, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.05, now + 0.05);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+        noise.connect(filter).connect(noiseGain).connect(dest);
+        noise.start(now);
+        noise.stop(now + 0.23);
+    }
+
     // Cascading gold coin clink with metallic inharmonic partials
     playGoldClink() {
         if (!this.enabled) return;

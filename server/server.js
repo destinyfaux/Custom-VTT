@@ -2156,6 +2156,30 @@ io.on('connection', (socket) => {
       });
   });
 
+  // --- FLIGHT TOGGLE (DM or token owner) ---
+  socket.on('toggle_token_flying', ({ tokenId } = {}) => {
+      if (!socket.checkRateLimit(10)) return;
+      if (role !== 'Player' && !VTTManager.isDM(userId)) return;
+      if (typeof tokenId !== 'string') return;
+
+      const token = VTTManager.state.tokens.find(t => t.id === tokenId);
+      if (!token) return;
+
+      // DM can fly anything; players can only fly tokens they own
+      if (!VTTManager.isDM(userId) && token.ownerId !== userId) {
+          return socket.emit('error_response', { message: 'You can only control your own tokens.' });
+      }
+
+      const updated = VTTManager.toggleTokenFlying(tokenId);
+      if (updated) {
+          io.emit('token_flying_toggled', {
+              tokenId,
+              flying: updated.flying,
+              version: VTTManager.stateVersion
+          });
+      }
+  });
+
   socket.on('save_session', () => {
       if (!VTTManager.isDM(userId)) return;
       VTTManager.saveSession();

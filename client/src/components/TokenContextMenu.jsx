@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { socket } from '../socket';
 import soundSynthesizer from '../utils/SoundSynthesizer';
+import { getTokenLabel } from '../utils/tokenNaming';
 import { ALL_CONDITIONS, CONDITION_ICONS } from '../utils/canvasOverlayRenderer';
 
 export default function TokenContextMenu({
@@ -9,6 +10,10 @@ export default function TokenContextMenu({
   tokens,
   role,
   userId,
+  mapLabels = {},
+  moveGroupIds = [],
+  onToggleMoveGroup,
+  onClearMoveGroup,
   onClose,
   onViewMonster,
 }) {
@@ -22,6 +27,11 @@ export default function TokenContextMenu({
   const targetToken = tokens.find(t => t.id === contextMenu.tokenId);
   if (!targetToken) return null;
 
+  const displayLabel = getTokenLabel(mapLabels, targetToken);
+  // DM controls any token; players control tokens they own
+  const canControl = role === 'DM' || targetToken.ownerId === userId;
+  const inMoveGroup = moveGroupIds.includes(targetToken.id);
+
   return (
     <div
       className="fixed z-[200] bg-bgPanel border border-accentGold rounded-lg p-2 shadow-2xl"
@@ -29,8 +39,48 @@ export default function TokenContextMenu({
       onMouseDown={e => e.stopPropagation()}
     >
       <div className="text-accentGold text-[10px] font-bold mb-2 uppercase tracking-widest">
-        {targetToken.name}
+        {displayLabel}
       </div>
+
+      {/* Flight Toggle (DM or token owner) */}
+      {canControl && (
+        <button
+          onClick={() => {
+            socket.emit('toggle_token_flying', { tokenId: contextMenu.tokenId });
+            soundSynthesizer.playFlightGust(!targetToken.flying);
+            onClose();
+          }}
+          className="w-full text-left text-[10px] px-2 py-1 rounded text-sky-300 hover:bg-borderDark"
+        >
+          {targetToken.flying ? '🪶 Land' : '🪶 Take Flight'}
+        </button>
+      )}
+
+      {/* Move Group Toggle (DM or token owner) */}
+      {canControl && onToggleMoveGroup && (
+        <button
+          onClick={() => {
+            onToggleMoveGroup(contextMenu.tokenId);
+            soundSynthesizer.playUIClick();
+            onClose();
+          }}
+          className={`w-full text-left text-[10px] px-2 py-1 rounded hover:bg-borderDark ${inMoveGroup ? 'text-cyan-300' : 'text-textLight'}`}
+        >
+          {inMoveGroup ? '🧩 Remove from Move Group' : '🧩 Add to Move Group'}
+        </button>
+      )}
+
+      {moveGroupIds.length > 0 && onClearMoveGroup && (
+        <button
+          onClick={() => {
+            onClearMoveGroup();
+            onClose();
+          }}
+          className="w-full text-left text-[10px] px-2 py-1 rounded text-red-400 hover:bg-borderDark"
+        >
+          🧹 Clear Move Group ({moveGroupIds.length})
+        </button>
+      )}
 
       {/* Heal Option */}
       {!showHealInput ? (
