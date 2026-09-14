@@ -58,6 +58,11 @@ import { SRDProvider } from './tools/SRDManager/SRDContext';
 function App() {
   // --- Account & Character Selection States ---
   const [currentUser, setCurrentUser] = useState(null);
+  // Server-resolved socket identity (guest_<uuid> or account userId).
+  // Kept separate from `currentUser` because that state is intentionally
+  // null for Quick Play guests — but token ownership checks (End Turn etc.)
+  // need the id AS THE SERVER SEES IT for every role.
+  const [socketUserId, setSocketUserId] = useState(null);
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
 
@@ -433,6 +438,8 @@ function App() {
 
     const handleSocketIdentity = (identity) => {
       if (!identity || typeof identity.userId !== 'string') return;
+      // Record the server-resolved id for ALL connection types (guests included)
+      setSocketUserId(identity.userId);
       if (identity.authenticated) {
         localStorage.setItem('vtt_user_id', identity.userId);
         setCurrentUser(prev => prev
@@ -940,7 +947,7 @@ function App() {
       {/* MAIN TABLETOP AREA */}
       <div className="flex-1 flex flex-col bg-black">
         {/* Initiative Bar */}
-        <InitiativeBar role={role} currentUserId={currentUser?.userId || null} />
+        <InitiativeBar role={role} currentUserId={socketUserId || currentUser?.userId || null} />
 
         {/* Canvas Map fills remaining workspace */}
         <div className="flex-1 relative min-h-0">

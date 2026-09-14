@@ -22,6 +22,9 @@ export default function InitiativeBar({ role, currentUserId = null }) {
     };
 
     socket.on('state_update', handleState);
+    // Rejoin sync: a fresh page load only receives init_state — without this,
+    // the bar (and End Turn card) stay invisible until the next combat event.
+    socket.on('init_state', handleState);
     // Also listen for dedicated initiative events (optional)
     socket.on('combat_started', ({ initiative, current, round }) => {
       setInitiative(initiative || []);
@@ -39,6 +42,7 @@ export default function InitiativeBar({ role, currentUserId = null }) {
 
     return () => {
       socket.off('state_update', handleState);
+      socket.off('init_state', handleState);
       socket.off('combat_started');
       socket.off('turn_update');
       socket.off('combat_reset');
