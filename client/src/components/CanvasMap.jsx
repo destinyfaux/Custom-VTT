@@ -2740,10 +2740,36 @@ export default function CanvasMap({
       setMoveBlocked({ message: payload.message || 'Move rejected.', ts: Date.now() });
     };
 
+    // Group-drag transient positions: apply the whole batch in one pass.
+    // Same per-token guards as handleTokenMoved (stale version, own drag,
+    // settle lock), so peers track group drags smoothly without fighting
+    // their own local state.
+    const handleTokensMovedBatch = ({ moves, version }) => {
+      if (!Array.isArray(moves) || moves.length === 0) return;
+      if (version !== undefined && lastStateVersion.current > version) return;
+      const applicable = [];
+      for (const m of moves) {
+        if (!m || typeof m.tokenId !== 'string') continue;
+        if (draggedTokenRef.current && draggedTokenRef.current.id === m.tokenId) continue;
+        const lock = settleLockRef.current[m.tokenId];
+        if (lock && Date.now() < lock.expiresAt) continue;
+        applicable.push(m);
+      }
+      if (applicable.length === 0) return;
+      applicable.forEach(m => netInterpolation.setTarget(m.tokenId, m.x, m.y, false));
+      const byId = new Map(applicable.map(m => [m.tokenId, m]));
+      setTokens(prev => prev.map(t => {
+        const m = byId.get(t.id);
+        return m ? { ...t, x: m.x, y: m.y } : t;
+      }));
+      isFogDirtyRef.current = true;
+    };
+
     // ─── Bind Socket Events ───
     socket.on('init_state', handleStateSync);
     socket.on('state_update', handleStateSync);
     socket.on('token_moved', handleTokenMoved);
+    socket.on('tokens_moved', handleTokensMovedBatch);
     socket.on('token_final_position', handleTokenFinalPosition);
     socket.on('token_hp_changed', handleTokenHpChanged);
     socket.on('npc_added', handleTokenAdded);
@@ -2789,6 +2815,7 @@ export default function CanvasMap({
       socket.off('init_state', handleStateSync);
       socket.off('state_update', handleStateSync);
       socket.off('token_moved', handleTokenMoved);
+      socket.off('tokens_moved', handleTokensMovedBatch);
       socket.off('token_final_position', handleTokenFinalPosition);
       socket.off('token_hp_changed', handleTokenHpChanged);
       socket.off('npc_added', handleTokenAdded);
@@ -3427,11 +3454,21 @@ export default function CanvasMap({
       }));
       memberDeltas.forEach(m => netInterpolation.setTarget(m.id, m.x, m.y, true));
 
-      // ★ Throttle socket emit to every 25ms, increased from 50ms to reduce network bloat, especially on high-latency connections
+      // ★ Throttle socket emit to every 25ms. Group drags send ONE batched
+      // move_tokens event — per-token emits flooded peers and (under the old
+      // shared rate-limit bucket) starved the drop's final commits.
       const now = Date.now();
-        if (now - lastMoveEmit.current > 25) { // change 50 to 100
-        socket.emit('move_token', { tokenId: draggedToken.id, x: newX, y: newY });
-        memberDeltas.forEach(m => socket.emit('move_token', { tokenId: m.id, x: m.x, y: m.y }));
+      if (now - lastMoveEmit.current > 25) {
+        if (memberDeltas.length > 0) {
+          socket.emit('move_tokens', {
+            moves: [
+              { tokenId: draggedToken.id, x: newX, y: newY },
+              ...memberDeltas.map(m => ({ tokenId: m.id, x: m.x, y: m.y }))
+            ]
+          });
+        } else {
+          socket.emit('move_token', { tokenId: draggedToken.id, x: newX, y: newY });
+        }
         lastMoveEmit.current = now;
       }
     } else if ((isPanningRef.current || (e.buttons === 1 && spaceHeld)) && (tool === 'pan' || spaceHeld) && !isShapeDragging && !isFxDragging && !draggedShape) {
@@ -3515,13 +3552,23 @@ export default function CanvasMap({
     // Token drag finalisation
     if (draggedToken) {
       const token = tokensRef.current.find(t => t.id === draggedToken.id);
+      const gd = groupDragRef.current;
+      const isGroupDrop = !!(gd && gd.leaderId === draggedToken.id && gd.members.length > 0);
+
+      // Leader's snapped landing spot — shared by the leader's own commit and
+      // the group delta below. (These used to be declared inside `if (token)`,
+      // so every group drop threw a ReferenceError, skipped the member
+      // commits, and left the drag wedged to the cursor.)
+      let snappedX = null;
+      let snappedY = null;
+
       if (token) {
         // SNAP TO GRID CELL (Always snap to 1-square grid increments)
         const sizeMultiplier = token.size || 1;
         const snapStep = sizeMultiplier < 1 ? GRID_SIZE * sizeMultiplier : GRID_SIZE;
-        
-        const snappedX = Math.round(token.x / snapStep) * snapStep;
-        const snappedY = Math.round(token.y / snapStep) * snapStep;
+
+        snappedX = Math.round(token.x / snapStep) * snapStep;
+        snappedY = Math.round(token.y / snapStep) * snapStep;
 
         settleLockRef.current[draggedToken.id] = {
           x: snappedX,
@@ -3530,7 +3577,11 @@ export default function CanvasMap({
         };
 
         netInterpolation.setTarget(draggedToken.id, snappedX, snappedY, true);
-        socket.emit('move_token_final', { tokenId: draggedToken.id, x: snappedX, y: snappedY });
+        // Group drops commit the whole formation in ONE batched
+        // move_tokens_final event (emitted below); solo keeps the single path.
+        if (!isGroupDrop) {
+          socket.emit('move_token_final', { tokenId: draggedToken.id, x: snappedX, y: snappedY });
+        }
 
         // ── Drop juice: light dust puff + thud (kept subtle on purpose) ──
         const dropSize = GRID_SIZE * (token.size || 1);
@@ -3547,10 +3598,10 @@ export default function CanvasMap({
       }
 
       // ── Grouped tokens land with the leader (same TOTAL delta, individually snapped) ──
-      const gd = groupDragRef.current;
-      if (gd && gd.leaderId === draggedToken.id && gd.members.length > 0) {
+      if (isGroupDrop && token && snappedX !== null) {
         // Total drag delta = leader's snapped landing spot minus its pre-drag origin
         const totalDelta = { x: snappedX - gd.leaderOrigX, y: snappedY - gd.leaderOrigY };
+        const batchMoves = [{ tokenId: draggedToken.id, x: snappedX, y: snappedY }];
         gd.members.forEach(m => {
           const member = tokensRef.current.find(t => t.id === m.id);
           if (!member) return;
@@ -3567,8 +3618,9 @@ export default function CanvasMap({
             expiresAt: Date.now() + 1500
           };
           netInterpolation.setTarget(m.id, mSnappedX, mSnappedY, true);
-          socket.emit('move_token_final', { tokenId: m.id, x: mSnappedX, y: mSnappedY });
+          batchMoves.push({ tokenId: m.id, x: mSnappedX, y: mSnappedY });
         });
+        socket.emit('move_tokens_final', { moves: batchMoves });
       }
       groupDragRef.current = null;
 

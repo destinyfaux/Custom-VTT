@@ -327,9 +327,19 @@ const verifyLegacyIdentity = (token) => {
 
 // ─── Middleware: Rate Limiting ────────────────────────────────────────────
 io.use((socket, next) => {
-  socket.checkRateLimit = (limit = 30, windowMs = 1000) => {
+  // Per-key buckets: each key gets its own count/window. Without keys, a
+  // high-frequency path (move_token during a drag) would consume the shared
+  // budget and silently starve a low-frequency path on the same socket —
+  // e.g. every move_token_final of a group drop being rejected because the
+  // drag's transient updates had already pushed the shared counter past 20.
+  socket.checkRateLimit = (limit = 30, windowMs = 1000, key = 'global') => {
     const now = Date.now();
-    const record = rateLimitStore.get(socket.id) || { count: 0, resetTime: now + windowMs };
+    let buckets = rateLimitStore.get(socket.id);
+    if (!buckets) {
+      buckets = new Map();
+      rateLimitStore.set(socket.id, buckets);
+    }
+    const record = buckets.get(key) || { count: 0, resetTime: now + windowMs };
 
     if (now > record.resetTime) {
       record.count = 0;
@@ -337,7 +347,7 @@ io.use((socket, next) => {
     }
 
     record.count += 1;
-    rateLimitStore.set(socket.id, record);
+    buckets.set(key, record);
 
     if (record.count > limit) {
       socket.emit('error_response', { message: 'Rate limit exceeded. Please slow down.' });
@@ -1321,7 +1331,7 @@ io.on('connection', (socket) => {
 
   // --- TOKEN HANDLING ---
   socket.on('move_token', ({ tokenId, x, y }) => {
-      if (!socket.checkRateLimit(60)) return;
+      if (!socket.checkRateLimit(90, 1000, 'move')) return;
       if (role !== 'Player' && !VTTManager.isDM(userId)) return;
       const token = VTTManager.state.tokens.find(t => t.id === tokenId);
       if (!token) return;
@@ -1331,8 +1341,29 @@ io.on('connection', (socket) => {
       }
   });
 
+  // Group-drag transient positions: one event for the whole moving group.
+  // Replaces N per-token move_token emits (which both flooded peers and —
+  // under the old shared rate-limit bucket — starved the final commit).
+  socket.on('move_tokens', ({ moves }) => {
+      if (!socket.checkRateLimit(60, 1000, 'move')) return;
+      if (role !== 'Player' && !VTTManager.isDM(userId)) return;
+      if (!Array.isArray(moves) || moves.length === 0 || moves.length > 50) return;
+
+      const isDM = VTTManager.isDM(userId);
+      const valid = [];
+      for (const m of moves) {
+          if (!m || typeof m.tokenId !== 'string' || !validateFinitePoint(Number(m.x)) || !validateFinitePoint(Number(m.y))) continue;
+          const token = VTTManager.state.tokens.find(t => t.id === m.tokenId);
+          if (!token) continue;
+          if (!isDM && token.ownerId !== userId) continue;
+          valid.push({ tokenId: m.tokenId, x: Number(m.x), y: Number(m.y) });
+      }
+      if (valid.length === 0) return;
+      socket.broadcast.emit('tokens_moved', { moves: valid, version: VTTManager.stateVersion });
+  });
+
     socket.on('move_token_final', ({ tokenId, x, y }) => {
-      if (!socket.checkRateLimit(20)) return;
+      if (!socket.checkRateLimit(40, 1000, 'move_final')) return;
       if (role !== 'Player' && !VTTManager.isDM(userId)) return;
       if (typeof tokenId !== 'string' || !validateFinitePoint(Number(x)) || !validateFinitePoint(Number(y))) {
           return socket.emit('error_response', { message: 'Invalid token move coordinates.' });
@@ -1390,6 +1421,66 @@ io.on('connection', (socket) => {
           if (VTTManager.getMovementPublic()) {
               io.emit('movement_update', VTTManager.getMovementPublic());
           }
+      }
+    });
+
+  // Group-drop commit: one event carries every member's landing spot.
+  // Each move goes through the same attemptMove gate as the single path
+  // (ownership, budget, turn order) — a rejected member snap-backs while the
+  // rest of the group commits, so partial success never scatters silently.
+  socket.on('move_tokens_final', ({ moves }) => {
+      if (!socket.checkRateLimit(30, 1000, 'move_final')) return;
+      if (role !== 'Player' && !VTTManager.isDM(userId)) return;
+      if (!Array.isArray(moves) || moves.length === 0 || moves.length > 50) return;
+
+      for (const m of moves) {
+          if (!m || typeof m.tokenId !== 'string' || !validateFinitePoint(Number(m.x)) || !validateFinitePoint(Number(m.y))) continue;
+          const token = VTTManager.state.tokens.find(t => t.id === m.tokenId);
+          if (!token) continue;
+          if (!(VTTManager.isDM(userId) || token.ownerId === userId)) continue;
+
+          const result = VTTManager.attemptMove(m.tokenId, Number(m.x), Number(m.y), userId);
+          if (!result.ok) {
+              const reasonText = result.reason === 'not_your_turn'
+                  ? 'It is not that combatant\u2019s turn.'
+                  : result.reason === 'no_movement'
+                      ? `Not enough movement left (${result.usedFt}/${result.speed} ft used — needs ${result.needed} ft).`
+                      : 'Unable to place that token.';
+              socket.emit('move_rejected', {
+                  tokenId: m.tokenId,
+                  reason: result.reason,
+                  x: result.x,
+                  y: result.y,
+                  usedFt: result.usedFt,
+                  speed: result.speed,
+                  needed: result.needed,
+                  message: reasonText,
+                  version: VTTManager.stateVersion
+              });
+              io.emit('token_final_position', {
+                  tokenId: m.tokenId,
+                  token,
+                  x: result.x,
+                  y: result.y,
+                  isPlaced: token.isPlaced,
+                  version: VTTManager.stateVersion
+              });
+              continue;
+          }
+          VTTManager.incrementStateVersion();
+          io.emit('token_final_position', {
+              tokenId: m.tokenId,
+              token,
+              x: token.x,
+              y: token.y,
+              isPlaced: true,
+              version: VTTManager.stateVersion
+          });
+      }
+
+      // One meter sync for the whole group drop (only while in combat)
+      if (VTTManager.getMovementPublic()) {
+          io.emit('movement_update', VTTManager.getMovementPublic());
       }
     });
 

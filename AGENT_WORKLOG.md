@@ -47,6 +47,8 @@
   consumes `init_state` on rejoin (fixes Test A "tracker only appeared after panel close" friction)
 - `e1305ba` — S2: Combat Snapshot (server serialization dm/agent + DM live panel, T11)
 - (this commit) — S3: Movement Meter (server budget engine + client meter/trail/snap-back, T12)
+- (this commit) — Bugfix round: journal spoiler force-close + group movement (batch protocol,
+  per-key rate limits, drop-path ReferenceError, T13)
 
 ---
 Task ID: 14
@@ -186,3 +188,62 @@ Stage Summary:
   AI bridge will read to know what a creature can still reach.
 - Next: S4 Targeting / Quick Resolve (server-side dice, AC never leaves the server),
   then Test B (preview-proxy websocket passthrough), then the Bridge prototype.
+
+---
+Task ID: 18
+Agent: Super Z (main agent)
+Task: Playtest bugfixes from live table session — journal spoiler force-close + group token movement.
+
+Work Log:
+- User report 1 (journal): when a player creates a Spoiler (collapsible <details>) or other
+  dropdown-style formatting in the Character Journal, it force-closes — they can't read or write
+  inside what they made.
+- Root cause: the WYSIWYG editor's sync effect compared raw innerHTML strings. Toggling a spoiler
+  sets the `open` attribute in the DOM but never fires an input event, so the stored HTML never
+  contains `open` — every state_update/echo that re-ran the comparison saw a "changed" page and
+  rewrote editor.innerHTML, recreating every <details> closed (and dropping the caret). The 100ms
+  isInternalTyping guard was far too narrow to cover echo timing.
+- JournalCard.jsx fix: (a) open-aware comparison via stripDetailsOpen() on BOTH sides — toggling is
+  now a pure view-state change; (b) saves strip `open` so stored HTML is canonical; (c) lastSavedRef
+  echo guard — this client's own round-tripped saves never trigger a rewrite no matter how late
+  they arrive; (d) genuine remote rewrites snapshot and restore per-<details> open state; (e)
+  handleEditorClick takes over <summary> clicks (preventDefault + manual toggle) — Chrome's
+  contentEditable summary handling is unreliable on its own; (f) inserting a spoiler auto-opens it
+  so players can write immediately; (g) summary/detail CSS polish.
+- User report 2 (canvas): "group tokens but drag and drop doesn't work as expected; more steps than
+  moving individually."
+- Root cause A (hard crash): in handleMouseUp, the group-landing block referenced snappedX/snappedY
+  which were block-scoped inside the sibling `if (token)` — EVERY group drop threw a ReferenceError,
+  skipped all member commits, and left draggedToken set (drag wedged to cursor until Esc).
+- Root cause B (silent starvation): socket.checkRateLimit kept ONE shared counter per socket. A
+  group drag emitted move_token per member every 25ms ((N+1)×40/s), pushing the shared count past
+  move_token_final's limit of 20 — so the drop's final commits were rate-limit-rejected and tokens
+  snapped back on the next sync. Solo drags were intermittently affected too.
+- Server fixes: checkRateLimit(limit, windowMs, key) now keeps PER-KEY buckets ('move' 90/s,
+  'move_final' 40/s for the single path, batch finals 30/s; other events unchanged on 'global');
+  new batched handlers move_tokens (transient → one tokens_moved broadcast) and move_tokens_final
+  (each move through the same attemptMove gate; per-token commit/reject events; one trailing
+  movement_update; ≤50 moves; tokens the sender doesn't own are skipped exactly like the single
+  path).
+- Client fixes (CanvasMap.jsx): drop path restructured — snapped landing spot hoisted to shared
+  scope (ReferenceError gone); group drags emit ONE move_tokens per 25ms tick and ONE
+  move_tokens_final on drop (leader + members, individually snapped, settle locks unchanged); solo
+  drags keep the legacy single-token events; new tokens_moved batch listener applies per-token
+  guards (version, own-drag, settle lock) in a single setTokens pass.
+- Tests: unit suite untouched 56/56. E2E +T13 (7 assertions): batch drop commits all members;
+  commit survives an 80-event transient flood (locks the starvation fix); bogus batch entries skip
+  without harm; mid-combat batch — non-active self-token rejected (not_your_turn) while the active
+  combatant's batched move commits. 50/50 green. En route: fixed two harness sequencing artifacts
+  (listener attach AFTER sibling waits missed fast commit events; a player batching another's token
+  is ownership-skipped before the turn gate — the not_your_turn case needs the sender's OWN token).
+- Client production build clean (pre-existing chunk-size warning only). AGENTS.md.txt: per-key
+  rate-limit note + move_tokens/move_tokens_final protocol rows.
+- Debug artifact kept at /home/z/my-project/scripts/debug_t134.cjs (outside the repo).
+
+Stage Summary:
+- Journal spoilers now stay open while reading, writing, and syncing; toggle works reliably; new
+  spoilers open ready to write.
+- Group movement works like single movement: grab any member and drag, the whole formation follows
+  live for peers and lands on drop; partial rejections snap back only the offending token. The
+  crashed/starved drop paths are covered by T13 contract tests.
+- Next unchanged: S4 Targeting / Quick Resolve, then Test B, then the Bridge prototype.

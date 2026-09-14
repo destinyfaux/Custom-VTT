@@ -249,6 +249,82 @@ function connect(auth) {
   check('T10 movement budget cleared on reset', st10?.movement === null || st10?.movement === undefined,
         `movement=${JSON.stringify(st10?.movement)}`);
 
+  // ── T13: Group Movement contract (batched protocol + rate-limit fairness) ──
+  // Two real bugs this locks down:
+  //  (a) the client's old per-member emits flooded the shared rate-limit
+  //      bucket, so every move_token_final of a group drop was silently
+  //      rejected (transient flood -> commit starvation);
+  //  (b) batched commits must each pass attemptMove and report per-token.
+  dm.emit('add_npc', { name: 'Goblin A', hp: 7, ac: 13 });
+  dm.emit('add_npc', { name: 'Goblin B', hp: 7, ac: 13 });
+  const gobA = (await waitFor(dm, 'npc_added', p => p?.token?.name === 'Goblin A'))?.token?.id;
+  const gobB = (await waitFor(dm, 'npc_added', p => p?.token?.name === 'Goblin B'))?.token?.id;
+  check('T13 setup: two goblins spawned', Boolean(gobA && gobB), `${gobA} / ${gobB}`);
+
+  // T13.1: out-of-combat batch commit — every member lands exactly where sent
+  dm.emit('move_tokens_final', { moves: [
+    { tokenId: npcId, x: 420, y: 0 },
+    { tokenId: gobA,  x: 420, y: 70 },
+    { tokenId: gobB,  x: 420, y: 140 }
+  ]});
+  const landNpc = await waitFor(dm, 'token_final_position', p => p?.tokenId === npcId && p?.x === 420);
+  const landA   = await waitFor(dm, 'token_final_position', p => p?.tokenId === gobA && p?.x === 420 && p?.y === 70);
+  const landB   = await waitFor(dm, 'token_final_position', p => p?.tokenId === gobB && p?.x === 420 && p?.y === 140);
+  check('T13.1 batch drop commits all 3 members', Boolean(landNpc && landA && landB),
+        `${!!landNpc} ${!!landA} ${!!landB}`);
+
+  // T13.2 rate-limit starvation regression: a heavy transient flood must NOT
+  // starve the commit path (old shared bucket rejected the drop after ~0.5s
+  // of dragging; per-key buckets keep both paths independent).
+  for (let i = 0; i < 80; i++) {
+    dm.emit('move_token', { tokenId: gobA, x: 420 + (i % 3) * 70, y: 70 });
+  }
+  dm.emit('move_tokens_final', { moves: [
+    { tokenId: gobA, x: 560, y: 70 },
+    { tokenId: gobB, x: 560, y: 140 }
+  ]});
+  const landFloodA = await waitFor(dm, 'token_final_position', p => p?.tokenId === gobA && p?.x === 560);
+  const landFloodB = await waitFor(dm, 'token_final_position', p => p?.tokenId === gobB && p?.x === 560);
+  check('T13.2 commit survives transient flood (per-key buckets)', Boolean(landFloodA && landFloodB),
+        `${!!landFloodA} ${!!landFloodB}`);
+
+  // T13.3 partial validity: unknown tokenId in the batch is skipped, the
+  // valid member still commits, the server stays healthy.
+  dm.emit('move_tokens_final', { moves: [
+    { tokenId: 'no-such-token', x: 100, y: 100 },
+    { tokenId: gobA, x: 420, y: 70 }
+  ]});
+  const landPart = await waitFor(dm, 'token_final_position', p => p?.tokenId === gobA && p?.x === 420);
+  check('T13.3 batch with bogus entry: valid member commits, no crash', Boolean(landPart), `${!!landPart}`);
+
+  // T13.4 mid-combat batch: the turn gate + the commit gate both hold.
+  // NOTE: a player batching a token they DON'T own is silently skipped by
+  // design (same as the single path), so the not_your_turn case uses Borin's
+  // own token while Aria holds the turn. Listeners attach BEFORE the emits —
+  // a commit event that fires while a sibling waitFor is still pending would
+  // otherwise be missed.
+  pa.emit('submit_initiative', { tokenId: ariaId,  roll: 20, bonus: 2 });
+  pb.emit('submit_initiative', { tokenId: borinId, roll: 5,  bonus: 1 });
+  dm.emit('add_npc_initiative', { tokenId: npcId, initiative: 15 });
+  await sleep(300);
+  dm.emit('start_combat');
+  await waitFor(dm, 'combat_started');
+  dm.emit('set_turn', ariaId);
+  const tu13 = await waitFor(dm, 'turn_update');
+  check('T13.4 setup: Aria active mid-combat', tu13?.current === ariaId, tu13?.current);
+
+  const rejP  = waitFor(pb, 'move_rejected', p => p?.tokenId === borinId);
+  const landP = waitFor(dm, 'token_final_position', p => p?.tokenId === ariaId && p?.x === 280);
+  pb.emit('move_tokens_final', { moves: [{ tokenId: borinId, x: 420, y: 420 }]});  // not his turn
+  pa.emit('move_tokens_final', { moves: [{ tokenId: ariaId,  x: 280, y: 0 }]});    // 2 cells = 10ft at her 10ft cap
+  const rejBatch = await rejP;
+  check('T13.4 batched non-active self-token REJECTED (not_your_turn)', rejBatch?.reason === 'not_your_turn', rejBatch?.reason);
+  const landAria = await landP;
+  check('T13.4 active combatant commits via batch alongside the rejection', Boolean(landAria), `${!!landAria}`);
+
+  dm.emit('reset_combat');
+  await waitFor(dm, 'combat_reset');
+
   [dm, pa, pb].forEach(s => s.disconnect());
   console.log(`\n== RESULT: ${pass} passed, ${fail} failed ==`);
   process.exit(fail ? 1 : 0);

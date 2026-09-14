@@ -132,7 +132,10 @@ custom-vtt/
 
 Socket.IO is configured with transports: ['websocket'] and perMessageDeflate
 (compression enabled above 1KB). All handlers pass through connection
-rate-limiting middleware (socket.checkRateLimit(limit, windowMs)).
+rate-limiting middleware — socket.checkRateLimit(limit, windowMs, key) — with
+PER-KEY buckets per socket (key defaults to 'global'). Movement paths use their
+own keys ('move', 'move_final') so a drag's transient flood can never starve
+the drop's final commits (a real bug group movement used to hit).
 
    [ Client Action ] ──► socket.emit('event', payload)
                                 │
@@ -155,8 +158,10 @@ io.emit('token_hp_changed', { ... })         saveMapDataDebounced() (500ms)
 
 | Event Name                | Role / Auth       | Payload Structure                                                      | Server Execution & Broadcasts                                                  |
 | :------------------------ | :---------------- | :--------------------------------------------------------------------- | :----------------------------------------------------------------------------- |
-| `move_token`              | DM / Owner        | `{ tokenId, x, y }`                                                    | Throttled peer-only broadcast `token_moved` (drag preview).                    |
-| `move_token_final`        | DM / Owner        | `{ tokenId, x, y }`                                                    | S3: flows through `attemptMove` — in combat the active combatant's budget is enforced (5ft/grid Chebyshev, LIFO rewind refund, deploy free). Rejects emit `move_rejected` (mover) + snap-back `token_final_position` (all); accepts emit `token_final_position` + `movement_update`. DM exempt; out-of-combat free. |
+| `move_token`              | DM / Owner        | `{ tokenId, x, y }`                                                    | Throttled peer-only broadcast `token_moved` (drag preview). Solo-drag path. |
+| `move_tokens`             | DM / Owner        | `{ moves: [{ tokenId, x, y }, ...] }` (≤50)                            | Group-drag transient: one event for the whole moving group; per-move ownership validated, invalid entries skipped; broadcasts ONE peer-only `tokens_moved { moves, version }`. |
+| `move_token_final`        | DM / Owner        | `{ tokenId, x, y }`                                                    | S3: flows through `attemptMove` — in combat the active combatant's budget is enforced (5ft/grid Chebyshev, LIFO rewind refund, deploy free). Rejects emit `move_rejected` (mover) + snap-back `token_final_position` (all); accepts emit `token_final_position` + `movement_update`. DM exempt; out-of-combat free. Solo-drop path. |
+| `move_tokens_final`       | DM / Owner        | `{ moves: [{ tokenId, x, y }, ...] }` (≤50)                            | Group-drop commit: each move runs the same `attemptMove` gate as the single path; commits emit per-token `token_final_position`, rejects emit `move_rejected` (mover) + snap-back — partial success never scatters silently. Tokens the sender doesn't own are silently skipped (single-path parity). One `movement_update` after the batch (in combat). |
 | `set_token_speed`         | DM Only           | `{ tokenId, speed: number }` (feet/turn)                               | S3: persists speed on token, emits `state_update` + `movement_update` if it holds the live budget. |
 | `remove_token`            | DM / Minion Owner | `tokenId` (string)                                                     | Sets `isPlaced: false` (recalls to tray), emits `token_removed`.               |
 | `delete_token`            | DM Only           | `tokenId` (string)                                                     | Erases token from state array, emits `token_deleted`.                          |
