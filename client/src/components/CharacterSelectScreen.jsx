@@ -3,12 +3,24 @@ import { useState, useEffect, useRef } from 'react';
 import { SERVER_URL } from '../config';
 import soundSynthesizer from '../utils/SoundSynthesizer';
 import { resolveMediaUrl, isAudioFormat } from '../utils/mediaUtils';
+import { vaultFetch } from '../utils/vaultFetch';
+import LoginAmbience from './LoginAmbience';
+
+// Theme music defaults: ON at a gentle 10% volume unless the visitor has an
+// explicit stored preference. Shared contract with LoginScreen.
+const THEME_DEFAULT_ON = () => localStorage.getItem('vtt_theme_enabled') !== 'false';
+const THEME_DEFAULT_VOLUME = () => {
+  const stored = localStorage.getItem('vtt_theme_volume');
+  return stored !== null ? parseFloat(stored) : 0.1;
+};
 
 export default function CharacterSelectScreen({
   user,
   onSelectCharacter,
   onCreateNew,
-  onLogout
+  onLogout,
+  defaultName, // Name typed on the login screen (Quick Play "start fresh" default)
+  quickMode = false, // True when the visitor has no account session
 }) {
   const [characters, setCharacters] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,19 +29,15 @@ export default function CharacterSelectScreen({
   const [localData, setLocalData] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  
+
   // State for character deletion confirmation modal
   const [characterToDelete, setCharacterToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Strict Login Theme Music State (from /assets/login/)
   const [themeUrl, setThemeUrl] = useState(null);
-  const [isPlayingMusic, setIsPlayingMusic] = useState(
-    () => localStorage.getItem('vtt_theme_enabled') === 'true'
-  );
-  const [musicVolume, setMusicVolume] = useState(
-    () => parseFloat(localStorage.getItem('vtt_theme_volume') || '0.35')
-  );
+  const [isPlayingMusic, setIsPlayingMusic] = useState(THEME_DEFAULT_ON);
+  const [musicVolume, setMusicVolume] = useState(THEME_DEFAULT_VOLUME);
   const [showMusicControls, setShowMusicControls] = useState(false);
   const audioRef = useRef(null);
 
@@ -87,12 +95,8 @@ export default function CharacterSelectScreen({
 
   // 2. Fetch User's Characters from Server Database
   const fetchCharacters = async () => {
-    const token = localStorage.getItem('vtt_session_token');
-    const baseUrl = (SERVER_URL || '').replace(/\/+$/, '');
     try {
-      const res = await fetch(`${baseUrl}/api/characters`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await vaultFetch(`/api/characters`);
       const data = await res.json();
       setCharacters(Array.isArray(data) ? data : []);
       setLoading(false);
@@ -123,15 +127,10 @@ export default function CharacterSelectScreen({
     if (!localData) return;
     soundSynthesizer.unlock();
     soundSynthesizer.playGoldClink();
-    const token = localStorage.getItem('vtt_session_token');
-    const baseUrl = (SERVER_URL || '').replace(/\/+$/, '');
     try {
-      const res = await fetch(`${baseUrl}/api/characters/save`, {
+      const res = await vaultFetch(`/api/characters/save`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sheetData: localData })
       });
       const result = await res.json();
@@ -163,14 +162,9 @@ export default function CharacterSelectScreen({
           return;
         }
 
-        const token = localStorage.getItem('vtt_session_token');
-        const baseUrl = (SERVER_URL || '').replace(/\/+$/, '');
-        const res = await fetch(`${baseUrl}/api/characters/save`, {
+        const res = await vaultFetch(`/api/characters/save`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sheetData: parsed })
         });
         const result = await res.json();
@@ -217,12 +211,9 @@ export default function CharacterSelectScreen({
     soundSynthesizer.unlock();
     setIsDeleting(true);
 
-    const token = localStorage.getItem('vtt_session_token');
-    const baseUrl = (SERVER_URL || '').replace(/\/+$/, '');
     try {
-      const res = await fetch(`${baseUrl}/api/characters/${characterToDelete.id}`, {
+      const res = await vaultFetch(`/api/characters/${characterToDelete.id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
       });
       const result = await res.json();
       setIsDeleting(false);
@@ -231,7 +222,7 @@ export default function CharacterSelectScreen({
         soundSynthesizer.playDamage();
         setSuccessMessage(`Deleted "${characterToDelete.name}" from your vault.`);
         setErrorMessage('');
-        
+
         // Clean up localStorage active id if it was the deleted character
         if (localStorage.getItem('vtt_active_character_id') === characterToDelete.id) {
           localStorage.removeItem('vtt_active_character_id');
@@ -258,8 +249,15 @@ export default function CharacterSelectScreen({
     onSelectCharacter(char);
   };
 
+  const handleStartFresh = () => {
+    soundSynthesizer.unlock();
+    soundSynthesizer.playLevelUp();
+    onCreateNew(defaultName || '');
+  };
+
   const isVideo = backgroundUrl && /\.(mp4|webm|mov)$/i.test(backgroundUrl);
   const baseUrl = (SERVER_URL || '').replace(/\/+$/, '');
+  const freshName = defaultName || `${user?.username || ''}'s Adventurer`;
 
   return (
     <div className="h-screen w-screen relative bg-bgDark overflow-hidden select-none flex items-center justify-center p-4">
@@ -273,9 +271,49 @@ export default function CharacterSelectScreen({
         />
       )}
 
+      {/* Background Media Engine — crisp and clear, no blur */}
+      {backgroundUrl ? (
+        isVideo ? (
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover"
+          >
+            <source src={`${baseUrl}${backgroundUrl}`} />
+          </video>
+        ) : (
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url(${baseUrl}${backgroundUrl})` }}
+          />
+        )
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0b0c10] via-[#1f2833] to-[#0b0c10]" />
+      )}
+
+      {/* Cinematic vignette — darkens edges, keeps the artwork clear */}
+      <div
+        className="absolute inset-0"
+        style={{ background: 'radial-gradient(ellipse 90% 75% at 50% 42%, rgba(0,0,0,0.32) 0%, rgba(0,0,0,0.6) 62%, rgba(0,0,0,0.85) 100%)' }}
+      />
+
+      {/* Drifting ember particles */}
+      <LoginAmbience density={22} />
+
+      {/* Hidden File Input for JSON Imports */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileUpload}
+        accept=".json"
+        className="hidden"
+      />
+
       {/* Floating Theme Music Controller Widget */}
       {themeUrl && (
-        <div className="absolute top-4 right-4 z-40 flex items-center gap-2 bg-[#12141a]/85 backdrop-blur-md border border-accentGold/40 rounded-full px-3 py-1.5 shadow-xl transition-all hover:border-accentGold">
+        <div className="absolute top-4 right-4 z-40 flex items-center gap-2 bg-[#12141a]/85 backdrop-blur-md border border-accentGold/40 rounded-full px-3 py-1.5 shadow-xl transition-all hover:border-accentGold cvt-fade-in">
           <button
             type="button"
             onClick={toggleMusic}
@@ -298,7 +336,7 @@ export default function CharacterSelectScreen({
           </button>
 
           {showMusicControls && (
-            <div className="flex items-center gap-2 pl-2 border-l border-borderDark/60 animate-in fade-in">
+            <div className="flex items-center gap-2 pl-2 border-l border-borderDark/60">
               <input
                 type="range"
                 min="0"
@@ -317,51 +355,19 @@ export default function CharacterSelectScreen({
         </div>
       )}
 
-      {/* Background Media Engine */}
-      {backgroundUrl ? (
-        isVideo ? (
-          <video
-            autoPlay
-            muted
-            loop
-            playsInline
-            className="absolute inset-0 w-full h-full object-cover"
-          >
-            <source src={`${baseUrl}${backgroundUrl}`} />
-          </video>
-        ) : (
-          <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: `url(${baseUrl}${backgroundUrl})` }}
-          />
-        )
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0b0c10] via-[#1f2833] to-[#0b0c10]" />
-      )}
-
-      {/* Darkened Atmosphere Overlay */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-[2px]" />
-
-      {/* Hidden File Input for JSON Imports */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileUpload}
-        accept=".json"
-        className="hidden"
-      />
-
       {/* Main Character Selection Vault Portal */}
-      <div className="relative z-10 w-full max-w-2xl bg-[#12141a]/95 backdrop-blur-xl border border-accentGold/40 rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.85)] p-8 flex flex-col items-center animate-in zoom-in duration-300">
-        
+      <div className="relative z-10 w-full max-w-2xl bg-[#12141a]/92 backdrop-blur-md border border-accentGold/40 rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.85)] p-8 flex flex-col items-center cvt-zoom-in">
+
         {/* Header */}
-        <div className="flex justify-between items-center w-full mb-5 border-b border-borderDark/60 pb-4">
+        <div className="flex justify-between items-center w-full mb-5 border-b border-borderDark/60 pb-4 cvt-fade-up">
           <div>
             <h2 className="text-2xl font-extrabold text-accentGold tracking-wider flex items-center gap-2">
-              <span>⚔️</span> Character Vault
+              <span>{quickMode ? '🎲' : '⚔️'}</span> {quickMode ? 'Choose Your Adventurer' : 'Character Vault'}
             </h2>
             <p className="text-xs text-textMuted mt-0.5">
-              Logged in as <strong className="text-white">{user?.username || 'Adventurer'}</strong>
+              {quickMode ? 'Playing as ' : 'Logged in as '}
+              <strong className="text-white">{user?.username || 'Adventurer'}</strong>
+              {quickMode && ' — pick a saved hero or start fresh'}
             </p>
           </div>
           <button
@@ -379,19 +385,44 @@ export default function CharacterSelectScreen({
 
         {/* Feedback Banners */}
         {errorMessage && (
-          <div className="w-full text-center text-xs text-red-400 bg-red-950/40 border border-red-800/60 p-2.5 rounded-xl mb-3 animate-in fade-in">
+          <div className="w-full text-center text-xs text-red-400 bg-red-950/40 border border-red-800/60 p-2.5 rounded-xl mb-3 cvt-fade-in">
             {errorMessage}
           </div>
         )}
         {successMessage && (
-          <div className="w-full text-center text-xs text-green-400 bg-green-950/40 border border-green-800/60 p-2.5 rounded-xl mb-3 animate-in fade-in">
+          <div className="w-full text-center text-xs text-green-400 bg-green-950/40 border border-green-800/60 p-2.5 rounded-xl mb-3 cvt-fade-in">
             {successMessage}
+          </div>
+        )}
+
+        {/* Start Fresh card (Quick Play) */}
+        {defaultName && (
+          <div
+            onClick={handleStartFresh}
+            className="w-full group flex items-center justify-between p-3.5 mb-3 rounded-xl border border-accentGold/50 bg-gradient-to-r from-accentGold/10 via-bgCard/80 to-bgCard/60 hover:border-accentGold hover:bg-[#1a1d24] cursor-pointer transition-all duration-200 hover:scale-[1.01] shadow-md cvt-fade-up cvt-delay-1"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-12 h-12 rounded-full overflow-hidden bg-bgPanel border border-accentGold/70 flex items-center justify-center shrink-0 shadow-inner">
+                <span className="text-lg">✨</span>
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-accentGold group-hover:text-white truncate transition-colors">
+                  Start Fresh as "{freshName}"
+                </h3>
+                <p className="text-[11px] text-textMuted truncate">
+                  Brand new sheet, level 1 — a clean page of destiny
+                </p>
+              </div>
+            </div>
+            <span className="text-accentGold font-bold text-xs group-hover:translate-x-1 transition-transform ml-1 shrink-0">
+              Begin →
+            </span>
           </div>
         )}
 
         {/* Local Cache Recovery Notice */}
         {hasLocalMigration && (
-          <div className="w-full bg-yellow-950/40 border border-accentGold/60 rounded-xl p-3 mb-4 flex items-center justify-between text-xs shadow-inner">
+          <div className="w-full bg-yellow-950/40 border border-accentGold/60 rounded-xl p-3 mb-4 flex items-center justify-between text-xs shadow-inner cvt-fade-up cvt-delay-2">
             <span className="text-yellow-200">
               ⚡ Found cached character sheet <strong>"{localData.name}"</strong> on this device.
             </span>
@@ -412,7 +443,7 @@ export default function CharacterSelectScreen({
             <span>Opening Character Vault...</span>
           </div>
         ) : (
-          <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-3.5 max-h-80 overflow-y-auto pr-1.5 mb-6 scrollbar-hide">
+          <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-3.5 max-h-80 overflow-y-auto pr-1.5 mb-6 scrollbar-hide cvt-fade-up cvt-delay-2">
             {characters.map((char) => (
               <div
                 key={char.id}
@@ -481,14 +512,16 @@ export default function CharacterSelectScreen({
 
             {characters.length === 0 && (
               <div className="col-span-2 text-center py-12 border border-dashed border-borderDark/80 rounded-xl bg-black/20 text-textMuted text-xs italic">
-                No characters found in your vault. Create a new one or import an existing sheet file below.
+                {defaultName
+                  ? 'No saved heroes yet — begin fresh above, or import a sheet below.'
+                  : 'No characters found in your vault. Create a new one or import an existing sheet file below.'}
               </div>
             )}
           </div>
         )}
 
         {/* Bottom Gateway Controls */}
-        <div className="flex w-full gap-3 pt-2 border-t border-borderDark/40">
+        <div className="flex w-full gap-3 pt-2 border-t border-borderDark/40 cvt-fade-up cvt-delay-3">
           <button
             type="button"
             onClick={() => {
@@ -505,7 +538,7 @@ export default function CharacterSelectScreen({
             onClick={() => {
               soundSynthesizer.unlock();
               soundSynthesizer.playUIClick();
-              onCreateNew();
+              onCreateNew(defaultName || '');
             }}
             className="flex-1 bg-accentGold hover:bg-yellow-500 text-black font-extrabold py-3 rounded-xl transition-all uppercase tracking-wider text-xs shadow-lg hover:shadow-[0_0_20px_rgba(230,180,34,0.4)] flex items-center justify-center gap-2"
           >
@@ -516,8 +549,8 @@ export default function CharacterSelectScreen({
 
       {/* Confirmation Modal for Character Deletion */}
       {characterToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-[#12141a] border border-red-700/60 rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center animate-in zoom-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 cvt-fade-in">
+          <div className="bg-[#12141a] border border-red-700/60 rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center cvt-zoom-in">
             <span className="text-3xl mb-2 block">⚠️</span>
             <h3 className="text-red-400 font-extrabold text-base uppercase tracking-wider mb-2">
               Delete Character?

@@ -251,6 +251,216 @@ body {
   }
 }
 
+/* ═══════════════════════════════════════════════════════════
+   LANDING PAGE ANIMATIONS (dependency-free; tailwindcss-animate
+   was never installed, so custom keyframes live here)
+   ═══════════════════════════════════════════════════════════ */
+
+@keyframes cvt-fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes cvt-zoom-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes cvt-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes cvt-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+@keyframes cvt-sigil-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes cvt-sigil-spin-rev {
+  from { transform: rotate(360deg); }
+  to   { transform: rotate(0deg); }
+}
+@keyframes cvt-glow-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+@keyframes cvt-title-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+@keyframes cvt-btn-shine {
+  0%   { transform: translateX(-120%) skewX(-18deg); }
+  100% { transform: translateX(240%) skewX(-18deg); }
+}
+@keyframes cvt-d20-tumble {
+  0%   { transform: translateX(-40px) rotate(0deg) scale(0.6); opacity: 0; }
+  12%  { opacity: 1; }
+  50%  { transform: translateX(180px) rotate(360deg) scale(1.15); }
+  88%  { opacity: 1; }
+  100% { transform: translateX(420px) rotate(720deg) scale(0.6); opacity: 0; }
+}
+@keyframes cvt-toast-in {
+  0%   { opacity: 0; transform: translateY(10px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes cvt-rainbow-text {
+  0%   { filter: hue-rotate(0deg); }
+  100% { filter: hue-rotate(360deg); }
+}
+
+.cvt-fade-up   { animation: cvt-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.cvt-zoom-in   { animation: cvt-zoom-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.cvt-fade-in   { animation: cvt-fade-in 0.6s ease-out both; }
+.cvt-d20       { animation: cvt-d20-tumble 1.6s cubic-bezier(0.3, 0.6, 0.4, 1) both; }
+.cvt-toast     { animation: cvt-toast-in 0.25s ease-out both; }
+.cvt-rainbow   { animation: cvt-rainbow-text 3s linear infinite; }
+.cvt-delay-1   { animation-delay: 0.08s; }
+.cvt-delay-2   { animation-delay: 0.16s; }
+.cvt-delay-3   { animation-delay: 0.24s; }
+.cvt-delay-4   { animation-delay: 0.34s; }
+.cvt-delay-5   { animation-delay: 0.44s; }
+
+/* Gilded shimmering login title */
+.cvt-title-shimmer {
+  background: linear-gradient(100deg, #e6b422 20%, #fff3c4 40%, #ffffff 50%, #fff3c4 60%, #e6b422 80%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: cvt-shimmer 5s linear infinite, cvt-title-float 6s ease-in-out infinite;
+}
+.cvt-btn-shine { position: relative; overflow: hidden; }
+.cvt-btn-shine::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 45%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+  transform: translateX(-120%) skewX(-18deg);
+  pointer-events: none;
+}
+.cvt-btn-shine:hover::after { animation: cvt-btn-shine 0.9s ease; }
+
+/* Rotating arcane sigil behind the login portal */
+.cvt-sigil {
+  animation: cvt-sigil-spin 90s linear infinite;
+}
+.cvt-sigil-rev {
+  animation: cvt-sigil-spin-rev 60s linear infinite;
+}
+.cvt-sigil-glow {
+  animation: cvt-glow-pulse 7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cvt-fade-up, .cvt-zoom-in, .cvt-fade-in, .cvt-d20, .cvt-toast,
+  .cvt-title-shimmer, .cvt-sigil, .cvt-sigil-rev, .cvt-sigil-glow, .cvt-rainbow {
+    animation: none !important;
+  }
+  .cvt-title-shimmer { color: #e6b422; background: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PLAYER CARD FRAMES — animated CSS-only borders (thin, inset)
+   Driven by characterData.cardFrame; see PartyPlayerCard.jsx
+   ═══════════════════════════════════════════════════════════ */
+
+@keyframes cardframe-shift {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 300% 50%; }
+}
+@keyframes cardframe-flicker {
+  0%, 100% { opacity: 0.75; }
+  45%      { opacity: 1; }
+  60%      { opacity: 0.6; }
+}
+@keyframes cardframe-spark {
+  0%, 100% { opacity: 0.9; filter: blur(1.5px); }
+  50%      { opacity: 0.45; filter: blur(3px); }
+}
+
+.party-card-frame { position: relative; }
+.party-card-frame::before,
+.party-card-frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+/* The animated gradient border ring */
+.party-card-frame::before {
+  padding: 1.4px;
+  background-size: 300% 100%;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          mask-composite: exclude;
+}
+/* The soft outer glow */
+.party-card-frame::after {
+  padding: 2.5px;
+  filter: blur(4px);
+  opacity: 0.5;
+  background-size: 300% 100%;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          mask-composite: exclude;
+}
+
+.party-card-frame-frame-flame::before,
+.party-card-frame-frame-flame::after {
+  background-image: linear-gradient(90deg, #fbbf24, #f97316, #ef4444, #f97316, #fbbf24);
+  animation: cardframe-shift 3.2s linear infinite, cardframe-flicker 1.4s ease-in-out infinite;
+}
+.party-card-frame-frame-frost::before,
+.party-card-frame-frame-frost::after {
+  background-image: linear-gradient(90deg, #a5f3fc, #67e8f9, #e0f2fe, #38bdf8, #a5f3fc);
+  animation: cardframe-shift 4.5s linear infinite, cardframe-spark 2.8s ease-in-out infinite;
+}
+.party-card-frame-frame-holy::before,
+.party-card-frame-frame-holy::after {
+  background-image: linear-gradient(90deg, #fef9c3, #fde68a, #ffffff, #fcd34d, #fef9c3);
+  animation: cardframe-shift 5s linear infinite, cvt-glow-pulse 3.5s ease-in-out infinite;
+}
+.party-card-frame-frame-storm::before,
+.party-card-frame-frame-storm::after {
+  background-image: linear-gradient(90deg, #67e8f9, #a78bfa, #e0e7ff, #818cf8, #67e8f9);
+  animation: cardframe-shift 1.9s linear infinite, cardframe-spark 0.9s steps(3) infinite;
+}
+.party-card-frame-frame-arcane::before,
+.party-card-frame-frame-arcane::after {
+  background-image: linear-gradient(90deg, #c084fc, #818cf8, #67e8f9, #e879f9, #c084fc);
+  animation: cardframe-shift 4s linear infinite;
+}
+.party-card-frame-frame-shadow::before,
+.party-card-frame-frame-shadow::after {
+  background-image: linear-gradient(90deg, #6b7280, #9ca3af, #374151, #6d28d9, #6b7280);
+  animation: cardframe-shift 6s linear infinite, cardframe-flicker 2.6s ease-in-out infinite;
+}
+.party-card-frame-frame-venom::before,
+.party-card-frame-frame-venom::after {
+  background-image: linear-gradient(90deg, #a3e635, #22c55e, #bef264, #16a34a, #a3e635);
+  animation: cardframe-shift 3.6s linear infinite, cardframe-spark 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .party-card-frame::before, .party-card-frame::after { animation: none !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PLAYER CARD BACKGROUNDS — preset gradients (cardBg field)
+   ═══════════════════════════════════════════════════════════ */
+.cardbg-default  { background: linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(0,0,0,0.25) 100%), #1c1f2a; }
+.cardbg-ember    { background: linear-gradient(120deg, #2a1608 0%, #3f1d0b 55%, #1c0e06 100%); }
+.cardbg-midnight { background: linear-gradient(120deg, #0f172a 0%, #1e293b 60%, #0b1120 100%); }
+.cardbg-parchment{ background: linear-gradient(120deg, #3a3020 0%, #57452c 55%, #2e2517 100%); }
+.cardbg-verdant  { background: linear-gradient(120deg, #12261a 0%, #1d3d28 60%, #0d1a12 100%); }
+.cardbg-royal    { background: linear-gradient(120deg, #22103a 0%, #3b1d5e 55%, #170b28 100%); }
+.cardbg-void     { background: linear-gradient(120deg, #09090f 0%, #14141f 55%, #050508 100%); }
+.cardbg-rose     { background: linear-gradient(120deg, #33101d 0%, #572035 55%, #220a13 100%); }
+
 @layer components {
   .form-input {
     @apply w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-100

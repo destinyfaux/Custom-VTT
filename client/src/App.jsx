@@ -22,6 +22,8 @@ import ConnectionStatus from './components/ConnectionStatus';
 import LoginScreen from './components/LoginScreen';
 import CharacterSelectScreen from './components/CharacterSelectScreen';
 import CharacterSheetWindow from './components/CharacterSheetWindow';
+import PartyPlayerCard from './components/PartyPlayerCard';
+import { vaultFetch } from './utils/vaultFetch';
 
 // Restored missing Audio Deck and DM Controls imports
 import DMAudioDeck from './components/DMAudioDeck';
@@ -324,6 +326,17 @@ function App() {
             localStorage.setItem('tome_data', JSON.stringify(me.characterData));
             setName(me.characterData.name);
           }
+        } else if (!me?.characterData || Object.keys(me.characterData).length === 0) {
+          // Server has no sheet for us yet (fresh character, or reconnect after
+          // a vault race). Push the locally-held sheet once so presence, roster
+          // cards, and the vault all reflect the active character immediately.
+          try {
+            const local = JSON.parse(localStorage.getItem('tome_data') || 'null');
+            if (local && local.name) {
+              const charId = selectedCharacter?.id || local.id || null;
+              socket.emit('sync_character_data', { ...local, ...(charId ? { id: charId } : {}) });
+            }
+          } catch (e) { /* malformed local sheet — ignore */ }
         }
       }
 
@@ -627,6 +640,23 @@ function App() {
     }
   };
 
+  // ─── Switch Character (players, in-session) ───
+  // Drops the active character and returns to the Stage 2 selection gate
+  // WITHOUT wiping the session: account players keep their login (they land
+  // on the authenticated vault), Quick Play visitors land on the device vault.
+  const handleChangeCharacter = () => {
+    soundSynthesizer.playUIClick();
+    // Gracefully leave the table presence-wise; the gate will reconnect once
+    // a character is chosen (identityKey changes → fresh socket auth).
+    try { if (socket.connected) socket.emit('player_logout'); } catch (e) { /* noop */ }
+    localStorage.removeItem('vtt_active_character_id');
+    localStorage.removeItem('tome_data');
+    setSelectedCharacter(null);
+    hasConnectedWithRole.current = null;
+    hasRequestedInitialState.current = false;
+    if (socket.connected) socket.disconnect();
+  };
+
   /* ==========================================
      STAGE 1 GATE: USER LOGIN SCREEN
      ========================================== */
@@ -679,11 +709,17 @@ function App() {
      ========================================== */
   // Account role is authoritative. Do not let a stale localStorage role route
   // an authenticated DM into the player character vault.
+  // Players ALWAYS pass through this gate before entering the table — both
+  // account players (server vault) and Quick Play visitors (device vault via
+  // x-vtt-user-id). This guarantees everyone gets to pick their character,
+  // and can come back here any time via the 🔄 Switch Character button.
   const effectiveRole = currentUser?.role || role;
-  if (effectiveRole !== 'DM' && currentUser && !selectedCharacter) {
+  if (effectiveRole !== 'DM' && !selectedCharacter && (currentUser || role === 'Player')) {
     return (
       <CharacterSelectScreen
-        user={currentUser}
+        user={currentUser || { userId: getOrGenerateUserId(), username: name || 'Adventurer' }}
+        quickMode={!currentUser}
+        defaultName={currentUser ? '' : (name || '')}
         onSelectCharacter={(char) => {
           localStorage.setItem('vtt_active_character_id', char.id);
           localStorage.setItem('tome_data', JSON.stringify(char.data));
@@ -693,9 +729,10 @@ function App() {
           setName(char.name);
           setRoleState('Player');
         }}
-        onCreateNew={() => {
+        onCreateNew={(newName) => {
           const newId = `char_${Date.now()}`;
-          const newSheet = { name: `${currentUser.username}'s Adventurer`, lvl: 1, hpMax: 10, hpCur: 10, ac: 10 };
+          const freshBase = newName || `${currentUser?.username || name || 'Adventurer'}'s Adventurer`;
+          const newSheet = { id: newId, name: freshBase, lvl: 1, hpMax: 10, hpCur: 10, ac: 10, speed: 30 };
           localStorage.setItem('vtt_active_character_id', newId);
           localStorage.setItem('tome_data', JSON.stringify(newSheet));
           localStorage.setItem('vtt_role', 'Player');
@@ -703,6 +740,13 @@ function App() {
           setSelectedCharacter({ id: newId, name: newSheet.name, data: newSheet });
           setName(newSheet.name);
           setRoleState('Player');
+          // Persist the new character to the vault immediately (account token
+          // or device fallback) — the sheet's debounced sync only fires later.
+          vaultFetch('/api/characters/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ characterId: newId, sheetData: newSheet })
+          }).catch(() => {});
         }}
         onLogout={handleLogout}
       />
@@ -736,6 +780,16 @@ function App() {
             {role === 'Player' && (
               <button
                 type="button"
+                onClick={handleChangeCharacter}
+                className="text-[8px] text-accentGold font-bold border border-accentGold/50 px-1.5 py-0.5 rounded-full hover:bg-accentGold hover:text-black transition-colors"
+                title="Switch to a different character"
+              >
+                🔄 Switch
+              </button>
+            )}
+            {role === 'Player' && (
+              <button
+                type="button"
                 onClick={() => window.open('/character-sheet', '_blank', 'noopener,noreferrer')}
                 className="text-[8px] text-accentGold font-bold border border-accentGold/50 px-1.5 py-0.5 rounded-full hover:bg-accentGold hover:text-black"
               >
@@ -751,62 +805,13 @@ function App() {
         {/* Party List */}
         <div className="max-h-56 overflow-y-auto mb-3 scrollbar-hide flex flex-col gap-1">
           {players.filter(p => p.role === 'Player').map(p => (
-            <div
+            <PartyPlayerCard
               key={p.userId}
-              className={`relative overflow-hidden rounded-lg border border-borderDark/80 bg-bgCard shadow-md transition-all duration-200 hover:border-accentGold/60 ${p.status === 'offline' ? 'opacity-50' : ''}`}
-              style={{ borderLeftColor: p.characterData?.nameplateColor || '#e6b422', borderLeftWidth: '3px' }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-white/[0.07] via-transparent to-black/25 pointer-events-none" />
-              <div className="relative flex items-center gap-2 p-1.5">
-                <div className="w-10 h-8 rounded-md shrink-0 overflow-hidden border border-white/20 bg-bgPanel flex items-center justify-center shadow-inner">
-                  {p.characterData?.avatarUrl ? (
-                    <img src={p.characterData.avatarUrl} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-sm font-black text-accentGold">{(p.characterData?.name || p.name || '?').charAt(0).toUpperCase()}</span>
-                  )}
-                </div>
-                <div className="min-w-0 w-24 shrink-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="truncate text-[10px] font-black text-white">{p.name}</span>
-                    <span 
-                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${p.status === 'offline' ? 'bg-gray-500' : 'bg-emerald-400 shadow-[0_0_7px_rgba(52,211,153,0.8)]'}`} 
-                      title={p.status === 'offline' ? 'Offline' : 'Online'} 
-                    />
-                  </div>
-                  <div className="truncate text-[8px] uppercase tracking-wider text-accentGold/80 font-bold">
-                    {p.characterData?.name && p.characterData.name !== p.name ? p.characterData.name : (p.characterData?.nameplateTagline || 'Adventurer')}
-                  </div>
-                </div>
-                
-                {/* Synced Stats */}
-                {p.characterData && (role === 'DM' || p.userId === userId) && (
-                  <div className="flex items-center gap-1 min-w-0 flex-1">
-                    <div className="rounded bg-black/20 px-1.5 py-1 text-center border border-white/5 min-w-[42px]">
-                      <span className="block text-[7px] text-textMuted uppercase tracking-widest">HP</span>
-                      <strong className="text-[9px] text-white">{p.characterData.hpCur || 0}<span className="text-textMuted">/{p.characterData.hpMax || 0}</span></strong>
-                    </div>
-                    <div className="rounded bg-black/20 px-1.5 py-1 text-center border border-white/5 min-w-[30px]">
-                      <span className="block text-[7px] text-textMuted uppercase tracking-widest">AC</span>
-                      <strong className="text-[9px] text-white">{p.characterData.ac || 0}</strong>
-                    </div>
-                    <div className="rounded bg-black/20 px-1.5 py-1 text-center border border-white/5 min-w-[38px]">
-                      <span className="block text-[7px] text-textMuted uppercase tracking-widest">SPD</span>
-                      <strong className="text-[9px] text-white">{p.characterData.speed || 30}</strong>
-                    </div>
-                  </div>
-                )}
-                {role === 'DM' && (
-                  <button
-                    className="w-6 h-6 shrink-0 rounded border border-borderDark text-[11px] text-textMuted hover:text-accentGold hover:border-accentGold/60 transition-colors"
-                    onClick={() => socket.emit('request_character_sheet', p.userId)}
-                    title="View character sheet"
-                    aria-label={`View ${p.name}'s character sheet`}
-                  >
-                    👁
-                  </button>
-                )}
-              </div>
-            </div>
+              player={p}
+              isOwn={p.userId === userId}
+              showStats={Boolean(p.characterData) && (role === 'DM' || p.userId === userId)}
+              onViewSheet={role === 'DM' ? () => socket.emit('request_character_sheet', p.userId) : undefined}
+            />
           ))}
         </div>
         
@@ -910,11 +915,12 @@ function App() {
           />
 
           <div className="flex items-center justify-between pt-1">
-            <button 
-              className="text-[9px] text-gray-500 hover:text-red-400 underline transition-colors" 
-              onClick={handleLogout}
+            <button
+              className="text-[9px] text-gray-500 hover:text-accentGold underline transition-colors"
+              onClick={handleChangeCharacter}
+              title="Return to the character picker without logging out"
             >
-              Logout / Switch Character
+              Switch Character
             </button>
             {currentUser && (
               <span className="text-[9px] text-textMuted font-mono">

@@ -1,10 +1,29 @@
 // client/src/components/LoginScreen.jsx
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { SERVER_URL } from '../config';
 import soundSynthesizer from '../utils/SoundSynthesizer';
+import LoginAmbience from './LoginAmbience';
 
-const VERSION = '6.1';
-const BUILD_DATE = '2026-06-11';
+const VERSION = '6.4';
+const BUILD_DATE = '2026-09-14';
+
+// Theme music defaults: ON at a gentle 10% volume unless the visitor has an
+// explicit stored preference (vtt_theme_enabled='false' / saved volume).
+const THEME_DEFAULT_ON = () => localStorage.getItem('vtt_theme_enabled') !== 'false';
+const THEME_DEFAULT_VOLUME = () => {
+  const stored = localStorage.getItem('vtt_theme_volume');
+  return stored !== null ? parseFloat(stored) : 0.1;
+};
+
+const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+
+const D20_EGG_LINES = [
+  'The tavern cat is impressed.',
+  'The dice approve of your arrival.',
+  'Fate nods politely.',
+  'Your destiny has been... filed for review.',
+];
+const D20_EGG_CRIT = 'NAT 20! The devs smile upon you, adventurer.';
 
 export default function LoginScreen({
   name,
@@ -30,20 +49,34 @@ export default function LoginScreen({
 
   // Strict Login Theme Music State (from /assets/login/)
   const [themeUrl, setThemeUrl] = useState(null);
-  const [isPlayingMusic, setIsPlayingMusic] = useState(
-    () => localStorage.getItem('vtt_theme_enabled') === 'true'
-  );
-  const [musicVolume, setMusicVolume] = useState(
-    () => parseFloat(localStorage.getItem('vtt_theme_volume') || '0.35')
-  );
+  const [isPlayingMusic, setIsPlayingMusic] = useState(THEME_DEFAULT_ON);
+  const [musicVolume, setMusicVolume] = useState(THEME_DEFAULT_VOLUME);
   const [showMusicControls, setShowMusicControls] = useState(false);
   const audioRef = useRef(null);
+
+  // ─── Easter egg state ───
+  const [d20Flying, setD20Flying] = useState(false);
+  const [toast, setToast] = useState(null); // { id, text }
+  const [rainbowTitle, setRainbowTitle] = useState(false);
+  const [devFlash, setDevFlash] = useState(false);
+  const titleClicks = useRef({ count: 0, timer: null });
+  const versionClicks = useRef({ count: 0, timer: null });
+  const konamiProgress = useRef([]);
+  const toastTimer = useRef(null);
+
+  const rememberedName = name || localStorage.getItem('vtt_name') || '';
+
+  const showToast = useCallback((text) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ id: Date.now(), text });
+    toastTimer.current = setTimeout(() => setToast(null), 4000);
+  }, []);
 
   // Global user gesture listener to unlock Web Audio context on first click/touch
   useEffect(() => {
     const handleFirstGesture = () => {
       soundSynthesizer.unlock();
-      if (audioRef.current && localStorage.getItem('vtt_theme_enabled') === 'true') {
+      if (audioRef.current && THEME_DEFAULT_ON()) {
         audioRef.current.play().then(() => setIsPlayingMusic(true)).catch(() => {});
       }
     };
@@ -95,6 +128,25 @@ export default function LoginScreen({
     }
   }, [isPlayingMusic, musicVolume, themeUrl]);
 
+  // ─── Easter egg: Konami developer charm ───
+  useEffect(() => {
+    const onKey = (e) => {
+      konamiProgress.current = [...konamiProgress.current, e.key].slice(-KONAMI.length);
+      if (KONAMI.every((k, i) => k === konamiProgress.current[i])) {
+        konamiProgress.current = [];
+        soundSynthesizer.unlock();
+        soundSynthesizer.playLevelUp();
+        setDevFlash(true);
+        setRainbowTitle(true);
+        showToast('🧙 Developer Charm unlocked — forged with ❤️ by destinyfaux & Super Z');
+        setTimeout(() => setDevFlash(false), 900);
+        setTimeout(() => setRainbowTitle(false), 8000);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showToast]);
+
   const toggleMusic = () => {
     soundSynthesizer.unlock();
     soundSynthesizer.playUIClick();
@@ -139,6 +191,41 @@ export default function LoginScreen({
     soundSynthesizer.playUIClick();
     setAuthMode(mode);
     setAuthError('');
+  };
+
+  // ─── Easter egg: click the title 5 times → tumble a d20 ───
+  const handleTitleClick = () => {
+    const state = titleClicks.current;
+    state.count += 1;
+    if (state.timer) clearTimeout(state.timer);
+    state.timer = setTimeout(() => { state.count = 0; }, 2500);
+
+    if (state.count >= 5) {
+      state.count = 0;
+      soundSynthesizer.unlock();
+      soundSynthesizer.playDiceRoll();
+      setD20Flying(true);
+      setTimeout(() => {
+        const nat20 = true; // the devs rig this one — it's a welcome gift, not a real roll
+        if (nat20) soundSynthesizer.playCriticalSuccess();
+        showToast(nat20 ? `🎲 ${D20_EGG_CRIT}` : `🎲 You rolled. ${D20_EGG_LINES[Math.floor(Math.random() * D20_EGG_LINES.length)]}`);
+      }, 900);
+      setTimeout(() => setD20Flying(false), 1800);
+    }
+  };
+
+  // ─── Easter egg: click the version 3 times → dev credit ───
+  const handleVersionClick = () => {
+    const state = versionClicks.current;
+    state.count += 1;
+    if (state.timer) clearTimeout(state.timer);
+    state.timer = setTimeout(() => { state.count = 0; }, 2000);
+    if (state.count >= 3) {
+      state.count = 0;
+      soundSynthesizer.unlock();
+      soundSynthesizer.playGoldClink();
+      showToast('⚒️ Forged with ❤️ by destinyfaux & Super Z — may your dice ever roll true.');
+    }
   };
 
   // Account Login / Register Handler
@@ -222,9 +309,64 @@ export default function LoginScreen({
         />
       )}
 
+      {/* Background Media — crisp and clear, no blur */}
+      {backgroundUrl ? (
+        isVideo ? (
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover"
+          >
+            <source src={`${baseUrl}${backgroundUrl}`} type="video/mp4" />
+          </video>
+        ) : (
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url(${baseUrl}${backgroundUrl})` }}
+          />
+        )
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0b0c10] via-[#1f2833] to-[#0b0c10]" />
+      )}
+
+      {/* Cinematic vignette — darkens the edges, keeps the heart of the image clear */}
+      <div
+        className="absolute inset-0"
+        style={{ background: 'radial-gradient(ellipse 90% 75% at 50% 42%, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.55) 62%, rgba(0,0,0,0.82) 100%)' }}
+      />
+
+      {/* Drifting ember particles */}
+      <LoginAmbience density={30} />
+
+      {/* Rotating arcane sigil behind the portal */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10 overflow-hidden">
+        <svg
+          width="620" height="620" viewBox="0 0 200 200"
+          className="cvt-sigil opacity-[0.10]"
+          style={{ filter: 'drop-shadow(0 0 6px rgba(230,180,34,0.35))' }}
+          aria-hidden="true"
+        >
+          <g fill="none" stroke="#e6b422" strokeWidth="0.7">
+            <circle cx="100" cy="100" r="94" />
+            <circle cx="100" cy="100" r="86" strokeDasharray="3 5" />
+            <circle cx="100" cy="100" r="58" />
+            <polygon points="100,16 175,63 175,137 100,184 25,137 25,63" strokeWidth="0.5" />
+            <polygon points="100,42 153,76 153,124 100,158 47,124 47,76" strokeWidth="0.5" />
+            {Array.from({ length: 12 }).map((_, i) => {
+              const a = (i * 30 * Math.PI) / 180;
+              const x1 = 100 + 86 * Math.cos(a), y1 = 100 + 86 * Math.sin(a);
+              const x2 = 100 + 94 * Math.cos(a), y2 = 100 + 94 * Math.sin(a);
+              return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} strokeWidth="1.1" />;
+            })}
+          </g>
+        </svg>
+      </div>
+
       {/* Floating Theme Music Controller Widget */}
       {themeUrl && (
-        <div className="absolute top-4 right-4 z-40 flex items-center gap-2 bg-[#12141a]/85 backdrop-blur-md border border-accentGold/40 rounded-full px-3 py-1.5 shadow-xl transition-all hover:border-accentGold">
+        <div className="absolute top-4 right-4 z-40 flex items-center gap-2 bg-[#12141a]/85 backdrop-blur-md border border-accentGold/40 rounded-full px-3 py-1.5 shadow-xl transition-all hover:border-accentGold cvt-fade-in">
           <button
             type="button"
             onClick={toggleMusic}
@@ -247,7 +389,7 @@ export default function LoginScreen({
           </button>
 
           {showMusicControls && (
-            <div className="flex items-center gap-2 pl-2 border-l border-borderDark/60 animate-in fade-in">
+            <div className="flex items-center gap-2 pl-2 border-l border-borderDark/60">
               <input
                 type="range"
                 min="0"
@@ -266,49 +408,49 @@ export default function LoginScreen({
         </div>
       )}
 
-      {/* Background Media */}
-      {backgroundUrl ? (
-        isVideo ? (
-          <video
-            autoPlay
-            muted
-            loop
-            playsInline
-            className="absolute inset-0 w-full h-full object-cover"
-          >
-            <source src={`${baseUrl}${backgroundUrl}`} type="video/mp4" />
-          </video>
-        ) : (
-          <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: `url(${baseUrl}${backgroundUrl})` }}
-          />
-        )
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0b0c10] via-[#1f2833] to-[#0b0c10]" />
-      )}
-
-      {/* Darkened Atmosphere Overlay */}
-      <div className="absolute inset-0 bg-black/65 backdrop-blur-[2px]" />
-
       {/* Centered Main Portal */}
-      <div className="absolute inset-0 flex items-center justify-center p-4 overflow-y-auto">
-        <div className="relative bg-[#12141a]/95 backdrop-blur-xl border border-accentGold/35 rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.8)] w-full max-w-lg p-8 flex flex-col items-center space-y-5 animate-in zoom-in duration-300">
-          
+      <div className="absolute inset-0 flex items-center justify-center p-4 overflow-y-auto z-20">
+        <div className="relative bg-[#12141a]/92 backdrop-blur-md border border-accentGold/35 rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.8),0_0_90px_rgba(230,180,34,0.07)] w-full max-w-lg p-8 flex flex-col items-center space-y-5 cvt-zoom-in">
+
+          {/* d20 easter egg animation rides across the card */}
+          {d20Flying && (
+            <span className="absolute top-6 left-0 text-4xl cvt-d20 pointer-events-none z-30" aria-hidden="true">🎲</span>
+          )}
+
           {/* Header Title & Version */}
-          <div className="flex flex-col items-center space-y-1 text-center">
-            <h1 className="text-accentGold text-3xl font-extrabold tracking-widest drop-shadow-[0_2px_10px_rgba(230,180,34,0.3)]">
+          <div className="flex flex-col items-center space-y-1 text-center cvt-fade-up">
+            <h1
+              onClick={handleTitleClick}
+              className={`cvt-title-shimmer text-3xl font-extrabold tracking-widest cursor-pointer ${rainbowTitle ? 'cvt-rainbow' : ''}`}
+              title="Custom VTT"
+            >
               CUSTOM VTT
             </h1>
-            <div className="text-[10px] uppercase font-bold tracking-widest text-textMuted flex items-center gap-2">
+            {/* Ornate divider */}
+            <div className="flex items-center gap-2 w-4/5 pt-0.5" aria-hidden="true">
+              <span className="h-px flex-1 bg-gradient-to-r from-transparent via-accentGold/60 to-accentGold/70" />
+              <span className="text-accentGold/80 text-[10px] cvt-sigil-glow">✦</span>
+              <span className="h-px flex-1 bg-gradient-to-l from-transparent via-accentGold/60 to-accentGold/70" />
+            </div>
+            <button
+              type="button"
+              onClick={handleVersionClick}
+              className="text-[10px] uppercase font-bold tracking-widest text-textMuted flex items-center gap-2 hover:text-accentGold/80 transition-colors"
+              title="Version build"
+            >
               <span>v{VERSION}</span>
               <span className="text-accentGold/60">•</span>
               <span>{BUILD_DATE}</span>
-            </div>
+            </button>
+            {rememberedName && (
+              <p className="text-[11px] text-textMuted italic cvt-fade-in cvt-delay-1">
+                The tavern remembers you, <span className="text-accentGold/90 font-semibold not-italic">{rememberedName}</span>.
+              </p>
+            )}
           </div>
 
           {/* Mode Switcher Tabs */}
-          <div className="flex w-full bg-black/40 border border-borderDark/80 rounded-xl p-1 shadow-inner">
+          <div className="flex w-full bg-black/40 border border-borderDark/80 rounded-xl p-1 shadow-inner cvt-fade-up cvt-delay-1">
             <button
               type="button"
               onClick={() => handleModeChange('quick')}
@@ -346,14 +488,14 @@ export default function LoginScreen({
 
           {/* Error Banner */}
           {authError && (
-            <div className="w-full text-center text-xs text-red-400 bg-red-950/40 border border-red-800/60 p-2.5 rounded-xl animate-in fade-in">
+            <div className="w-full text-center text-xs text-red-400 bg-red-950/40 border border-red-800/60 p-2.5 rounded-xl cvt-fade-in">
               {authError}
             </div>
           )}
 
           {/* MODE A: Quick Play (Original Single-Click Flow) */}
           {authMode === 'quick' && (
-            <div className="w-full space-y-4">
+            <div className="w-full space-y-4 cvt-fade-up cvt-delay-2">
               <div className="space-y-3">
                 <input
                   className="login-input w-full p-3 bg-bgCard/80 border border-borderDark rounded-xl text-white outline-none focus:border-accentGold transition-all text-xs placeholder-textMuted shadow-inner"
@@ -373,14 +515,14 @@ export default function LoginScreen({
               <div className="flex w-full gap-3 pt-1">
                 <button
                   type="button"
-                  className="flex-1 bg-accentGold text-black font-extrabold py-3 rounded-xl hover:bg-yellow-500 transition-all uppercase tracking-wider text-xs shadow-lg hover:shadow-[0_0_15px_rgba(230,180,34,0.4)]"
+                  className="flex-1 cvt-btn-shine bg-accentGold text-black font-extrabold py-3 rounded-xl hover:bg-yellow-500 transition-all uppercase tracking-wider text-xs shadow-lg hover:shadow-[0_0_15px_rgba(230,180,34,0.4)] hover:-translate-y-0.5"
                   onClick={handleQuickJoinPlayer}
                 >
                   Join as Player
                 </button>
                 <button
                   type="button"
-                  className="flex-1 bg-borderDark/80 border border-white/10 text-white font-extrabold py-3 rounded-xl hover:bg-gray-700 hover:border-accentGold/50 transition-all uppercase tracking-wider text-xs shadow-lg"
+                  className="flex-1 cvt-btn-shine bg-borderDark/80 border border-white/10 text-white font-extrabold py-3 rounded-xl hover:bg-gray-700 hover:border-accentGold/50 transition-all uppercase tracking-wider text-xs shadow-lg hover:-translate-y-0.5"
                   onClick={() => handleModeChange('login')}
                 >
                   Join as DM
@@ -391,7 +533,7 @@ export default function LoginScreen({
 
           {/* MODE B & C: Account Vault Login / Registration */}
           {(authMode === 'login' || authMode === 'register') && (
-            <form onSubmit={handleAccountAuth} className="w-full space-y-3">
+            <form onSubmit={handleAccountAuth} className="w-full space-y-3 cvt-fade-up cvt-delay-2">
               <input
                 className="login-input w-full p-3 bg-bgCard/80 border border-borderDark rounded-xl text-white outline-none focus:border-accentGold transition-all text-xs placeholder-textMuted shadow-inner"
                 placeholder="Account Username"
@@ -434,7 +576,7 @@ export default function LoginScreen({
               <button
                 type="submit"
                 disabled={authLoading}
-                className="w-full bg-accentGold text-black font-extrabold py-3 rounded-xl hover:bg-yellow-500 transition-all uppercase tracking-wider text-xs shadow-lg"
+                className="w-full cvt-btn-shine bg-accentGold text-black font-extrabold py-3 rounded-xl hover:bg-yellow-500 transition-all uppercase tracking-wider text-xs shadow-lg hover:-translate-y-0.5"
               >
                 {authLoading
                   ? 'Signing In...'
@@ -458,7 +600,7 @@ export default function LoginScreen({
           )}
 
           {/* Active Players in Session */}
-          <div className="flex flex-col items-center gap-1.5 pt-3 w-full border-t border-borderDark/40">
+          <div className="flex flex-col items-center gap-1.5 pt-3 w-full border-t border-borderDark/40 cvt-fade-up cvt-delay-3">
             <div className="flex items-center justify-between w-full px-1">
               <span className="text-[9px] text-accentGold uppercase tracking-widest font-bold opacity-80">
                 Active at the Table
@@ -473,7 +615,7 @@ export default function LoginScreen({
                 activePlayers.map((p) => (
                   <div
                     key={p.userId || p.name}
-                    className="flex items-center gap-2 bg-bgCard/80 px-2.5 py-1 rounded-full border border-borderDark/60 shadow-sm"
+                    className="flex items-center gap-2 bg-bgCard/80 px-2.5 py-1 rounded-full border border-borderDark/60 shadow-sm hover:border-accentGold/50 transition-colors"
                   >
                     <div
                       className={`w-2 h-2 rounded-full ${
@@ -503,17 +645,32 @@ export default function LoginScreen({
           <button
             type="button"
             onClick={handleShowChangelog}
-            className="text-[11px] text-textMuted hover:text-accentGold transition-colors tracking-wide underline pt-1"
+            className="text-[11px] text-textMuted hover:text-accentGold transition-colors tracking-wide underline pt-1 cvt-fade-up cvt-delay-4"
           >
             What's New? (Changelog)
           </button>
         </div>
       </div>
 
+      {/* Easter egg toast */}
+      {toast && (
+        <div
+          key={toast.id}
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[#12141a]/95 border border-accentGold/60 text-accentGold text-xs font-semibold px-4 py-2.5 rounded-xl shadow-[0_0_25px_rgba(230,180,34,0.25)] cvt-toast max-w-[90vw] text-center"
+        >
+          {toast.text}
+        </div>
+      )}
+
+      {/* Konami golden flash */}
+      {devFlash && (
+        <div className="absolute inset-0 z-40 pointer-events-none cvt-fade-in" style={{ background: 'radial-gradient(ellipse at center, rgba(230,180,34,0.22) 0%, transparent 65%)' }} />
+      )}
+
       {/* Changelog Modal */}
       {showChangelog && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#12141a] border border-accentGold/50 rounded-2xl shadow-2xl max-w-lg w-full p-6 animate-in zoom-in duration-200 flex flex-col max-h-[85vh]">
+          <div className="bg-[#12141a] border border-accentGold/50 rounded-2xl shadow-2xl max-w-lg w-full p-6 cvt-zoom-in flex flex-col max-h-[85vh]">
             <div className="flex items-center justify-between border-b border-borderDark/60 pb-3 mb-3">
               <h2 className="text-accentGold font-extrabold text-base tracking-wider uppercase">
                 System Changelog
@@ -536,11 +693,22 @@ export default function LoginScreen({
                       </h3>
                     );
                   }
-                  if (line.trim().startsWith('-')) {
+                  if (line.trim().startsWith('-') || line.trim().startsWith('*')) {
+                    const text = line.substring(1).trim();
+                    // Render **bold** markdown spans inside bullets
+                    const parts = text.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
                     return (
                       <div key={idx} className="ml-2 flex items-start gap-1.5 text-textLight">
                         <span className="text-accentGold">•</span>
-                        <span>{line.substring(1).trim()}</span>
+                        <span>
+                          {parts.map((part, pIdx) =>
+                            part.startsWith('**') && part.endsWith('**') ? (
+                              <strong key={pIdx} className="text-accentGold/90">{part.slice(2, -2)}</strong>
+                            ) : (
+                              <span key={pIdx}>{part}</span>
+                            )
+                          )}
+                        </span>
                       </div>
                     );
                   }
