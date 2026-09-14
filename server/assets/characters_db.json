@@ -3419,7 +3419,7 @@
     "id": "char_1789355417149",
     "ownerId": "1811ab56-b461-4ffd-a1bd-1f3c21e7243e",
     "name": "Cassian Inkwell",
-    "avatarUrl": null,
+    "avatarUrl": "/assets/avatars/1811ab56-b461-4ffd-a1bd-1f3c21e7243e-char_1789355417149.png",
     "data": {
       "id": "char_1789355417149",
       "name": "Cassian Inkwell",
@@ -3618,9 +3618,31 @@
           "higher_levels": null,
           "prepared": false
         }
-      ]
+      ],
+      "avatarUrl": "/assets/avatars/1811ab56-b461-4ffd-a1bd-1f3c21e7243e-char_1789355417149.png",
+      "actionUsed": true,
+      "timesDowned": 0,
+      "deathSaveSuccesses": 0,
+      "deathSaveFailures": 0,
+      "isStable": false,
+      "isDead": false,
+      "wounds": [
+        {
+          "type": "massive",
+          "timestamp": 1789362737827,
+          "description": "The creature can’t take reactions and has disadvantage on attack rolls and ability checks until the end of its next turn.",
+          "permanent": false
+        }
+      ],
+      "debuffs": {
+        "noReactions": true,
+        "disadvantageOnAttacks": true,
+        "disadvantageOnSkills": true
+      },
+      "bonusActionUsed": true,
+      "reactionUsed": false
     },
     "createdAt": "2026-09-14T03:10:15.662Z",
-    "updatedAt": "2026-09-14T03:48:55.718Z"
+    "updatedAt": "2026-09-14T05:18:19.285Z"
   }
 }
