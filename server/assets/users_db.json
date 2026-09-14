@@ -44,5 +44,13 @@
     "salt": "f74204d12ae9294f919facd311a55d15",
     "hash": "99c2c4fdc39a15f645ed3c8ec1fa22ce84e71390eb11c8bb4089edf28b9896ff944a53b18c23d805142182e1f0576a344116f0d985a3529e3e9b89532502fc2e",
     "createdAt": "2026-09-05T02:01:09.253Z"
+  },
+  "quill": {
+    "userId": "1811ab56-b461-4ffd-a1bd-1f3c21e7243e",
+    "username": "Quill",
+    "role": "Player",
+    "salt": "dcb211fce526ad265091ff45919271a8",
+    "hash": "ac61093335829b025052aca200ac636ab4679e6a5863f3e487ac19a358daa241c44b655403dfed8bb7885c46f879bf4a43cd50c855bcd416f21e28361376ff24",
+    "createdAt": "2026-09-14T03:10:08.263Z"
   }
 }

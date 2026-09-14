@@ -317,8 +317,8 @@
       "ep": 1,
       "sp": 0,
       "cp": 10,
-      "nameplateTheme": "azure",
-      "nameplateColor": "#60a5fa",
+      "nameplateTheme": "violet",
+      "nameplateColor": "#a78bfa",
       "nameplateTagline": "Captain",
       "id": "char_773ee4ad-5fb6-4905-bd80-32380117f856",
       "pets": [],
@@ -326,10 +326,12 @@
       "darkvision": 60,
       "notesPages": {
         "1": "<p></p><div class=\"border-l-4 border-emerald-400 bg-emerald-950/30 text-emerald-200 p-2 my-2 rounded-r\" bis_skin_checked=\"1\">This is a loot thingy</div><br><p></p><p></p>"
-      }
+      },
+      "cardBg": "void",
+      "cardFrame": "shadow"
     },
     "createdAt": "2026-09-04T01:34:29.357Z",
-    "updatedAt": "2026-09-14T00:34:07.617Z"
+    "updatedAt": "2026-09-14T01:50:11.651Z"
   },
   "char_0843753b-aac7-4c91-bc1f-9adefd750735": {
     "id": "char_0843753b-aac7-4c91-bc1f-9adefd750735",
@@ -3412,5 +3414,213 @@
     },
     "createdAt": "2026-09-05T02:01:18.485Z",
     "updatedAt": "2026-09-05T04:11:24.108Z"
+  },
+  "char_1789355417149": {
+    "id": "char_1789355417149",
+    "ownerId": "1811ab56-b461-4ffd-a1bd-1f3c21e7243e",
+    "name": "Cassian Inkwell",
+    "avatarUrl": null,
+    "data": {
+      "id": "char_1789355417149",
+      "name": "Cassian Inkwell",
+      "lvl": 1,
+      "hpMax": 10,
+      "hpCur": 10,
+      "ac": 13,
+      "speed": 30,
+      "race": "Half-Elf",
+      "subrace": "",
+      "vision": 120,
+      "darkvision": 60,
+      "initiativeBonus": 2,
+      "charClass": "Bard",
+      "subclass": "College of Lore",
+      "bg": "Sage",
+      "alignment": "Chaotic Good",
+      "str": 8,
+      "dex": 14,
+      "con": 13,
+      "int": 10,
+      "wis": 12,
+      "cha": 15,
+      "prof_Persuasion": 1,
+      "prof_Arcana": 1,
+      "prof_History": 1,
+      "prof_Insight": 1,
+      "prof_Performance": 1,
+      "equippedArmor": "Leather",
+      "nameplateTagline": "Chronicler · College of Lore",
+      "nameplateTheme": "violet",
+      "nameplateColor": "#a78bfa",
+      "cardFrame": "arcane",
+      "cardBg": "midnight",
+      "gender": "Male",
+      "age": "34",
+      "faith": "Deneir, Lord of All Glyphs",
+      "size": "Medium",
+      "skin": "Fair, ink-stained fingers",
+      "eyes": "Storm-grey",
+      "traits": "Endlessly curious; writes everything down mid-conversation. Speaks in warm, theatrical flourishes but asks piercingly practical questions. Believes every stranger is a story not yet transcribed. Deflects fear with footnotes.",
+      "ideals": "Every story deserves a truthful teller. Knowledge unrecorded is knowledge that dies twice. Small folk matter more than grand prophecies.",
+      "bonds": "His late master, Archivist Pellon, whose last letter named this company in a cipher no scholar has cracked. The unfinished chronicle of his own life — he refuses to die with pages missing.",
+      "flaws": "Compulsively takes notes at the worst possible moments (mid-sneak, mid-ambush). Overexplains. Cannot leave a riddle, a locked box, or an unanswered question alone. Physically frail and knows it.",
+      "backstory": "Cassian Inkwell, 34, scribe-turned-bard of the College of Lore. Ten years copying manuscripts in the Vault of Deneir taught him two things: every legend has a seam of truth, and his master Pellon died chasing this party's name through a cipher. He left the archive with a lute he cannot fully play, a satchel of ink, and one question: why did Pellon write YOUR names in a dead tongue? He has joined the company to find out — and to chronicle whatever happens, honestly, flaws and all.",
+      "notesPages": {
+        "1": "Entry the First — I have joined a company of adventurers in the field. My commission is threefold: chronicle their deeds honestly, keep the party's names out of unmarked graves, and discover why Archivist Pellon wrote them in cipher before he died. First impressions pending. The table is dark, which feels dramatically appropriate. — C.I."
+      },
+      "spells": [
+        {
+          "name": "Vicious Mockery",
+          "source": "PHB",
+          "level": 0,
+          "school": "Enchantment",
+          "casting_time": "1 action",
+          "range": "60 feet",
+          "components": {
+            "verbal": true,
+            "somatic": false,
+            "material": false,
+            "material_cost": null
+          },
+          "duration": "Instantaneous",
+          "concentration": false,
+          "ritual": false,
+          "classes": [
+            "Bard"
+          ],
+          "description": "Insults: WIS save or 1d4 psychic + disadvantage on next attack roll. +1d4 at 5/11/17.",
+          "higher_levels": null,
+          "prepared": false
+        },
+        {
+          "name": "Minor Illusion",
+          "source": "PHB",
+          "level": 0,
+          "school": "Illusion",
+          "casting_time": "1 action",
+          "range": "30 feet",
+          "components": {
+            "verbal": true,
+            "somatic": true,
+            "material": true,
+            "material_cost": "a bit of fleece"
+          },
+          "duration": "1 minute",
+          "concentration": false,
+          "ritual": false,
+          "classes": [
+            "Bard",
+            "Sorcerer",
+            "Warlock",
+            "Wizard"
+          ],
+          "description": "Create sound or image. Sound lasts duration. Image: 5ft cube, no sound. INT Investigation vs DC to discern.",
+          "higher_levels": null,
+          "prepared": false
+        },
+        {
+          "name": "Healing Word",
+          "source": "PHB",
+          "level": 1,
+          "school": "Evocation",
+          "casting_time": "1 bonus action",
+          "range": "60 feet",
+          "components": {
+            "verbal": true,
+            "somatic": false,
+            "material": false,
+            "material_cost": null
+          },
+          "duration": "Instantaneous",
+          "concentration": false,
+          "ritual": false,
+          "classes": [
+            "Bard",
+            "Cleric",
+            "Druid"
+          ],
+          "description": "Creature regains 1d4 + spellcasting modifier HP. +1d4 per slot above 1st.",
+          "higher_levels": null,
+          "prepared": false
+        },
+        {
+          "name": "Dissonant Whispers",
+          "source": "PHB",
+          "level": 1,
+          "school": "Enchantment",
+          "casting_time": "1 action",
+          "range": "60 feet",
+          "components": {
+            "verbal": true,
+            "somatic": false,
+            "material": false,
+            "material_cost": null
+          },
+          "duration": "Instantaneous",
+          "concentration": false,
+          "ritual": false,
+          "classes": [
+            "Bard"
+          ],
+          "description": "Discordant melody: WIS save or 3d6 psychic and must use reaction to move away (provokes opportunity attacks). Half on save. +1d6 per slot above 1st.",
+          "higher_levels": null,
+          "prepared": false
+        },
+        {
+          "name": "Charm Person",
+          "source": "PHB",
+          "level": 1,
+          "school": "Enchantment",
+          "casting_time": "1 action",
+          "range": "30 feet",
+          "components": {
+            "verbal": true,
+            "somatic": true,
+            "material": false,
+            "material_cost": null
+          },
+          "duration": "1 hour",
+          "concentration": false,
+          "ritual": false,
+          "classes": [
+            "Bard",
+            "Druid",
+            "Sorcerer",
+            "Warlock",
+            "Wizard"
+          ],
+          "description": "One humanoid: WIS save or charmed 1 hour. Knows it was charmed when ends. +1 humanoid per slot above 1st.",
+          "higher_levels": null,
+          "prepared": false
+        },
+        {
+          "name": "Sleep",
+          "source": "PHB",
+          "level": 1,
+          "school": "Enchantment",
+          "casting_time": "1 action",
+          "range": "90 feet",
+          "components": {
+            "verbal": true,
+            "somatic": true,
+            "material": true,
+            "material_cost": "a pinch of fine sand rose petals or a cricket"
+          },
+          "duration": "1 minute",
+          "concentration": false,
+          "ritual": false,
+          "classes": [
+            "Bard",
+            "Sorcerer",
+            "Wizard"
+          ],
+          "description": "5d8 HP pool: creatures in 20ft sphere become unconscious in ascending HP order until pool exhausted. +2d8 per slot above 1st.",
+          "higher_levels": null,
+          "prepared": false
+        }
+      ]
+    },
+    "createdAt": "2026-09-14T03:10:15.662Z",
+    "updatedAt": "2026-09-14T03:48:55.718Z"
   }
 }
