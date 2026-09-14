@@ -2288,6 +2288,17 @@ io.on('connection', (socket) => {
       VTTManager.sendDiscordMessage('VTT System', `🏳️ **Combat Encounter Ended.**`);
   });
 
+  // S2 Snapshot Panel — "feed answers, not maps". DM asks, server answers with
+  // the canonical combat snapshot (initiative order, HP/conditions, active
+  // combatant, round, grid distances). Request→reply keeps the panel live
+  // without the server broadcasting yet another event stream. DM-only: the
+  // payload includes AC and hidden-token data that must stay DM-side.
+  socket.on('request_combat_snapshot', () => {
+      if (!VTTManager.isDM(userId)) return;
+      socket.emit('combat_snapshot', VTTManager.getCombatSnapshot('dm'));
+  });
+
+
   // DM requests skill check
   socket.on('request_check', ({ targetUserId, checkType, skillOrAbility, dc, reason }) => {
       if (!VTTManager.isDM(userId)) return;

@@ -109,6 +109,21 @@ function connect(auth) {
   const ts0 = await waitFor(dm, 'turn_started');
   check('T1 turn_started -> NPC first', ts0?.tokenId === npcId, ts0?.tokenId);
 
+  // T11: S2 snapshot contract — DM asks, server answers; players get nothing
+  dm.emit('request_combat_snapshot');
+  const snap = await waitFor(dm, 'combat_snapshot');
+  check('T11 combat_snapshot arrives for DM', Boolean(snap));
+  check('T11 snapshot active, round 1', snap?.active === true && snap?.round === 1, `round=${snap?.round}`);
+  check('T11 3 combatants, NPC first + flagged active', (snap?.combatants || []).length === 3 &&
+        snap.combatants[0].id === npcId && snap.combatants[0].isActive === true,
+        (snap?.combatants || []).map(c => c.name).join(' > '));
+  check('T11 dm mode carries hp + ac + distFromActive', snap?.combatants?.[0]?.hpCur === 47 &&
+        typeof snap?.combatants?.[0]?.ac === 'number' && typeof snap?.combatants?.[1]?.distFromActive === 'number',
+        `hp=${snap?.combatants?.[0]?.hpCur}/${snap?.combatants?.[0]?.hpMax} ac=${snap?.combatants?.[0]?.ac}`);
+  pa.emit('request_combat_snapshot');
+  const rejSnap = await waitFor(pa, 'combat_snapshot', () => true, 800);
+  check('T11 snapshot request from player REJECTED', rejSnap === null, 'no combat_snapshot in 800ms');
+
   // T2: player may NOT end an NPC turn (silent rejection)
   pa.emit('end_turn');
   const rejNpc = await waitFor(dm, 'turn_update', () => true, 800);

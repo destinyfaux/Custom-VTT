@@ -1383,6 +1383,83 @@ class VTTManager {
         this.incrementStateVersion();
     }
 
+    // ─── S2 COMBAT SNAPSHOT — "feed answers, not maps" ───
+    // Canonical serialization of the live combat picture. One builder, two
+    // consumers: the DM Snapshot Panel (mode 'dm' — full data incl. AC and
+    // ownership) and the future AI bridge (mode 'agent' — redacted: no AC,
+    // no ownerId, hidden/unplaced tokens excluded).
+    // Grid math: token x/y are top-left canvas pixels; 70px = one 5ft cell
+    // (keep in sync with client/src/components/CanvasMap.jsx GRID_SIZE).
+    // distFromActive is center-to-center Chebyshev in cells × 5ft — the PHB
+    // default "how many squares away" answer (diagonal costs the same).
+    getCombatSnapshot(mode = 'dm') {
+        const GRID_SIZE = 70; // px per 5ft cell — MUST match CanvasMap.jsx
+        const order = Array.isArray(this.initiativeList) ? this.initiativeList : [];
+        const active = Boolean(this.state.currentTurn) && order.length > 0;
+
+        const combatants = [];
+        if (active) {
+            order.forEach((c) => {
+                const token = this.state.tokens.find(t => t.id === c.id);
+                // Agent redaction: a token the players can't see doesn't exist for the bridge
+                if (mode === 'agent' && (!token || token.isPlaced === false || token.hidden)) return;
+
+                const hpMax = token ? (Number(token.hpMax) || 0) : 0;
+                const hpCur = token ? (Number(token.hpCur) || 0) : 0;
+                const isDead = token ? Boolean(token.isDead) : false;
+                const isDown = hpCur <= 0 || isDead;
+                const isBloodied = !isDown && hpMax > 0 && hpCur <= hpMax / 2;
+                const sizeMult = Number(token?.size) || 1;
+
+                const entry = {
+                    id: c.id,
+                    name: (token && token.name) || c.name || 'Unknown',
+                    type: (token && token.type) || c.type || 'npc',
+                    initiative: Number(c.initiative) || 0,
+                    hpCur,
+                    hpMax,
+                    conditions: Array.isArray(token?.conditions) ? [...token.conditions] : [],
+                    x: token ? (Number(token.x) || 0) : null,
+                    y: token ? (Number(token.y) || 0) : null,
+                    size: sizeMult,
+                    isPlaced: token ? Boolean(token.isPlaced) : false,
+                    isActive: c.id === this.state.currentTurn,
+                    isBloodied,
+                    isDown,
+                    isDead,
+                    distFromActive: null // feet; filled below
+                };
+
+                if (mode === 'dm') {
+                    entry.ac = token && token.ac !== undefined ? Number(token.ac) : null;
+                    entry.ownerId = (token && token.ownerId) || null;
+                }
+                combatants.push(entry);
+            });
+
+            const activeEntry = combatants.find(e => e.isActive);
+            if (activeEntry && activeEntry.x !== null) {
+                const aHalf = (GRID_SIZE * activeEntry.size) / 2;
+                combatants.forEach(e => {
+                    if (e === activeEntry) { e.distFromActive = 0; return; }
+                    if (e.x === null) return;
+                    const bHalf = (GRID_SIZE * e.size) / 2;
+                    const dx = Math.abs((activeEntry.x + aHalf) - (e.x + bHalf));
+                    const dy = Math.abs((activeEntry.y + aHalf) - (e.y + bHalf));
+                    const feet = (Math.max(dx, dy) / GRID_SIZE) * 5;
+                    e.distFromActive = Math.round(feet / 5) * 5; // nearest 5 ft
+                });
+            }
+        }
+
+        return {
+            active,
+            round: Number(this.state.round) || 0,
+            currentTurn: this.state.currentTurn || null,
+            combatants
+        };
+    }
+
     // --- DEATH SAVE & EXCESSIVE DAMAGE RESET METHODS ---
 
     resetDeathSaves(tokenId) {

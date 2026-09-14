@@ -92,3 +92,37 @@ Work Log:
 Stage Summary:
 - Agent memory is now git-persistent. Future sessions: read this file → work → append entry → commit+push.
 - Next: S2 Snapshot Panel (snapshot serialization + DM panel).
+
+---
+Task ID: 16
+Agent: Super Z (main agent)
+Task: S2 Snapshot Panel — "feed answers, not maps" (server serialization + DM live panel).
+
+Work Log:
+- Server: added `VTTManager.getCombatSnapshot(mode)`. mode 'dm' = full data (AC, ownerId);
+  mode 'agent' = redacted (no AC/ownerId, hidden/unplaced tokens excluded) — prepared for the
+  AI bridge. Derives isBloodied (hp <= 50% max), isDown (hp <= 0 or dead), conditions copy,
+  and grid distance from the active combatant (center-to-center Chebyshev; 70px = 5ft cell,
+  must match CanvasMap.jsx GRID_SIZE; rounded to nearest 5ft; diagonal costs 5ft — PHB default).
+  Returns `{ active, round, currentTurn, combatants[] }`; initiative list is the order source
+  (a combatant whose token was deleted still appears).
+- Server: new DM-only socket event `request_combat_snapshot` → replies `combat_snapshot`
+  (request→reply keeps event traffic lean, per invariant #2).
+- Client: CombatPanel.jsx is now dual-mode. Pre-combat: unchanged initiative setup. During
+  combat: live "Combat Snapshot" view — ordered combatants with initiative number, avatar,
+  PC/NPC tag, grid distance, AC chip, HP bar (emerald / amber bloodied / red DOWN-DEAD),
+  condition chips, gold-highlighted active row + ROUND chip in header. Panel re-requests the
+  snapshot (debounced 120ms) on every combat-relevant event; listeners unbound in cleanup.
+- Unit tests: +6 snapshot tests (order/active/round; bloodied/down/conditions; distance math
+  incl. diagonal; dm-vs-agent redaction; inactive state; deleted-token ghost combatant).
+  37/37 green. Fixed a test-fixture slip en route: 8/28 HP IS bloodied (<= 50%).
+- E2E harness extended with T11 (5 assertions): DM receives snapshot with correct order/round/
+  hp/ac/distance; a player's snapshot request is rejected. 30/30 green.
+- Client build clean. AGENTS.md.txt: protocol row for request_combat_snapshot + section 8
+  count updated to 30/30.
+
+Stage Summary:
+- S2 delivered: the DM's answer sheet is live, and the snapshot serialization the AI bridge
+  will consume is now a stable server contract (dm/agent modes).
+- S1 end_turn semantics untouched — full E2E still green on top of S2.
+- Next: S3 Movement Meter (start-of-turn anchor, 5ft path cost, LIFO refund, DM exempt).

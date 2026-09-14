@@ -205,6 +205,7 @@ io.emit('token_hp_changed', { ... })         saveMapDataDebounced() (500ms)
 | `end_turn`                | DM / Active Player| *None*                                                                 | Active player ends their OWN turn: server verifies the current turn belongs to a player token owned by the requester (DM exempt), then advances turn exactly like `next_turn` and posts a System chat breadcrumb (`X ended their turn — Y is up (round N)`). Players cannot end NPC or other players' turns. |
 | `set_turn`                | DM Only           | `tokenId` (string)                                                     | Jumps to specific combatant turn (round unchanged), emits `turn_update` & `turn_started`. |
 | `reset_combat`            | DM Only           | *None*                                                                 | Clears combat tracking, emits `combat_reset`.                                  |
+| `request_combat_snapshot` | DM Only           | *None*                                                                 | Replies (request→reply, NOT broadcast) with the canonical combat snapshot via `combat_snapshot`: initiative order, HP + bloodied/down/dead flags, conditions, AC & ownerId (DM mode), grid distance from active combatant (5ft/cell, Chebyshev), round. Powers the Combat Panel's live "Combat Snapshot" view and is the serialization contract for the future AI bridge (agent mode redacts AC/ownerId and drops hidden/unplaced tokens). |
 | `request_check`           | DM Only           | `{ targetUserId, checkType, skillOrAbility, dc, reason }`              | Dispatches `check_request` modal prompt to target player socket.               |
 | `submit_check`            | Player Only       | `{ targetUserId, checkType, skillOrAbility, dc, roll, bonus, reason }` | Calculates total vs DC, emits result to `new_chat`.                            |
 | `request_character_sheet` | DM Only           | `targetUserId` (string)                                                | Returns target `character_sheet_data` to DM socket.                            |
@@ -414,5 +415,5 @@ memory. Therefore:
 - For combat / turn-engine changes, run the live E2E contract test before reporting:
     VTT_ALLOW_LEGACY_DM=true node server/server.js
     node server/e2e_s1_socket_contract.js
-  Expect 25/25 assertions. The filename deliberately avoids the *.test.js suffix so
+  Expect 30/30 assertions. The filename deliberately avoids the *.test.js suffix so
   `npm test` (node --test unit suite) is unaffected.
