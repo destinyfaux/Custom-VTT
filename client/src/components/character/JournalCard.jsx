@@ -19,6 +19,10 @@ export default function JournalCard({ data = {}, update }) {
   const fileInputRef = useRef(null);
   const migrationDone = useRef(false);
   const isInternalTyping = useRef(false);
+  // Last HTML string THIS editor saved. Used to recognize our own save echoes
+  // (server round-trip, state_update) so they never trigger a DOM rewrite —
+  // a rewrite would collapse open <details> spoilers and drop the caret.
+  const lastSavedRef = useRef('');
 
   // ---- 2. NON-DESTRUCTIVE SAFE MIGRATION ----
   useEffect(() => {
@@ -33,6 +37,18 @@ export default function JournalCard({ data = {}, update }) {
     }
     migrationDone.current = true;
   }, [data.notes, data.notesPages, update]);
+
+  // Strip the `open` attribute from <details> tags in an HTML string.
+  // Toggling a spoiler mutates the DOM but never fires an input event, so the
+  // open state must NOT participate in content comparisons or be persisted —
+  // otherwise every open spoiler makes the stored HTML look "changed" and
+  // triggers a full innerHTML rewrite (which force-closes the spoiler).
+  function stripDetailsOpen(html) {
+    if (!html || html.indexOf('<details') === -1) return html || '';
+    return html.replace(/<details\b([^>]*)>/gi, (m, attrs) =>
+      `<details${attrs.replace(/\s+open\b(="[^"]*"|='[^']*')?/gi, '')}>`
+    );
+  }
 
   // Helper to convert old plain text / markdown newlines into HTML without losing text
   function convertLegacyTextToHTML(rawText) {
@@ -66,13 +82,23 @@ export default function JournalCard({ data = {}, update }) {
     return notesPageTitles[page] || `Page ${page}`;
   }, [notesPageTitles]);
 
-  // Sync editor content when switching pages or loading
+  // Sync editor content when switching pages or loading.
+  // Comparison is open-aware (ignores <details open>) and echo-aware (skips
+  // content this client just saved) so live syncs never collapse spoilers or
+  // yank the caret while a player is reading/writing inside one. When a
+  // genuine remote change DOES require a rewrite, the open state of every
+  // <details> is snapshotted first and restored after.
   useEffect(() => {
-    if (editorRef.current && !isInternalTyping.current) {
-      const content = getPageContent(activeNotesPage);
-      if (editorRef.current.innerHTML !== content) {
-        editorRef.current.innerHTML = content;
-      }
+    if (!editorRef.current || isInternalTyping.current) return;
+    const content = getPageContent(activeNotesPage);
+    if (stripDetailsOpen(editorRef.current.innerHTML) === stripDetailsOpen(content)) return;
+    if (content === lastSavedRef.current) return;
+
+    const openStates = Array.from(editorRef.current.querySelectorAll('details')).map(d => d.open);
+    editorRef.current.innerHTML = content;
+    if (openStates.length > 0) {
+      const details = editorRef.current.querySelectorAll('details');
+      details.forEach((d, i) => { if (openStates[i]) d.open = true; });
     }
   }, [activeNotesPage, getPageContent]);
 
@@ -83,15 +109,18 @@ export default function JournalCard({ data = {}, update }) {
     update('lastActiveNotesPage', page);
   };
 
-  // Safe update for active page text
+  // Safe update for active page text.
+  // The `open` attribute is stripped before saving so toggling a spoiler is a
+  // pure view-state change and never marks the page dirty.
   const handleEditorInput = () => {
     if (!editorRef.current) return;
     isInternalTyping.current = true;
-    const newHTML = editorRef.current.innerHTML;
+    const newHTML = stripDetailsOpen(editorRef.current.innerHTML);
+    lastSavedRef.current = newHTML;
     update('notesPages', { ...notesPages, [activeNotesPage]: newHTML });
     setTimeout(() => {
       isInternalTyping.current = false;
-    }, 100);
+    }, 250);
   };
 
   // Rename Tab
@@ -120,6 +149,20 @@ export default function JournalCard({ data = {}, update }) {
     handleEditorInput();
   };
 
+  // Reliable spoiler toggling inside contentEditable: browser handling of
+  // <summary> clicks while editable is inconsistent (Chrome often eats the
+  // click or drops the caret into the document instead of toggling). Take
+  // over completely: preventDefault + manual toggle. Toggling never fires an
+  // input event, so this doesn't touch the saved content.
+  const handleEditorClick = (e) => {
+    const summary = e.target.closest && e.target.closest('summary');
+    if (!summary || !editorRef.current) return;
+    if (!editorRef.current.contains(summary)) return;
+    e.preventDefault();
+    const details = summary.parentElement;
+    if (details && details.tagName === 'DETAILS') details.open = !details.open;
+  };
+
   const insertCustomHTML = (html) => {
     if (!editorRef.current) return;
     editorRef.current.focus();
@@ -146,6 +189,17 @@ export default function JournalCard({ data = {}, update }) {
       editorRef.current.innerHTML += html;
     }
     handleEditorInput();
+  };
+
+  // Insert a spoiler block AND open it immediately so the player can start
+  // writing inside it right away (a fresh <details> is closed by default).
+  const insertSpoiler = () => {
+    insertCustomHTML('<details class="my-2 border border-accentGold/30 bg-bgCard rounded-lg p-2"><summary class="text-accentGold text-xs font-bold uppercase cursor-pointer">▶ Secret Details</summary><div class="p-2 text-xs text-textLight">Hidden spoiler notes...</div></details>');
+    if (editorRef.current) {
+      const all = editorRef.current.querySelectorAll('details');
+      const last = all[all.length - 1];
+      if (last) last.open = true;
+    }
   };
 
   const handleHighlight = () => {
@@ -491,7 +545,7 @@ export default function JournalCard({ data = {}, update }) {
           </button>
           <button
             type="button"
-            onClick={() => insertCustomHTML('<details class="my-2 border border-accentGold/30 bg-bgCard rounded-lg p-2"><summary class="text-accentGold text-xs font-bold uppercase cursor-pointer">▶ Secret Details</summary><div class="p-2 text-xs text-textLight">Hidden spoiler notes...</div></details>')}
+            onClick={insertSpoiler}
             title="Insert Collapsible Section"
             className="px-2 py-0.5 rounded bg-bgPanel hover:bg-borderDark text-[10px] font-bold text-amber-300"
           >
@@ -514,6 +568,7 @@ export default function JournalCard({ data = {}, update }) {
             contentEditable
             suppressContentEditableWarning
             onInput={handleEditorInput}
+            onClick={handleEditorClick}
             onKeyDown={(e) => {
               // 1. Isolate keyboard events so canvas/pan listeners never steal spaces or letters
               e.stopPropagation();
@@ -620,6 +675,15 @@ export default function JournalCard({ data = {}, update }) {
         .journal-wysiwyg hr {
           border-color: #2d303a;
           margin: 12px 0;
+        }
+        .journal-wysiwyg details {
+          cursor: pointer;
+        }
+        .journal-wysiwyg details > summary {
+          list-style: none;
+        }
+        .journal-wysiwyg details[open] > summary {
+          margin-bottom: 6px;
         }
         .journal-wysiwyg mark {
           background-color: rgba(250, 204, 21, 0.25);
