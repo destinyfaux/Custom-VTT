@@ -35,6 +35,7 @@ class VTTManager {
             audio: { music: { track: null, volume: 0.25, isPlaying: false } },
             initiative: [],
             currentTurn: null,
+            round: 0,
             hiddenCatalogItems: [],
             discordWebhookUrl: '',
             dayNight: {
@@ -1340,18 +1341,24 @@ class VTTManager {
 
         this.initiativeList = combatants.sort((a, b) =>
             (b.initiative - a.initiative) || ((Number(b.dexMod) || 0) - (Number(a.dexMod) || 0)));
-        // Reset to first turn
+        // Reset to first turn; combat begins at round 1
         this.currentTurnIndex = 0;
+        this.state.round = 1;
         // Update the state that goes to all clients
         this.state.initiative = [...this.initiativeList];
         this.state.currentTurn = this.getActiveCombatantId();
         this.incrementStateVersion();
     }
 
-    // Advance to the next combatant in the order
+    // Advance to the next combatant in the order.
+    // Wrapping from the last combatant back to the top starts a new round.
     advanceTurn() {
         if (this.initiativeList.length === 0) return;
-        this.currentTurnIndex = (this.currentTurnIndex + 1) % this.initiativeList.length;
+        const nextIndex = (this.currentTurnIndex + 1) % this.initiativeList.length;
+        if (nextIndex === 0) {
+            this.state.round = (Number(this.state.round) || 0) + 1;
+        }
+        this.currentTurnIndex = nextIndex;
         this.state.currentTurn = this.getActiveCombatantId();
         // Optionally, you might want to update movementUsed = 0 for the new active token.
         // For now, the state reflects who is active.
@@ -1372,6 +1379,7 @@ class VTTManager {
         this.currentTurnIndex = -1;
         this.state.initiative = [];
         this.state.currentTurn = null;
+        this.state.round = 0;
         this.incrementStateVersion();
     }
 

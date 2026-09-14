@@ -200,9 +200,10 @@ io.emit('token_hp_changed', { ... })         saveMapDataDebounced() (500ms)
 | `request_initiative`      | DM Only           | `tokenIds: string[]`                                                   | Dispatches `initiative_prompt` to target players' sockets.                     |
 | `submit_initiative`       | All Users         | `{ tokenId, roll, bonus }`                                             | Inserts/updates combatant initiative, emits `initiative_update`.               |
 | `add_npc_initiative`      | DM Only           | `{ tokenId, initiative }`                                              | Manually inserts NPC into initiative, emits `initiative_update`.               |
-| `start_combat`            | DM Only           | *None*                                                                 | Sorts initiative list, sets `currentTurn`, emits `combat_started`.             |
-| `next_turn`               | DM Only           | *None*                                                                 | Advances `currentTurnIndex`, emits `turn_update` & `turn_started`.             |
-| `set_turn`                | DM Only           | `tokenId` (string)                                                     | Jumps to specific combatant turn, emits `turn_update` & `turn_started`.        |
+| `start_combat`            | DM Only           | *None*                                                                 | Sorts initiative list, sets `currentTurn`, sets `round = 1`, emits `combat_started`. |
+| `next_turn`               | DM Only           | *None*                                                                 | Advances `currentTurnIndex` (increments `round` on wrap to top), emits `turn_update` (with `round`) & `turn_started`. |
+| `end_turn`                | DM / Active Player| *None*                                                                 | Active player ends their OWN turn: server verifies the current turn belongs to a player token owned by the requester (DM exempt), then advances turn exactly like `next_turn` and posts a System chat breadcrumb (`X ended their turn — Y is up (round N)`). Players cannot end NPC or other players' turns. |
+| `set_turn`                | DM Only           | `tokenId` (string)                                                     | Jumps to specific combatant turn (round unchanged), emits `turn_update` & `turn_started`. |
 | `reset_combat`            | DM Only           | *None*                                                                 | Clears combat tracking, emits `combat_reset`.                                  |
 | `request_check`           | DM Only           | `{ targetUserId, checkType, skillOrAbility, dc, reason }`              | Dispatches `check_request` modal prompt to target player socket.               |
 | `submit_check`            | Player Only       | `{ targetUserId, checkType, skillOrAbility, dc, roll, bonus, reason }` | Calculates total vs DC, emits result to `new_chat`.                            |
@@ -267,6 +268,15 @@ Fog of War Raycasting (VisibilityEngine.js)
     4.  TokenTray shows the token back in the unplaced list.
 
 4.3 Combat, Death Saves & Vitality Pipeline
+
+  - Round Tracking: `state.round` starts at 1 on `start_combat`, increments
+    whenever a turn advance wraps from the last combatant back to the first,
+    and resets to 0 on `reset_combat`. Broadcast in `combat_started` and
+    `turn_update` payloads; persisted in room state JSON.
+  - Player End Turn (S1): `end_turn` is the player-autonomy turn door — the
+    active player passes initiative without a DM relay. Ownership is
+    validated server-side (token.type === 'player' AND
+    (token.ownerId === userId || token.id === userId), DM bypasses).
 
 [ Damage Event: update_token_hp ]
                 │
