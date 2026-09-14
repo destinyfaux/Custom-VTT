@@ -400,3 +400,19 @@ export default function CustomModal({ onClose }) {
   arrays.
 - [ ] Client state updates apply instantly without requiring manual page refresh
   (F5).
+
+8. Agent Session Continuity (memory persistence protocol)
+
+Agent workstation containers are periodically wiped; this repo is the only durable
+memory. Therefore:
+
+- BEFORE working: read AGENT_WORKLOG.md (repo root) — project facts, roadmap state,
+  milestone commits, and the latest session entries.
+- AFTER working: append a new entry to AGENT_WORKLOG.md (append-only, `---` separator,
+  Task ID / Agent / Task / Work Log / Stage Summary), then commit and push together
+  with your code changes so the log always travels with the code.
+- For combat / turn-engine changes, run the live E2E contract test before reporting:
+    VTT_ALLOW_LEGACY_DM=true node server/server.js
+    node server/e2e_s1_socket_contract.js
+  Expect 25/25 assertions. The filename deliberately avoids the *.test.js suffix so
+  `npm test` (node --test unit suite) is unaffected.
