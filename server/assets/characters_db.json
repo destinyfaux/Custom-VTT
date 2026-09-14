@@ -317,8 +317,8 @@
       "ep": 1,
       "sp": 0,
       "cp": 10,
-      "nameplateTheme": "gold",
-      "nameplateColor": "#e6b422",
+      "nameplateTheme": "azure",
+      "nameplateColor": "#60a5fa",
       "nameplateTagline": "Captain",
       "id": "char_773ee4ad-5fb6-4905-bd80-32380117f856",
       "pets": [],
@@ -329,7 +329,7 @@
       }
     },
     "createdAt": "2026-09-04T01:34:29.357Z",
-    "updatedAt": "2026-09-13T03:39:11.787Z"
+    "updatedAt": "2026-09-14T00:34:07.617Z"
   },
   "char_0843753b-aac7-4c91-bc1f-9adefd750735": {
     "id": "char_0843753b-aac7-4c91-bc1f-9adefd750735",
