@@ -13,12 +13,14 @@ import { buildMapLabels, getTokenLabel } from '../utils/tokenNaming';
 import { drawConditionAuras, CONDITION_BURST_STYLE } from '../utils/conditionFX';
 import {
   drawTextBadge,
+  drawMeterBadge,
   drawAnchor,
   getDistanceToSegment,
   getDistanceToPoint,
   getSecondaryScale,
   CONDITION_ICONS
 } from '../utils/canvasOverlayRenderer';
+import { effectiveSpeedFt, projectMovement } from '../utils/movement';
 import {
   spawnAOE,
   spawnCone,
@@ -235,6 +237,18 @@ export default function CanvasMap({
 
   // Current initiative turn for drawing a strong active-token pulse on the map
   const [currentTurn, setCurrentTurn] = useState(null);
+  // S3 Movement Meter — the live per-turn movement budget broadcast by the
+  // server (null outside combat). Shape: { tokenId, usedFt, trail: [{x,y,cumFt}] }
+  const [movement, setMovement] = useState(null);
+  // S3 — transient banner when the server rejects a committed move
+  const [moveBlocked, setMoveBlocked] = useState(null);
+
+  // S3 — auto-hide the rejection banner a few seconds after each rejection
+  useEffect(() => {
+    if (!moveBlocked) return undefined;
+    const timer = setTimeout(() => setMoveBlocked(null), 2800);
+    return () => clearTimeout(timer);
+  }, [moveBlocked]);
 
   // Lightning flash state
   const [flashOpacity, setFlashOpacity] = useState(0);
@@ -1218,6 +1232,28 @@ export default function CanvasMap({
         ctx.restore();
       });
 
+      // ── S3 Movement trail — breadcrumb cells of the active combatant's path ──
+      // Gold squares = cells walked this turn; outlined square = turn anchor.
+      // The head cell is skipped (the token is standing on it).
+      if (movement && Array.isArray(movement.trail) && movement.trail.length > 1) {
+        const trailActive = draggedToken && draggedToken.id === movement.tokenId;
+        ctx.save();
+        movement.trail.forEach((cell, idx) => {
+          if (idx === movement.trail.length - 1) return; // head = current cell
+          if (idx === 0) {
+            ctx.globalAlpha = trailActive ? 0.55 : 0.35;
+            ctx.strokeStyle = '#facc15';
+            ctx.lineWidth = 2 / vs.scale;
+            ctx.strokeRect(cell.x + 5, cell.y + 5, GRID_SIZE - 10, GRID_SIZE - 10);
+          } else {
+            ctx.globalAlpha = trailActive ? 0.30 : 0.16;
+            ctx.fillStyle = '#facc15';
+            ctx.fillRect(cell.x + 8, cell.y + 8, GRID_SIZE - 16, GRID_SIZE - 16);
+          }
+        });
+        ctx.restore();
+      }
+
       // Tokens drawing
       const placedTokens = tokens.filter(t => t.isPlaced);
       const nowMs = performance.now();
@@ -1346,6 +1382,28 @@ export default function CanvasMap({
           ctx.arc(centerX, bodyCenterY, pulseRadius, 0, Math.PI * 2);
           ctx.stroke();
           ctx.restore();
+        }
+
+        // ── S3 Movement Meter — drag preview on the token holding the budget ──
+        // Player-only: the DM is exempt from the budget, so a projected "OUT"
+        // on a DM drag would lie. Same math as server attemptMove
+        // (via utils/movement.js), including rewind refunds.
+        if (draggedToken && draggedToken.id === t.id && movement && currentTurn && role !== 'DM') {
+          if (movement.tokenId === t.id) {
+            const dropX = Math.round(t.x / GRID_SIZE) * GRID_SIZE;
+            const dropY = Math.round(t.y / GRID_SIZE) * GRID_SIZE;
+            const proj = projectMovement(t, movement, dropX, dropY);
+            const label = proj.over
+              ? `${proj.usedFt}/${proj.speed} ft — OUT`
+              : (proj.rewound ? `${proj.usedFt}/${proj.speed} ft ↺` : `${proj.usedFt}/${proj.speed} ft`);
+            const meterColor = proj.over ? '#ef4444'
+              : (proj.usedFt >= proj.speed * 0.8 ? '#f59e0b' : '#4ade80');
+            drawMeterBadge(ctx, label, centerX, renderPos.y - 16 / vs.scale, vs.scale, meterColor);
+          } else {
+            // Dragging a token that isn't the active combatant mid-combat:
+            // the server will reject the drop — warn before it happens.
+            drawMeterBadge(ctx, 'Not your turn', centerX, renderPos.y - 16 / vs.scale, vs.scale, '#ef4444');
+          }
         }
 
         // HP Change Animation Overlay (ring pulse) — only for damage/heal
@@ -1711,7 +1769,7 @@ export default function CanvasMap({
         ctx.restore();
       });
     }
-  }, [mapImage, viewStateRef, showGrid, walls, tokens, lights, stamps, notes, drawPoints, previewPoint, role, placingTokenId, placingStamp, tool, wallType, lightRadius, lightColor, stampSize, previewHeight, stampOriginalSize, tokenAnimations, currentTurn, visibilityData, pings, measureActive, measureStart, measureEnd, measureMode, draggedToken, dragOrigin, weather, flashOpacity, fxParticlesRef, fxActive, isFxDragging, fxDragStart, fxDragEnd, fxShape, shapes, isShapeDragging, shapeStart, shapeEnd, shapeActive, shapeType, shapeColor, drawShapes, drawWallsAndDoors, dayNight, mapLabels]);
+  }, [mapImage, viewStateRef, showGrid, walls, tokens, lights, stamps, notes, drawPoints, previewPoint, role, placingTokenId, placingStamp, tool, wallType, lightRadius, lightColor, stampSize, previewHeight, stampOriginalSize, tokenAnimations, currentTurn, movement, visibilityData, pings, measureActive, measureStart, measureEnd, measureMode, draggedToken, dragOrigin, weather, flashOpacity, fxParticlesRef, fxActive, isFxDragging, fxDragStart, fxDragEnd, fxShape, shapes, isShapeDragging, shapeStart, shapeEnd, shapeActive, shapeType, shapeColor, drawShapes, drawWallsAndDoors, dayNight, mapLabels]);
 
   // Keep a mutable reference to the latest draw function to prevent dependency array thrashing
   const drawRef = useRef(draw);
@@ -2246,6 +2304,7 @@ export default function CanvasMap({
       setWeather(state.weather || null);
       setShapes(state.shapes || []);
       setCurrentTurn(state.currentTurn || null);
+      setMovement(state.movement || null);
       if (state.dayNight) setDayNight(state.dayNight);
 
       // Force a redraw if any animated stamps are present
@@ -2640,6 +2699,7 @@ export default function CanvasMap({
     };
     const handleCombatReset = ({ version } = {}) => {
       setCurrentTurn(null);
+      setMovement(null);
       if (version) lastStateVersion.current = version;
     };
 
@@ -2656,6 +2716,28 @@ export default function CanvasMap({
           }
         }
       }
+    };
+
+    // S3 Movement Meter — live budget broadcast (also covers resets via null)
+    const handleMovementUpdate = (payload) => {
+      setMovement(payload || null);
+    };
+
+    // S3 — server rejected a committed move: snap the token back to its
+    // authoritative cell and surface the reason. The server also broadcasts
+    // token_final_position for the committed spot, so peers self-correct.
+    const handleMoveRejected = (payload) => {
+      if (!payload || !payload.tokenId) return;
+      setTokens(prev => prev.map(t =>
+        t.id === payload.tokenId ? { ...t, x: payload.x, y: payload.y } : t
+      ));
+      netInterpolation.setTarget(payload.tokenId, payload.x, payload.y, true);
+      delete settleLockRef.current[payload.tokenId];
+      if (draggedTokenRef.current && draggedTokenRef.current.id === payload.tokenId) {
+        setDraggedToken(null);
+        draggedTokenRef.current = null;
+      }
+      setMoveBlocked({ message: payload.message || 'Move rejected.', ts: Date.now() });
     };
 
     // ─── Bind Socket Events ───
@@ -2699,6 +2781,8 @@ export default function CanvasMap({
     socket.on('combat_started', handleCombatStarted);
     socket.on('combat_reset', handleCombatReset);
     socket.on('turn_started', handleTurnStarted);
+    socket.on('movement_update', handleMovementUpdate);
+    socket.on('move_rejected', handleMoveRejected);
 
     // ─── Unbind Socket Events ───
     return () => {
@@ -2742,6 +2826,8 @@ export default function CanvasMap({
       socket.off('combat_started', handleCombatStarted);
       socket.off('combat_reset', handleCombatReset);
       socket.off('turn_started', handleTurnStarted);
+    socket.off('movement_update', handleMovementUpdate);
+    socket.off('move_rejected', handleMoveRejected);
     };
   }, [role]);
 
@@ -3620,6 +3706,13 @@ export default function CanvasMap({
           )
         )}
       </div>
+
+      {/* S3 Movement Meter — rejection banner (auto-hides) */}
+      {moveBlocked && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 bg-red-950/95 border border-red-700 text-red-200 text-xs font-bold px-4 py-2 rounded shadow-2xl pointer-events-none">
+          {moveBlocked.message}
+        </div>
+      )}
 
       {/* Extracted Token Action Context Menu */}
       {contextMenu && (

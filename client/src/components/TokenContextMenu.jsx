@@ -183,6 +183,26 @@ export default function TokenContextMenu({
         </>
       )}
 
+      {/* Movement Speed (DM Only) — S3 Movement Meter */}
+      {role === 'DM' && (
+        <>
+          <div className="border-t border-borderDark my-1" />
+          <button
+            onClick={() => {
+              const input = window.prompt('Movement speed in feet per turn (5 ft = 1 grid square)', targetToken.speed || 30);
+              if (input === null) return;
+              const ft = parseInt(input, 10);
+              if (!Number.isFinite(ft) || ft < 0) return;
+              socket.emit('set_token_speed', { tokenId: targetToken.id, speed: ft });
+              onClose();
+            }}
+            className="w-full text-left text-[10px] px-2 py-1 rounded text-sky-300 hover:bg-borderDark"
+          >
+            🥾 Speed: {targetToken.speed || 30} ft
+          </button>
+        </>
+      )}
+
       {/* Conditions (DM Only) */}
       {role === 'DM' && (
         <>
