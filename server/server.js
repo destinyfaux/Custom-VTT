@@ -185,16 +185,40 @@ app.post('/api/avatars', (req, res) => {
 
 // ─── CHARACTER VAULT API ROUTES ────────────────────────────────────────────
 
+// Resolves the vault owner for a request. Account sessions are authoritative;
+// when no session token is present we fall back to the caller's generated
+// device userId (same trust model as the socket handshake) so Quick Play
+// players keep a persistent vault without needing an account.
+function resolveVaultOwner(req) {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    if (token) {
+        const user = accountManager.verifySession(token);
+        if (user) return { ownerId: user.userId, authenticated: true };
+        return null; // A presented but invalid token must never fall through.
+    }
+    const deviceId = String(req.headers['x-vtt-user-id'] || '').trim();
+    // Accept both the raw device uuid and the server-prefixed guest form —
+    // the client echoes back whatever identity the server last assigned.
+    const rawDeviceId = deviceId.startsWith('guest_') ? deviceId.slice('guest_'.length) : deviceId;
+    // Same shape as the socket handshake's stable-guest check (hex + dashes,
+    // i.e. the client's uuid-shaped vtt_user_id) so both paths agree.
+    if (rawDeviceId && /^[0-9a-fA-F-]{8,64}$/.test(rawDeviceId)) {
+        // MUST match the socket handshake's guest identity (guest_<deviceId>)
+        // so device-vault saves and reads always land on the same owner.
+        return { ownerId: `guest_${rawDeviceId}`, authenticated: false };
+    }
+    return null;
+}
+
 app.get('/api/characters', (req, res) => {
     try {
-        const authHeader = req.headers.authorization || '';
-        const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-        const user = accountManager.verifySession(token);
-        if (!user) {
+        const owner = resolveVaultOwner(req);
+        if (!owner) {
             return res.status(401).json({ error: 'Unauthorized. Invalid session token.' });
         }
 
-        const characters = accountManager.getUserCharacters(user.userId);
+        const characters = accountManager.getUserCharacters(owner.ownerId);
         res.json(characters);
     } catch (err) {
         console.error('[Server Vault ERROR] Fetch characters exception:', err);
@@ -204,10 +228,8 @@ app.get('/api/characters', (req, res) => {
 
 app.post('/api/characters/save', (req, res) => {
     try {
-        const authHeader = req.headers.authorization || '';
-        const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-        const user = accountManager.verifySession(token);
-        if (!user) {
+        const owner = resolveVaultOwner(req);
+        if (!owner) {
             return res.status(401).json({ error: 'Unauthorized. Invalid session token.' });
         }
 
@@ -216,8 +238,8 @@ app.post('/api/characters/save', (req, res) => {
             return res.status(400).json({ error: 'Invalid or empty sheet data payload.' });
         }
 
-        const targetCharId = characterId || sheetData.id || `char_${user.userId}`;
-        const saved = accountManager.saveCharacter(user.userId, targetCharId, sheetData);
+        const targetCharId = characterId || sheetData.id || `char_${owner.ownerId}`;
+        const saved = accountManager.saveCharacter(owner.ownerId, targetCharId, sheetData);
         res.json({ success: true, character: saved });
     } catch (err) {
         console.error('[Server Vault ERROR] Save character exception:', err);
@@ -227,14 +249,12 @@ app.post('/api/characters/save', (req, res) => {
 
 app.delete('/api/characters/:id', (req, res) => {
     try {
-        const authHeader = req.headers.authorization || '';
-        const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-        const user = accountManager.verifySession(token);
-        if (!user) {
+        const owner = resolveVaultOwner(req);
+        if (!owner) {
             return res.status(401).json({ success: false, error: 'Unauthorized.' });
         }
 
-        const deleted = accountManager.deleteCharacter(user.userId, req.params.id);
+        const deleted = accountManager.deleteCharacter(owner.ownerId, req.params.id);
         if (!deleted) {
             return res.status(404).json({ success: false, error: 'Character not found or unauthorized.' });
         }
@@ -837,7 +857,21 @@ io.use((socket, next) => {
     if (!account && requestedAuth.legacyToken && !legacyUserId) {
         return next(new Error('Invalid guest identity token'));
     }
-    const userId = account?.userId || legacyUserId || `guest_${crypto.randomUUID()}`;
+    // Identity resolution order: verified account > legacy token > stable
+    // device id (client-generated UUID persisted in localStorage) > fresh guest.
+    // Honoring the client's stable device id keeps Quick Play identities,
+    // device vaults, and presence entries consistent across reconnects —
+    // rotating guest ids caused orphaned vault saves and ghost players.
+    const requestedDeviceId = typeof requestedAuth.userId === 'string' ? requestedAuth.userId.trim() : '';
+    let stableGuestId = null;
+    if (/^[0-9a-fA-F-]{8,64}$/.test(requestedDeviceId)) {
+        stableGuestId = `guest_${requestedDeviceId}`;
+    } else if (/^guest_[0-9a-fA-F-]{8,64}$/.test(requestedDeviceId)) {
+        // The client echoes back the server-assigned id on reconnect — keep
+        // it stable instead of rotating to a fresh guest id every connection.
+        stableGuestId = requestedDeviceId;
+    }
+    const userId = account?.userId || legacyUserId || stableGuestId || `guest_${crypto.randomUUID()}`;
     // Account sessions can only use the role assigned to the account. Legacy
     // clients retain anonymous Player support; DM requires an authenticated
     // account or an explicit server opt-in for old local-only clients.
@@ -907,14 +941,15 @@ io.on('connection', (socket) => {
   io.emit('player_list_update', VTTManager.getPresenceList());
 
   // ── LOAD CHARACTER DATA ──
+  // The client's character-selection gate is the source of truth for which
+  // character enters the table. The server only pushes stored sheet data when
+  // the handshake carries an explicitly chosen characterId (picked from the
+  // vault / fresh-created). Anything else waits for the client's sync —
+  // auto-restoring here silently skipped character selection on refreshes.
   if (role === 'Player') {
-    const existingPlayer = VTTManager.players.get(userId);
     let charData = null;
 
-    if (existingPlayer?.characterData && Object.keys(existingPlayer.characterData).length > 0) {
-      charData = existingPlayer.characterData;
-      console.log(`[VTT-System] Loaded cached character data for ${userId}`);
-    } else if (characterId) {
+    if (characterId) {
       const vaultChar = accountManager.getUserCharacter(userId, characterId);
       if (vaultChar?.data) {
         charData = vaultChar.data;
@@ -924,18 +959,7 @@ io.on('connection', (socket) => {
         console.log(`[VTT-System] ⚠️ Vault lookup failed for characterId: ${characterId}`);
       }
     } else {
-      // Fallback: try to find any character for this user
-      const userChars = accountManager.getUserCharacters(userId);
-      if (userChars && userChars.length > 0) {
-        // Use the first one (or the most recent)
-        const firstChar = userChars[0];
-        charData = firstChar.data;
-        socket.auth.characterId = firstChar.id;
-        VTTManager.registerUser(userId, socket.id, role, name, firstChar.id);
-        console.log(`[VTT-System] Fallback: loaded first character "${firstChar.name}" for ${userId}`);
-      } else {
-        console.log(`[VTT-System] ⚠️ No characters found in vault for ${userId}`);
-      }
+      console.log(`[VTT-System] ⏳ No characterId in handshake — waiting for client selection (${userId})`);
     }
 
     if (charData) {
@@ -2449,9 +2473,12 @@ async function startServer() {
     console.log(`[VTT-System] Configured client/.env for VITE_SERVER_URL=${effectiveUrl}`);
 
     if (typeof VTTManager.sendDiscordMessage === 'function') {
+      // NOTE: The address MUST be a bare URL on its own line — Discord only
+      // auto-links bare URLs. Wrapping it in backticks (`) or <> renders it
+      // as plain text/code that players cannot click.
       VTTManager.sendDiscordMessage(
         'VTT Server',
-        `🚀 **VTT Server is ONLINE & Ready!**\n📅 **Launched:** ${now}\n🌐 **Address:** \`${effectiveUrl}\`${tunnelUrl ? ' *(🛡️ Protected by Cloudflare Tunnel)*' : ''}`
+        `🚀 **VTT Server is ONLINE & Ready!**\n📅 **Launched:** ${now}\n🌐 **Join the table:**\n${effectiveUrl}${tunnelUrl ? '\n🛡️ _Protected by Cloudflare Tunnel_' : ''}`
       );
     }
   });

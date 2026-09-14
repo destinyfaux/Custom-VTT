@@ -14,3 +14,4 @@ server/assets/maps
 node_modules/
 client/dist/
 server/node_modules
+client/.env.local
