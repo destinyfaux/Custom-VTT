@@ -157,3 +157,79 @@ describe('VTTManager.toggleTokenFlying', () => {
     assert.strictEqual(mgr.toggleTokenFlying('npc_missing'), null);
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// VTTManager — turn pipeline & round tracking (S1 End Turn)
+// ─────────────────────────────────────────────────────────────
+describe('VTTManager turn pipeline & round tracking', () => {
+  const makeCombatants = (n) => Array.from({ length: n }, (_, i) => ({
+    id: `tok_${i}`, name: `Fighter ${i}`, initiative: 20 - i, dexMod: 0
+  }));
+
+  test('combat start (setInitiativeOrder) begins at round 1 with first combatant active', () => {
+    const mgr = new VTTManager();
+    mgr.setInitiativeOrder(makeCombatants(3));
+    assert.strictEqual(mgr.state.round, 1);
+    assert.strictEqual(mgr.currentTurnIndex, 0);
+    assert.strictEqual(mgr.state.currentTurn, 'tok_0');
+  });
+
+  test('advanceTurn cycles the order without changing round until wrap', () => {
+    const mgr = new VTTManager();
+    mgr.setInitiativeOrder(makeCombatants(3));
+    mgr.advanceTurn(); // -> tok_1
+    assert.strictEqual(mgr.state.currentTurn, 'tok_1');
+    assert.strictEqual(mgr.state.round, 1);
+    mgr.advanceTurn(); // -> tok_2 (last combatant)
+    assert.strictEqual(mgr.state.currentTurn, 'tok_2');
+    assert.strictEqual(mgr.state.round, 1);
+  });
+
+  test('wrapping past the last combatant starts a new round', () => {
+    const mgr = new VTTManager();
+    mgr.setInitiativeOrder(makeCombatants(3));
+    mgr.advanceTurn();
+    mgr.advanceTurn();
+    mgr.advanceTurn(); // wrap -> tok_0 again, round 2
+    assert.strictEqual(mgr.state.currentTurn, 'tok_0');
+    assert.strictEqual(mgr.state.round, 2);
+  });
+
+  test('single combatant: every end turn wraps and increments the round', () => {
+    const mgr = new VTTManager();
+    mgr.setInitiativeOrder(makeCombatants(1));
+    mgr.advanceTurn();
+    assert.strictEqual(mgr.state.currentTurn, 'tok_0');
+    assert.strictEqual(mgr.state.round, 2);
+  });
+
+  test('resetInitiative clears round back to 0', () => {
+    const mgr = new VTTManager();
+    mgr.setInitiativeOrder(makeCombatants(2));
+    mgr.advanceTurn();
+    mgr.advanceTurn();
+    assert.strictEqual(mgr.state.round, 2);
+    mgr.resetInitiative();
+    assert.strictEqual(mgr.state.round, 0);
+    assert.strictEqual(mgr.state.currentTurn, null);
+    assert.strictEqual(mgr.state.initiative.length, 0);
+  });
+
+  test('round & currentTurn survive a state round-trip (persisted in state JSON shape)', () => {
+    const mgr = new VTTManager();
+    mgr.setInitiativeOrder(makeCombatants(2));
+    mgr.advanceTurn();
+    mgr.advanceTurn();
+    // Simulate what getGameState spreads to clients / gets saved to disk
+    const snapshot = JSON.parse(JSON.stringify(mgr.getGameState()));
+    assert.strictEqual(snapshot.round, 2);
+    assert.strictEqual(snapshot.currentTurn, 'tok_0');
+  });
+
+  test('advanceTurn on an empty initiative list is a safe no-op', () => {
+    const mgr = new VTTManager();
+    mgr.advanceTurn();
+    assert.strictEqual(mgr.state.currentTurn, null);
+    assert.strictEqual(mgr.state.round, 0);
+  });
+});

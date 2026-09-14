@@ -4,10 +4,11 @@ import { socket } from '../socket';
 import soundSynthesizer from '../utils/SoundSynthesizer';
 import { buildMapLabels } from '../utils/tokenNaming';
 
-export default function InitiativeBar({ role }) {
+export default function InitiativeBar({ role, currentUserId = null }) {
   const [initiative, setInitiative] = useState([]);
   const [currentTurn, setCurrentTurn] = useState(null);
   const [tokens, setTokens] = useState([]);
+  const [round, setRound] = useState(0);
 
   // Disambiguated display labels ("Goblin A/B/C") — render-time only, never mutates token.name
   const mapLabels = useMemo(() => buildMapLabels(tokens), [tokens]);
@@ -17,16 +18,19 @@ export default function InitiativeBar({ role }) {
       setInitiative(state.initiative || []);
       setCurrentTurn(state.currentTurn || null);
       setTokens(state.tokens || []);
+      setRound(Number(state.round) || 0);
     };
 
     socket.on('state_update', handleState);
     // Also listen for dedicated initiative events (optional)
-    socket.on('combat_started', ({ initiative, current }) => {
+    socket.on('combat_started', ({ initiative, current, round }) => {
       setInitiative(initiative || []);
       setCurrentTurn(current);
+      setRound(Number(round) || 1);
     });
-    socket.on('turn_update', ({ current }) => {
+    socket.on('turn_update', ({ current, round }) => {
       setCurrentTurn(current);
+      if (round !== undefined) setRound(Number(round) || 0);
     });
     socket.on('combat_reset', () => {
       setInitiative([]);
@@ -76,6 +80,20 @@ export default function InitiativeBar({ role }) {
     }
   };
 
+  // Is it currently MY turn? (server validates ownership again on end_turn)
+  const activeToken = tokens.find(t => t.id === currentTurn);
+  const isMyTurn = Boolean(
+    currentUserId && activeToken && activeToken.type === 'player' &&
+    (activeToken.ownerId === currentUserId || activeToken.id === currentUserId)
+  );
+
+  // Active player passes their turn to the next combatant (S1 End Turn).
+  // Display-not-enforce: the server re-validates ownership; DM override unaffected.
+  const handleEndTurn = () => {
+    if (!isMyTurn) return;
+    socket.emit('end_turn');
+  };
+
   return (
     <div className="h-32 min-h-[8rem] flex-none bg-bgPanel/95 border-b border-borderDark flex items-center px-4 gap-3 overflow-x-auto scrollbar-hide">
       {/* Dynamic Keyframes Injection */}
@@ -103,6 +121,14 @@ export default function InitiativeBar({ role }) {
           opacity: 100% !important;
         }
       `}</style>
+
+      {/* Round counter chip — combat rounds since start (0 = combat not started) */}
+      {round > 0 && (
+        <div className="w-16 h-28 bg-bgCard border border-borderDark rounded flex flex-col items-center justify-center gap-1 select-none shrink-0">
+          <span className="text-[8px] font-bold text-gray-500 tracking-widest uppercase">Round</span>
+          <span className="text-2xl font-extrabold text-accentGold leading-none">{round}</span>
+        </div>
+      )}
 
       {/* Combatant cards */}
       {initiative.map((comb) => {
@@ -222,6 +248,23 @@ export default function InitiativeBar({ role }) {
           >
             END COMBAT
           </button>
+        </div>
+      )}
+
+      {/* Active-player End Turn card — the player-autonomy turn door (S1).
+          Only the player whose token is currently active sees this. */}
+      {role !== 'DM' && isMyTurn && (
+        <div className="w-24 h-28 bg-bgCard border border-accentGold/70 rounded flex flex-col justify-between p-2 shrink-0 select-none animate-active-turn">
+          <span className="text-[9px] font-bold text-accentGold text-center tracking-widest border-b border-borderDark/40 pb-1 uppercase">
+            Your Turn
+          </span>
+          <button
+            onClick={handleEndTurn}
+            className="bg-accentGold text-black font-extrabold py-1.5 rounded text-[10px] hover:bg-yellow-500 active:scale-95 transition-all uppercase tracking-wider"
+          >
+            END TURN
+          </button>
+          <span className="text-[8px] text-gray-500 text-center leading-tight">Pass to next</span>
         </div>
       )}
     </div>

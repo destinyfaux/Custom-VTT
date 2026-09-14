@@ -2205,6 +2205,7 @@ io.on('connection', (socket) => {
       io.emit('combat_started', { 
           initiative: VTTManager.state.initiative, 
           current: VTTManager.state.currentTurn,
+          round: VTTManager.state.round,
           version: VTTManager.stateVersion 
       });
 
@@ -2222,13 +2223,47 @@ io.on('connection', (socket) => {
       if (!VTTManager.isDM(userId)) return;
       VTTManager.advanceTurn();
       VTTManager.incrementStateVersion();
-      io.emit('turn_update', { current: VTTManager.state.currentTurn, version: VTTManager.stateVersion });
+      io.emit('turn_update', { current: VTTManager.state.currentTurn, round: VTTManager.state.round, version: VTTManager.stateVersion });
 
       // Trigger automatic turn_started check for the new active participant
       const currentTokenId = VTTManager.state.currentTurn;
       if (currentTokenId) {
           io.emit('turn_started', { tokenId: currentTokenId });
       }
+  });
+
+  // Active player ends their OWN turn — passes initiative to the next
+  // combatant. Players may only end the turn of a player token they own;
+  // NPC turns and other players' turns are untouchable. DM keeps full
+  // override via next_turn / set_turn (and may also end_turn directly).
+  // This is the clean player-autonomy turn door: no DM relay required.
+  socket.on('end_turn', () => {
+      const currentTokenId = VTTManager.state.currentTurn;
+      if (!currentTokenId) return;
+
+      const activeToken = VTTManager.state.tokens.find(t => t.id === currentTokenId);
+      if (!VTTManager.isDM(userId)) {
+          // Players can never end an NPC's turn or another player's turn
+          if (!activeToken || activeToken.type !== 'player') return;
+          if (activeToken.ownerId !== userId && activeToken.id !== userId) return;
+      }
+
+      VTTManager.advanceTurn();
+      VTTManager.incrementStateVersion();
+      io.emit('turn_update', { current: VTTManager.state.currentTurn, round: VTTManager.state.round, version: VTTManager.stateVersion });
+
+      // Trigger automatic turn_started check for the new active participant
+      const nextTokenId = VTTManager.state.currentTurn;
+      if (nextTokenId) {
+          io.emit('turn_started', { tokenId: nextTokenId });
+      }
+
+      // System chat breadcrumb: the turn pass becomes part of the narrative log
+      const nextCombatant = VTTManager.initiativeList[VTTManager.currentTurnIndex];
+      const endedName = activeToken ? activeToken.name : 'Unknown';
+      const nextName = nextCombatant ? nextCombatant.name : 'Unknown';
+      const roundPart = Number(VTTManager.state.round) > 0 ? ` (round ${VTTManager.state.round})` : '';
+      io.emit('new_chat', VTTManager.addChatMessage('System', `${endedName} ended their turn — ${nextName} is up.${roundPart}`));
   });
 
   // DM sets precise combat turn

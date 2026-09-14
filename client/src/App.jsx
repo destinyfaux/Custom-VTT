@@ -940,7 +940,7 @@ function App() {
       {/* MAIN TABLETOP AREA */}
       <div className="flex-1 flex flex-col bg-black">
         {/* Initiative Bar */}
-        <InitiativeBar role={role} />
+        <InitiativeBar role={role} currentUserId={currentUser?.userId || null} />
 
         {/* Canvas Map fills remaining workspace */}
         <div className="flex-1 relative min-h-0">
@@ -1181,6 +1181,27 @@ function App() {
 function TemplateLibraryDropdown() {
   const [premades, setPremades] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
+  const rootRef = useRef(null);
+
+  // Close on outside click + Escape — previously the dropdown could only be
+  // closed by selecting a template or re-toggling the button.
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleMouseDown = (e) => {
+      if (rootRef.current && !rootRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setIsOpen(false);
+    };
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
 
   // Fetch all templates from API on load
   useEffect(() => {
@@ -1205,7 +1226,7 @@ function TemplateLibraryDropdown() {
   };
 
   return (
-    <div className="relative">
+    <div className="relative" ref={rootRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-3 py-1.5 bg-bgPanel border border-borderDark rounded-lg hover:border-accentGold text-accentGold text-xs font-bold uppercase tracking-wider transition-all shadow-sm"
