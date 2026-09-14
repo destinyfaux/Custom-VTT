@@ -3,12 +3,15 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { socket } from '../socket';
 import soundSynthesizer from '../utils/SoundSynthesizer';
 import { buildMapLabels } from '../utils/tokenNaming';
+import { effectiveSpeedFt } from '../utils/movement';
 
 export default function InitiativeBar({ role, currentUserId = null }) {
   const [initiative, setInitiative] = useState([]);
   const [currentTurn, setCurrentTurn] = useState(null);
   const [tokens, setTokens] = useState([]);
   const [round, setRound] = useState(0);
+  // S3 Movement Meter — live per-turn movement budget for the active combatant
+  const [movement, setMovement] = useState(null);
 
   // Disambiguated display labels ("Goblin A/B/C") — render-time only, never mutates token.name
   const mapLabels = useMemo(() => buildMapLabels(tokens), [tokens]);
@@ -19,6 +22,7 @@ export default function InitiativeBar({ role, currentUserId = null }) {
       setCurrentTurn(state.currentTurn || null);
       setTokens(state.tokens || []);
       setRound(Number(state.round) || 0);
+      setMovement(state.movement || null);
     };
 
     socket.on('state_update', handleState);
@@ -38,6 +42,11 @@ export default function InitiativeBar({ role, currentUserId = null }) {
     socket.on('combat_reset', () => {
       setInitiative([]);
       setCurrentTurn(null);
+      setMovement(null);
+    });
+    // S3 — the server pushes the budget after every turn change / commit
+    socket.on('movement_update', (payload) => {
+      setMovement(payload || null);
     });
 
     return () => {
@@ -46,6 +55,7 @@ export default function InitiativeBar({ role, currentUserId = null }) {
       socket.off('combat_started');
       socket.off('turn_update');
       socket.off('combat_reset');
+      socket.off('movement_update');
     };
   }, []);
 
@@ -97,6 +107,14 @@ export default function InitiativeBar({ role, currentUserId = null }) {
     if (!isMyTurn) return;
     socket.emit('end_turn');
   };
+
+  // S3 Movement Meter — budget readout for the player's own turn
+  const myMovement = (movement && movement.tokenId === currentTurn) ? movement : null;
+  const mySpeed = activeToken ? effectiveSpeedFt(activeToken) : 30;
+  const usedFt = myMovement ? myMovement.usedFt : 0;
+  const movePct = Math.min(100, Math.max(0, (usedFt / Math.max(1, mySpeed)) * 100));
+  const moveColor = usedFt >= mySpeed ? 'bg-red-500'
+    : usedFt >= mySpeed * 0.8 ? 'bg-amber-400' : 'bg-emerald-500';
 
   return (
     <div className="h-32 min-h-[8rem] flex-none bg-bgPanel/95 border-b border-borderDark flex items-center px-4 gap-3 overflow-x-auto scrollbar-hide">
@@ -256,19 +274,33 @@ export default function InitiativeBar({ role, currentUserId = null }) {
       )}
 
       {/* Active-player End Turn card — the player-autonomy turn door (S1).
-          Only the player whose token is currently active sees this. */}
+          Only the player whose token is currently active sees this.
+          S3: the card doubles as the movement meter for their turn. */}
       {role !== 'DM' && isMyTurn && (
         <div className="w-24 h-28 bg-bgCard border border-accentGold/70 rounded flex flex-col justify-between p-2 shrink-0 select-none animate-active-turn">
           <span className="text-[9px] font-bold text-accentGold text-center tracking-widest border-b border-borderDark/40 pb-1 uppercase">
             Your Turn
           </span>
+          <div>
+            <div className="flex justify-between items-baseline mb-0.5">
+              <span className="text-[8px] font-bold text-gray-400 tracking-wider">MOVE</span>
+              <span className={`text-[8px] font-bold ${usedFt >= mySpeed ? 'text-red-400' : 'text-gray-300'}`}>
+                {usedFt}/{mySpeed}
+              </span>
+            </div>
+            <div className="h-1.5 bg-black/50 rounded overflow-hidden">
+              <div
+                className={`h-full ${moveColor} transition-all duration-300`}
+                style={{ width: `${movePct}%` }}
+              />
+            </div>
+          </div>
           <button
             onClick={handleEndTurn}
             className="bg-accentGold text-black font-extrabold py-1.5 rounded text-[10px] hover:bg-yellow-500 active:scale-95 transition-all uppercase tracking-wider"
           >
             END TURN
           </button>
-          <span className="text-[8px] text-gray-500 text-center leading-tight">Pass to next</span>
         </div>
       )}
     </div>

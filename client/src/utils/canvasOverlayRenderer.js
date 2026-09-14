@@ -69,6 +69,44 @@ export const drawAnchor = (ctx, x, y, scale) => {
   ctx.restore();
 };
 
+// S3 Movement Meter — same badge language as drawTextBadge but with a
+// caller-chosen accent color (green → amber → red as the budget drains).
+export const drawMeterBadge = (ctx, text, x, y, scale, color = '#4ade80') => {
+  ctx.save();
+  ctx.font = `bold ${12 / scale}px "Segoe UI", sans-serif`;
+
+  const metrics = ctx.measureText(text);
+  const textWidth = metrics.width;
+  const textHeight = 12 / scale;
+  const paddingX = 7 / scale;
+  const paddingY = 4 / scale;
+
+  const rectWidth = textWidth + paddingX * 2;
+  const rectHeight = textHeight + paddingY * 2;
+  const rx = x - rectWidth / 2;
+  const ry = y - rectHeight / 2;
+  const radius = 4 / scale;
+
+  ctx.fillStyle = 'rgba(20, 20, 20, 0.88)';
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5 / scale;
+
+  ctx.beginPath();
+  if (ctx.roundRect) {
+    ctx.roundRect(rx, ry, rectWidth, rectHeight, radius);
+  } else {
+    ctx.rect(rx, ry, rectWidth, rectHeight);
+  }
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = color;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, x, y);
+  ctx.restore();
+};
+
 export const getDistanceToSegment = (px, py, x1, y1, x2, y2) => {
   const A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
   const dot = A * C + B * D;

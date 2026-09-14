@@ -156,7 +156,8 @@ io.emit('token_hp_changed', { ... })         saveMapDataDebounced() (500ms)
 | Event Name                | Role / Auth       | Payload Structure                                                      | Server Execution & Broadcasts                                                  |
 | :------------------------ | :---------------- | :--------------------------------------------------------------------- | :----------------------------------------------------------------------------- |
 | `move_token`              | DM / Owner        | `{ tokenId, x, y }`                                                    | Throttled peer-only broadcast `token_moved` (drag preview).                    |
-| `move_token_final`        | DM / Owner        | `{ tokenId, x, y }`                                                    | Snaps position, sets `isPlaced: true`, emits `token_final_position`.           |
+| `move_token_final`        | DM / Owner        | `{ tokenId, x, y }`                                                    | S3: flows through `attemptMove` — in combat the active combatant's budget is enforced (5ft/grid Chebyshev, LIFO rewind refund, deploy free). Rejects emit `move_rejected` (mover) + snap-back `token_final_position` (all); accepts emit `token_final_position` + `movement_update`. DM exempt; out-of-combat free. |
+| `set_token_speed`         | DM Only           | `{ tokenId, speed: number }` (feet/turn)                               | S3: persists speed on token, emits `state_update` + `movement_update` if it holds the live budget. |
 | `remove_token`            | DM / Minion Owner | `tokenId` (string)                                                     | Sets `isPlaced: false` (recalls to tray), emits `token_removed`.               |
 | `delete_token`            | DM Only           | `tokenId` (string)                                                     | Erases token from state array, emits `token_deleted`.                          |
 | `delete_tokens`           | DM Only           | `{ tokenIds: string[] }`                                               | Batch erases tokens from state, emits `tokens_deleted`.                        |
@@ -415,5 +416,6 @@ memory. Therefore:
 - For combat / turn-engine changes, run the live E2E contract test before reporting:
     VTT_ALLOW_LEGACY_DM=true node server/server.js
     node server/e2e_s1_socket_contract.js
-  Expect 30/30 assertions. The filename deliberately avoids the *.test.js suffix so
+  Expect 43/43 assertions (S1 turn matrix + S2 snapshot + S3 movement contract T12).
+  The filename deliberately avoids the *.test.js suffix so
   `npm test` (node --test unit suite) is unaffected.

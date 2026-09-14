@@ -172,6 +172,72 @@ function connect(auth) {
   const tu9 = await waitFor(dm, 'turn_update');
   check('T9 DM end_turn wraps -> NPC, round 3', tu9?.current === npcId && tu9?.round === 3, `current=${tu9?.current} round=${tu9?.round}`);
 
+  // ── T12: S3 Movement Meter contract ──
+  // Server-enforced per-turn budget: 5ft/grid Chebyshev, LIFO rewind refund,
+  // out-of-turn rejection, DM exemption, DM-set speed cap.
+  dm.emit('set_turn', ariaId);
+  const tu12 = await waitFor(dm, 'turn_update');
+  check('T12 setup: set_turn -> Aria active', tu12?.current === ariaId, tu12?.current);
+  // Unplaced combatant => no budget yet (guest tokens auto-register in tray)
+  const muNull = await waitFor(pa, 'movement_update', () => true, 800);
+  check('T12 unplaced active combatant has null budget', muNull === null || muNull === undefined,
+        'no movement_update in 800ms');
+
+  // DM deploys Aria onto the map at the origin -> budget anchors there
+  dm.emit('move_token_final', { tokenId: ariaId, x: 0, y: 0 });
+  const deployEvt = await waitFor(pa, 'movement_update');
+  check('T12 DM deploy anchors Aria budget at (0,0)', deployEvt?.tokenId === ariaId && deployEvt?.usedFt === 0,
+        `usedFt=${deployEvt?.usedFt}`);
+
+  // In-budget committed move: 2 cells = 10ft
+  pa.emit('move_token_final', { tokenId: ariaId, x: 140, y: 0 });
+  const mv1 = await waitFor(pa, 'movement_update', p => p?.usedFt > 0);
+  check('T12 in-budget move commits (10ft spent)', mv1?.usedFt === 10, `usedFt=${mv1?.usedFt}`);
+
+  // Retrace to the anchor cell -> rewind refunds the whole spend
+  pa.emit('move_token_final', { tokenId: ariaId, x: 0, y: 0 });
+  const mv2 = await waitFor(pa, 'movement_update', p => p?.usedFt === 0, 800);
+  check('T12 retrace to anchor refunds (LIFO rewind)', mv2?.usedFt === 0, `usedFt=${mv2?.usedFt}`);
+
+  // Spend 20ft, then attempt 20 more (40 > 30 default) -> rejected
+  pa.emit('move_token_final', { tokenId: ariaId, x: 280, y: 0 });
+  await waitFor(pa, 'movement_update', p => p?.usedFt === 20);
+  pa.emit('move_token_final', { tokenId: ariaId, x: 560, y: 0 });
+  const rejM = await waitFor(pa, 'move_rejected');
+  check('T12 over-budget move REJECTED (no_movement)', rejM?.reason === 'no_movement', rejM?.reason);
+  check('T12 rejection carries usedFt/speed/message', rejM?.usedFt === 20 && rejM?.speed === 30 &&
+        typeof rejM?.message === 'string', `${rejM?.usedFt}/${rejM?.speed}`);
+  dm.emit('request_full_state');
+  const stM = await waitFor(dm, 'init_state');
+  const ariaTokM = stM?.tokens?.find(t => t.id === ariaId);
+  check('T12 rejected move left token at committed cell', ariaTokM?.x === 280, `x=${ariaTokM?.x}`);
+
+  // Out-of-turn move by the other player -> rejected
+  pb.emit('move_token_final', { tokenId: borinId, x: 350, y: 350 });
+  const rejTurn = await waitFor(pb, 'move_rejected');
+  check('T12 out-of-turn move REJECTED (not_your_turn)', rejTurn?.reason === 'not_your_turn', rejTurn?.reason);
+
+  // DM is exempt: free move of a non-active token mid-combat
+  // (predicate on x: the earlier rejection ALSO broadcast a token_final_position snap-back for Borin)
+  dm.emit('move_token_final', { tokenId: borinId, x: 350, y: 350 });
+  const dmMove = await waitFor(dm, 'token_final_position', p => p?.tokenId === borinId && p?.x === 350);
+  check('T12 DM move of non-active token allowed (exempt)', dmMove?.x === 350, `x=${dmMove?.x}`);
+
+  // Rewind Aria to her anchor so the spend resets before the cap test
+  pa.emit('move_token_final', { tokenId: ariaId, x: 0, y: 0 });
+  await waitFor(pa, 'movement_update', p => p?.usedFt === 0, 800);
+
+  // DM tightens Aria's cap to 10ft; enforcement follows immediately
+  dm.emit('set_token_speed', { tokenId: ariaId, speed: 10 });
+  await waitFor(pa, 'movement_update', () => true, 800); // budget-holder push (payload may match)
+  pa.emit('move_token_final', { tokenId: ariaId, x: 140, y: 0 }); // 2 cells = 10ft <= 10
+  const mv3 = await waitFor(pa, 'movement_update', p => p?.usedFt === 10, 1000);
+  check('T12 set_token_speed 10ft: 2-cell move commits at cap', mv3?.usedFt === 10, `usedFt=${mv3?.usedFt}`);
+  pa.emit('move_token_final', { tokenId: ariaId, x: 280, y: 0 }); // +10ft > 10 cap
+  const rejCap = await waitFor(pa, 'move_rejected');
+  check('T12 move beyond DM-set cap rejected', rejCap?.reason === 'no_movement' && rejCap?.speed === 10,
+        `speed=${rejCap?.speed}`);
+
   // T10: reset combat clears round/current
   dm.emit('reset_combat');
   const rs = await waitFor(dm, 'combat_reset');
@@ -180,6 +246,8 @@ function connect(auth) {
   const st10 = await waitFor(dm, 'init_state');
   check('T10 state cleared (round=0, current=null)', st10?.round === 0 && st10?.currentTurn === null,
         `round=${st10?.round} current=${st10?.currentTurn}`);
+  check('T10 movement budget cleared on reset', st10?.movement === null || st10?.movement === undefined,
+        `movement=${JSON.stringify(st10?.movement)}`);
 
   [dm, pa, pb].forEach(s => s.disconnect());
   console.log(`\n== RESULT: ${pass} passed, ${fail} failed ==`);

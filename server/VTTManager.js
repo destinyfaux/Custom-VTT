@@ -36,6 +36,12 @@ class VTTManager {
             initiative: [],
             currentTurn: null,
             round: 0,
+            // S3 Movement Meter — live per-turn movement budget for the active
+            // combatant. null outside combat. Shape:
+            // { tokenId, usedFt, trail: [{ x, y, cumFt }] } (px coords, cumFt =
+            // total feet spent on reaching that trail cell). Lives in state so
+            // getGameState()/init_state carries it to fresh joins for free.
+            movement: null,
             hiddenCatalogItems: [],
             discordWebhookUrl: '',
             dayNight: {
@@ -743,6 +749,7 @@ class VTTManager {
                 hpCur: curHp,
                 hpMax: maxHp,
                 ac: acVal,
+                speed: this.parseSpeedFt(charData.speed) ?? 30,
                 x: 0,
                 y: 0,
                 isPlaced: false,
@@ -768,6 +775,10 @@ class VTTManager {
             token.hpCur = charData.hpCur !== undefined ? Number(charData.hpCur) : token.hpCur;
             token.hpMax = charData.hpMax !== undefined ? Number(charData.hpMax) : token.hpMax;
             token.ac = charData.ac !== undefined ? Number(charData.ac) : token.ac;
+            // S3: sheet-provided speed wins over any previous value; absent → keep
+            const sheetSpeed = this.parseSpeedFt(charData.speed);
+            if (sheetSpeed !== null) token.speed = sheetSpeed;
+            if (token.speed === undefined) token.speed = 30;
             token.timesDowned = charData.timesDowned !== undefined ? Number(charData.timesDowned) : token.timesDowned;
             token.deathSaveSuccesses = charData.deathSaveSuccesses !== undefined ? Number(charData.deathSaveSuccesses) : token.deathSaveSuccesses;
             token.deathSaveFailures = charData.deathSaveFailures !== undefined ? Number(charData.deathSaveFailures) : token.deathSaveFailures;
@@ -823,6 +834,9 @@ class VTTManager {
             hpMax: safeHp,
             hpRoll: hpRoll,
             ac: Number(ac) >= 0 ? Number(ac) : 10,
+            // S3: SRD monster data often carries speed as a number, "30 ft.",
+            // or a { walk: 30 } object — parseSpeedFt normalizes all of them.
+            speed: this.parseSpeedFt(monsterData?.speed) ?? 30,
             x: 0,
             y: 0,
             isPlaced: false,
@@ -1347,6 +1361,8 @@ class VTTManager {
         // Update the state that goes to all clients
         this.state.initiative = [...this.initiativeList];
         this.state.currentTurn = this.getActiveCombatantId();
+        // S3: the opening combatant gets a fresh movement budget at their anchor
+        this.anchorMovement(this.state.currentTurn);
         this.incrementStateVersion();
     }
 
@@ -1360,8 +1376,9 @@ class VTTManager {
         }
         this.currentTurnIndex = nextIndex;
         this.state.currentTurn = this.getActiveCombatantId();
-        // Optionally, you might want to update movementUsed = 0 for the new active token.
-        // For now, the state reflects who is active.
+        // S3: every new active combatant starts their turn anchored where they
+        // stand, with a fresh movement budget.
+        this.anchorMovement(this.state.currentTurn);
         // The initiative list itself doesn't change.
         this.state.initiative = [...this.initiativeList];
         this.incrementStateVersion();
@@ -1380,10 +1397,216 @@ class VTTManager {
         this.state.initiative = [];
         this.state.currentTurn = null;
         this.state.round = 0;
+        this.state.movement = null;
         this.incrementStateVersion();
     }
 
+    // ─── S3 MOVEMENT METER — server-enforced per-turn movement budget ───
+    // Design (Test A friction: nobody tracked movement by hand):
+    //  • At the START of each combatant's turn the engine anchors a trail at
+    //    their current cell with a fresh budget (usedFt = 0).
+    //  • Each committed drop (move_token_final) costs 5ft per grid cell of
+    //    center-to-center Chebyshev distance from the trail head (diagonals
+    //    cost 5ft — PHB "diagonals are 5ft" default; keep GRID_SIZE in sync
+    //    with client CanvasMap.jsx).
+    //  • Retracing your own path is free: dropping on ANY earlier trail cell
+    //    rewinds the trail to that point and refunds the movement spent since
+    //    (LIFO refund is the single-step special case of this rewind).
+    //  • DM is exempt (tools-before-rules), out-of-combat movement is free,
+    //    and deploying an unplaced token onto the map costs nothing.
+    //  • Downed/dead combatants have 0ft of movement.
+
+    // Accepts 30, "30 ft.", { walk: 30 } etc. Returns a clean number or null.
+    parseSpeedFt(value) {
+        if (value === null || value === undefined) return null;
+        if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, value);
+        if (typeof value === 'string') {
+            const m = value.match(/\d+(\.\d+)?/);
+            if (m) return Math.max(0, parseFloat(m[0]));
+            return null;
+        }
+        if (typeof value === 'object') {
+            const walk = (value.walk !== undefined) ? value.walk : (value.fly !== undefined ? value.fly : value.swim);
+            return this.parseSpeedFt(walk);
+        }
+        return null;
+    }
+
+    // Speed the enforcement engine uses right now: downed/dead = 0 (you crawl
+    // in S4-land later, if ever), otherwise the token's speed or a 30ft default.
+    getEffectiveSpeedFt(token) {
+        if (!token) return 0;
+        const hp = Number(token.hpCur);
+        if (token.isDead || (Number.isFinite(hp) && hp <= 0)) return 0;
+        const parsed = this.parseSpeedFt(token.speed);
+        return parsed !== null ? parsed : 30;
+    }
+
+    // Feet charged for a committed drop: 0 for the same cell, otherwise the
+    // Chebyshev cell distance × 5ft (fractional cells from small tokens round
+    // to the nearest cell, minimum one 5ft step).
+    stepCostFt(fromX, fromY, toX, toY) {
+        const cells = Math.max(Math.abs(toX - fromX), Math.abs(toY - fromY)) / GRID_SIZE;
+        if (cells < 0.01) return 0;
+        return Math.max(1, Math.round(cells)) * 5;
+    }
+
+    // Start-of-turn anchor: fresh budget for the given combatant at wherever
+    // they currently stand. No token / unplaced token → no budget yet (a
+    // mid-combat deploy re-anchors on placement).
+    anchorMovement(tokenId) {
+        if (!tokenId) { this.state.movement = null; return; }
+        const token = this.state.tokens.find(t => t.id === tokenId);
+        if (!token || !token.isPlaced) { this.state.movement = null; return; }
+        this.state.movement = {
+            tokenId,
+            usedFt: 0,
+            trail: [{ x: Number(token.x) || 0, y: Number(token.y) || 0, cumFt: 0 }]
+        };
+    }
+
+    // DM-only: jump the turn pointer to an explicit combatant (used by the
+    // set_turn socket). Anchors a fresh movement budget like any other turn
+    // change so set_turn can never leave a stale budget behind.
+    setTurn(tokenId) {
+        const index = this.initiativeList.findIndex(c => c.id === tokenId);
+        if (index === -1) return false;
+        this.currentTurnIndex = index;
+        this.state.currentTurn = tokenId;
+        this.anchorMovement(tokenId);
+        this.incrementStateVersion();
+        return true;
+    }
+
+    // Wire-friendly clone of the live budget (trail trimmed; every client and
+    // the future AI bridge only ever needs the recent path).
+    getMovementPublic() {
+        const m = this.state.movement;
+        if (!m) return null;
+        const trail = m.trail.slice(-40).map(e => ({ x: e.x, y: e.y, cumFt: e.cumFt }));
+        return { tokenId: m.tokenId, usedFt: m.usedFt, trail };
+    }
+
+    // The one gate every committed token move flows through. Returns:
+    //   { ok: true,  usedFt, cost, x, y, ... }          — move committed
+    //   { ok: false, reason, x, y, usedFt, speed }      — rejected, nothing changed
+    attemptMove(tokenId, x, y, userId) {
+        const token = this.state.tokens.find(t => t.id === tokenId);
+        if (!token) return { ok: false, reason: 'not_found' };
+
+        const numX = this.clampCoord(x);
+        const numY = this.clampCoord(y);
+        const isDM = this.isDM(userId);
+        const isOwner = token.ownerId === userId;
+        if (!isDM && !isOwner) return { ok: false, reason: 'forbidden' };
+
+        const combatActive = Number(this.state.round) > 0 && Boolean(this.state.currentTurn);
+
+        // Mid-combat, a player may only move the token whose turn it is (or
+        // deploy that token from the tray). DM is exempt — tools before rules.
+        if (combatActive && !isDM && this.state.currentTurn !== tokenId) {
+            return {
+                ok: false,
+                reason: 'not_your_turn',
+                x: token.x, y: token.y,
+                usedFt: 0,
+                speed: this.getEffectiveSpeedFt(token)
+            };
+        }
+
+        const budget = (combatActive && this.state.movement && this.state.movement.tokenId === tokenId)
+            ? this.state.movement
+            : null;
+
+        // DM is exempt from the budget (tools-before-rules). Out of combat,
+        // everyone moves free — the meter only exists mid-encounter.
+        if (!combatActive || isDM) {
+            const moved = this.moveToken(tokenId, numX, numY, userId);
+            if (!moved) return { ok: false, reason: 'forbidden' };
+            if (combatActive && this.state.currentTurn === tokenId) {
+                // Keep the active combatant's budget truthful: re-base the trail
+                // where they now stand (preserving feet already spent), or
+                // establish one when the DM deploys them onto the map mid-turn.
+                if (this.state.movement && this.state.movement.tokenId === tokenId) {
+                    this.state.movement.trail = [{ x: token.x, y: token.y, cumFt: this.state.movement.usedFt }];
+                } else {
+                    this.state.movement = { tokenId, usedFt: 0, trail: [{ x: token.x, y: token.y, cumFt: 0 }] };
+                }
+            }
+            return { ok: true, free: true, usedFt: this.state.movement?.tokenId === tokenId ? this.state.movement.usedFt : 0, cost: 0, x: token.x, y: token.y };
+        }
+
+        // --- Combat, active combatant, non-DM ---
+
+        // Deploying from the tray is a placement, not movement: free, and it
+        // anchors the budget where they landed. (moveToken's own gate decides
+        // who may place unplaced tokens — DM-only in the current build.)
+        if (!token.isPlaced) {
+            const moved = this.moveToken(tokenId, numX, numY, userId);
+            if (!moved) return { ok: false, reason: 'forbidden' };
+            this.state.movement = { tokenId, usedFt: 0, trail: [{ x: token.x, y: token.y, cumFt: 0 }] };
+            return { ok: true, deployed: true, usedFt: 0, cost: 0, x: token.x, y: token.y };
+        }
+
+        // A placed active combatant should always have a budget; if a legacy /
+        // hand-edited state lost it, re-anchor here instead of crashing.
+        if (!budget) {
+            const moved = this.moveToken(tokenId, numX, numY, userId);
+            if (!moved) return { ok: false, reason: 'forbidden' };
+            this.state.movement = { tokenId, usedFt: 0, trail: [{ x: token.x, y: token.y, cumFt: 0 }] };
+            return { ok: true, free: true, usedFt: 0, cost: 0, x: token.x, y: token.y };
+        }
+
+        // Rewind: dropping on any earlier trail cell rewinds the path to that
+        // point and refunds the feet spent since (LIFO refund, generalized).
+        for (let i = budget.trail.length - 2; i >= 0; i--) {
+            const step = budget.trail[i];
+            if (step.x === numX && step.y === numY) {
+                const moved = this.moveToken(tokenId, numX, numY, userId);
+                if (!moved) return { ok: false, reason: 'forbidden' };
+                budget.trail = budget.trail.slice(0, i + 1);
+                budget.usedFt = step.cumFt;
+                return { ok: true, rewound: true, usedFt: budget.usedFt, cost: 0, x: token.x, y: token.y };
+            }
+        }
+
+        // Fresh ground: charge Chebyshev distance from the trail head.
+        const head = budget.trail[budget.trail.length - 1];
+        const cost = this.stepCostFt(head.x, head.y, numX, numY);
+        const speed = this.getEffectiveSpeedFt(token);
+        if (budget.usedFt + cost > speed) {
+            return {
+                ok: false,
+                reason: 'no_movement',
+                x: token.x, y: token.y,          // committed position to snap back to
+                usedFt: budget.usedFt,
+                speed,
+                needed: cost
+            };
+        }
+
+        const moved = this.moveToken(tokenId, numX, numY, userId);
+        if (!moved) return { ok: false, reason: 'forbidden' };
+        budget.usedFt += cost;
+        budget.trail.push({ x: token.x, y: token.y, cumFt: budget.usedFt });
+        return { ok: true, usedFt: budget.usedFt, cost, x: token.x, y: token.y };
+    }
+
+    // DM-only: set a token's movement speed in feet (persisted on the token).
+    setTokenSpeed(tokenId, ft, userId) {
+        if (!this.isDM(userId)) return null;
+        const token = this.state.tokens.find(t => t.id === tokenId);
+        if (!token) return null;
+        const num = Number(ft);
+        if (!Number.isFinite(num) || num < 0 || num > 999) return null;
+        token.speed = Math.round(num);
+        this.incrementStateVersion();
+        return token;
+    }
+
     // ─── S2 COMBAT SNAPSHOT — "feed answers, not maps" ───
+    // (S3 note: includes per-combatant speed and the live movement budget so
+    // the DM panel and the AI bridge see the same movement truth.)
     // Canonical serialization of the live combat picture. One builder, two
     // consumers: the DM Snapshot Panel (mode 'dm' — full data incl. AC and
     // ownership) and the future AI bridge (mode 'agent' — redacted: no AC,
@@ -1418,6 +1641,7 @@ class VTTManager {
                     initiative: Number(c.initiative) || 0,
                     hpCur,
                     hpMax,
+                    speed: this.getEffectiveSpeedFt(token),
                     conditions: Array.isArray(token?.conditions) ? [...token.conditions] : [],
                     x: token ? (Number(token.x) || 0) : null,
                     y: token ? (Number(token.y) || 0) : null,
@@ -1456,6 +1680,7 @@ class VTTManager {
             active,
             round: Number(this.state.round) || 0,
             currentTurn: this.state.currentTurn || null,
+            movement: this.getMovementPublic(),
             combatants
         };
     }

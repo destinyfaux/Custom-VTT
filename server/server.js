@@ -1342,9 +1342,39 @@ io.on('connection', (socket) => {
       if (!token) return;
 
       if (VTTManager.isDM(userId) || token.ownerId === userId) {
-          const moved = VTTManager.moveToken(tokenId, Number(x), Number(y), userId);
-          if (!moved) {
-              return socket.emit('error_response', { message: 'Unable to place that token.' });
+          // S3 Movement Meter: every committed move goes through the engine.
+          // In combat the server enforces the active combatant's budget; the
+          // client previews with the same math, but this verdict is final.
+          const result = VTTManager.attemptMove(tokenId, Number(x), Number(y), userId);
+          if (!result.ok) {
+              const reasonText = result.reason === 'not_your_turn'
+                  ? 'It is not that combatant\u2019s turn.'
+                  : result.reason === 'no_movement'
+                      ? `Not enough movement left (${result.usedFt}/${result.speed} ft used — needs ${result.needed} ft).`
+                      : 'Unable to place that token.';
+              // Mover gets the reason + snap-back target; every peer gets a
+              // token_final_position for the committed spot so a previewed
+              // drag can't leave the token visually displaced.
+              socket.emit('move_rejected', {
+                  tokenId,
+                  reason: result.reason,
+                  x: result.x,
+                  y: result.y,
+                  usedFt: result.usedFt,
+                  speed: result.speed,
+                  needed: result.needed,
+                  message: reasonText,
+                  version: VTTManager.stateVersion
+              });
+              io.emit('token_final_position', {
+                  tokenId,
+                  token,
+                  x: result.x,
+                  y: result.y,
+                  isPlaced: token.isPlaced,
+                  version: VTTManager.stateVersion
+              });
+              return;
           }
           VTTManager.incrementStateVersion();
 
@@ -1356,7 +1386,23 @@ io.on('connection', (socket) => {
               isPlaced: true,
               version: VTTManager.stateVersion
           });
-        }
+          // S3: keep every client's movement meter in sync after a committed move
+          if (VTTManager.getMovementPublic()) {
+              io.emit('movement_update', VTTManager.getMovementPublic());
+          }
+      }
+    });
+
+    // S3: DM sets a combatant's movement speed in feet (persisted on token).
+    socket.on('set_token_speed', ({ tokenId, speed }) => {
+      if (!VTTManager.isDM(userId)) return;
+      const updated = VTTManager.setTokenSpeed(tokenId, speed, userId);
+      if (!updated) return socket.emit('error_response', { message: 'Invalid movement speed.' });
+      io.emit('state_update', VTTManager.getGameState());
+      // If this token holds the live budget, push the new cap to all meters
+      if (VTTManager.state.movement?.tokenId === tokenId) {
+          io.emit('movement_update', VTTManager.getMovementPublic());
+      }
     });
 
     socket.on('toggle_player_torch', (tokenId) => {
@@ -2214,6 +2260,8 @@ io.on('connection', (socket) => {
       if (currentTokenId) {
           io.emit('turn_started', { tokenId: currentTokenId });
       }
+      // S3: announce the opening movement budget
+      io.emit('movement_update', VTTManager.getMovementPublic());
 
       VTTManager.sendDiscordMessage('VTT System', `⚔️ **Combat Encounter Started!**`);
   });
@@ -2230,6 +2278,8 @@ io.on('connection', (socket) => {
       if (currentTokenId) {
           io.emit('turn_started', { tokenId: currentTokenId });
       }
+      // S3: fresh budget for the new combatant
+      io.emit('movement_update', VTTManager.getMovementPublic());
   });
 
   // Active player ends their OWN turn — passes initiative to the next
@@ -2257,6 +2307,8 @@ io.on('connection', (socket) => {
       if (nextTokenId) {
           io.emit('turn_started', { tokenId: nextTokenId });
       }
+      // S3: fresh budget for the next combatant
+      io.emit('movement_update', VTTManager.getMovementPublic());
 
       // System chat breadcrumb: the turn pass becomes part of the narrative log
       const nextCombatant = VTTManager.initiativeList[VTTManager.currentTurnIndex];
@@ -2269,13 +2321,12 @@ io.on('connection', (socket) => {
   // DM sets precise combat turn
   socket.on('set_turn', (tokenId) => {
       if (!VTTManager.isDM(userId)) return;
-      const index = VTTManager.initiativeList.findIndex(c => c.id === tokenId);
-      if (index !== -1) {
-          VTTManager.currentTurnIndex = index;
-          VTTManager.state.currentTurn = tokenId;
-          VTTManager.incrementStateVersion();
+      // S3: setTurn lives in the manager so the movement budget re-anchors
+      // exactly like every other turn transition.
+      if (VTTManager.setTurn(tokenId)) {
           io.emit('turn_update', { current: VTTManager.state.currentTurn, version: VTTManager.stateVersion });
           io.emit('turn_started', { tokenId });
+          io.emit('movement_update', VTTManager.getMovementPublic());
       }
   });
 
@@ -2285,6 +2336,7 @@ io.on('connection', (socket) => {
       VTTManager.resetInitiative();
       VTTManager.incrementStateVersion();
       io.emit('combat_reset', { version: VTTManager.stateVersion });
+      io.emit('movement_update', null);
       VTTManager.sendDiscordMessage('VTT System', `🏳️ **Combat Encounter Ended.**`);
   });
 

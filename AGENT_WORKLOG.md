@@ -24,12 +24,12 @@
   the requirements source for S1–S4.
 - Roadmap details:
   - **S1** (SHIPPED): player End Turn + round tracking + Template dropdown fix.
-  - **S2** Snapshot Panel — "feed answers, not maps": serialize combat snapshot (positions, HP,
-    conditions, round/turn) for DM panel + future AI bridge. NEXT UP.
-  - **S3** Movement Meter — start-of-turn position anchor; drag path costs 5ft/grid; LIFO refund so
-    retracing is free; DM exempt; server-enforced budget with client preview.
+  - **S2** (SHIPPED, `e1305ba`): Combat Snapshot — getCombatSnapshot dm/agent modes + DM live panel.
+  - **S3** (SHIPPED): Movement Meter — start-of-turn position anchor; committed drops cost 5ft/grid
+    (Chebyshev, PHB diagonal rule); retracing your path rewinds & refunds (LIFO generalized);
+    DM exempt; out-of-combat free; downed = 0ft; server-enforced with client drag preview.
   - **S4** Targeting / Quick Resolve — pick target, server-side d20+mods, AC never leaves the server;
-    result feeds chat narrative. Gate for the AI bridge action whitelist.
+    result feeds chat narrative. Gate for the AI bridge action whitelist. NEXT UP.
   - **Bridge prototype** — AI connects as a player socket, reads S2 snapshot, acts via S4 whitelist
     (move / attack / speak / end turn).
 - Known bugs parked (round-3 candidates): presence "0 online" after rejoin; chat display names frozen at
@@ -45,6 +45,8 @@
 - `d08d8a3` — S1: player End Turn + round tracking + Template dropdown fix
 - `ff57b61` — S1 hotfix: guest identity (`socketUserId` state) for End Turn card + InitiativeBar
   consumes `init_state` on rejoin (fixes Test A "tracker only appeared after panel close" friction)
+- `e1305ba` — S2: Combat Snapshot (server serialization dm/agent + DM live panel, T11)
+- (this commit) — S3: Movement Meter (server budget engine + client meter/trail/snap-back, T12)
 
 ---
 Task ID: 14
@@ -126,3 +128,61 @@ Stage Summary:
   will consume is now a stable server contract (dm/agent modes).
 - S1 end_turn semantics untouched — full E2E still green on top of S2.
 - Next: S3 Movement Meter (start-of-turn anchor, 5ft path cost, LIFO refund, DM exempt).
+
+---
+Task ID: 17
+Agent: Super Z (main agent)
+Task: S3 Movement Meter — server-enforced per-turn movement budget with client preview.
+
+Work Log:
+- Server engine (VTTManager.js):
+  • `state.movement` = { tokenId, usedFt, trail: [{x,y,cumFt}] } — lives in state so
+    getGameState/init_state carries it to fresh joins and persistence for free.
+  • Turn engine hooks: setInitiativeOrder / advanceTurn / new setTurn() all call
+    anchorMovement(activeId) — every turn change re-anchors at the combatant's current cell,
+    usedFt 0; resetInitiative clears the budget.
+  • attemptMove() is now the ONE gate for committed moves (move_token_final): ownership
+    checks, mid-combat active-combatant restriction (not_your_turn), Chebyshev cost
+    5ft/cell (fractional cells round to nearest cell, min 5ft), rewind refund when dropping
+    on any earlier trail cell (LIFO is the single-step case), over-budget → no_movement
+    rejection with snap-back coords, DM exempt, out-of-combat free, DM deploy of an unplaced
+    active combatant establishes the budget free (moveToken's gate keeps placement DM-only),
+    downed/dead = 0ft but same-cell drops still commit.
+  • Speed: token.speed field (player tokens from charData.speed via upsert, NPC from
+    monsterData.speed via parseSpeedFt which normalizes 30 / "30 ft." / {walk:30}), default 30;
+    DM-settable via setTokenSpeed (0-999).
+  • getCombatSnapshot now exposes per-combatant speed + a top-level movement block (bridge-ready).
+- Server events (server.js): move_token_final → attemptMove; rejections emit move_rejected
+  {tokenId, reason, x, y, usedFt, speed, needed, message} to the mover + token_final_position
+  snap-back to everyone (kills previewed-drag drift); accepts broadcast movement_update.
+  movement_update also fired on start_combat / next_turn / end_turn / set_turn / reset_combat(null)
+  and after set_token_speed. New DM-only set_token_speed event.
+- Client:
+  • utils/movement.js — shared math (stepCostFt / effectiveSpeedFt / projectMovement),
+    mirrored from the server engine; utils/canvasOverlayRenderer.js — drawMeterBadge
+    (color-tinted badge: green → amber 80% → red).
+  • CanvasMap.jsx — movement + moveBlocked state; movement_update/move_rejected listeners;
+    init_state carries movement; gold trail breadcrumbs under tokens (outlined = turn anchor);
+    drag preview badge above the held token ("25/30 ft", "↺" on rewind, "OUT", or
+    "Not your turn" when dragging off-turn — player-only, DM exempt so no lying badge);
+    move_rejected snaps the token to the server's committed cell (netInterpolation +
+    settleLock cleared + drag cancelled) and shows an auto-hiding red banner (2.8s).
+  • InitiativeBar.jsx — End Turn card now doubles as the meter: MOVE used/speed + color bar.
+  • TokenContextMenu.jsx — DM-only "🥾 Speed: N ft" row (prompt → set_token_speed).
+- Tests: unit +19 → 56/56 (anchors, cost math, diag=5ft, rewind/anchor refund, over-budget,
+  not_your_turn, forbidden, DM exempt + re-base, out-of-combat free, downed 0ft, setTurn/
+  advanceTurn re-anchor, setTokenSpeed, DM deploy, reset clears, state round-trip, snapshot
+  speed/movement, parseSpeedFt). E2E T12 +13 → 43/43 (live-socket: null budget for unplaced,
+  DM deploy anchor, commit 10ft, rewind refund, over-budget reject + snap-back position,
+  not_your_turn, DM exempt move, set_token_speed cap, budget cleared on reset). Client build
+  clean (pre-existing chunk warning only). En route: fixed a test-flow bug (forgot the rewind
+  before the cap test) and a waitFor race (rejection also broadcasts token_final_position).
+- AGENTS.md.txt: move_token_final row rewritten, set_token_speed row added, §8 count 43/43.
+
+Stage Summary:
+- S3 delivered: nobody has to track movement by hand anymore (Test A friction closed).
+  The server is the single source of truth; the client previews with identical math and
+  snaps back on rejection. `state.movement` + snapshot movement block are the contract the
+  AI bridge will read to know what a creature can still reach.
+- Next: S4 Targeting / Quick Resolve (server-side dice, AC never leaves the server),
+  then Test B (preview-proxy websocket passthrough), then the Bridge prototype.

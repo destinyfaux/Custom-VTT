@@ -342,3 +342,230 @@ describe('VTTManager.getCombatSnapshot (S2)', () => {
     assert.strictEqual(ghost.isDown, true);
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// VTTManager — movement meter (S3)
+// ─────────────────────────────────────────────────────────────
+describe('VTTManager movement meter (S3)', () => {
+  const CELL = 70; // px per 5ft cell
+
+  // Aria (tok_0, user_a) at (0,0) — Borin (tok_1, user_b) at (210,0) —
+  // Goblin (tok_2) at (420,0). All placed, all size 1.
+  const seedCombat = () => {
+    const mgr = new VTTManager();
+    mgr.state.tokens.push(
+      { id: 'tok_0', name: 'Aria', type: 'player', ownerId: 'user_a', hpCur: 20, hpMax: 20, ac: 16, x: 0, y: 0, isPlaced: true, size: 1, conditions: [] },
+      { id: 'tok_1', name: 'Borin', type: 'player', ownerId: 'user_b', hpCur: 18, hpMax: 18, ac: 15, x: 210, y: 0, isPlaced: true, size: 1, conditions: [] },
+      { id: 'tok_2', name: 'Goblin', type: 'npc', ownerId: 'DM', hpCur: 7, hpMax: 7, ac: 13, x: 420, y: 0, isPlaced: true, size: 1, conditions: [] }
+    );
+    mgr.dm = { userId: 'dm_user' };
+    mgr.setInitiativeOrder([
+      { id: 'tok_0', name: 'Aria', initiative: 20, dexMod: 0 },
+      { id: 'tok_1', name: 'Borin', initiative: 15, dexMod: 0 },
+      { id: 'tok_2', name: 'Goblin', initiative: 10, dexMod: 0 }
+    ]);
+    return mgr;
+  };
+
+  test('combat start anchors a fresh budget at the active token position', () => {
+    const mgr = seedCombat();
+    assert.strictEqual(mgr.state.movement.tokenId, 'tok_0');
+    assert.strictEqual(mgr.state.movement.usedFt, 0);
+    assert.deepStrictEqual(mgr.state.movement.trail, [{ x: 0, y: 0, cumFt: 0 }]);
+  });
+
+  test('a committed move charges 5ft per grid cell (diagonal = 5ft, PHB)', () => {
+    const mgr = seedCombat();
+    const r1 = mgr.attemptMove('tok_0', CELL, 0, 'user_a');
+    assert.strictEqual(r1.ok, true);
+    assert.strictEqual(r1.cost, 5);
+    assert.strictEqual(r1.usedFt, 5);
+    const r2 = mgr.attemptMove('tok_0', CELL * 2, CELL, 'user_a');
+    assert.strictEqual(r2.ok, true);
+    assert.strictEqual(r2.cost, 5, 'diagonal step still 5ft');
+    assert.strictEqual(r2.usedFt, 10);
+    assert.strictEqual(mgr.state.tokens[0].x, CELL * 2);
+    assert.strictEqual(mgr.state.tokens[0].y, CELL);
+  });
+
+  test('multi-cell drags charge the Chebyshev distance, not the euclidean', () => {
+    const mgr = seedCombat();
+    const r = mgr.attemptMove('tok_0', CELL * 3, 0, 'user_a');
+    assert.strictEqual(r.ok, true);
+    assert.strictEqual(r.cost, 15, '3 cells straight = 15ft');
+    const mgr2 = seedCombat();
+    const r2 = mgr2.attemptMove('tok_0', CELL * 3, CELL * 3, 'user_a');
+    assert.strictEqual(r2.cost, 15, '3x3 diagonal drag = 3 cells = 15ft');
+  });
+
+  test('retracing the path rewinds and refunds movement (LIFO refund)', () => {
+    const mgr = seedCombat();
+    mgr.attemptMove('tok_0', CELL, 0, 'user_a');       // 5ft
+    mgr.attemptMove('tok_0', CELL * 2, 0, 'user_a');   // 10ft total
+    const back = mgr.attemptMove('tok_0', CELL, 0, 'user_a'); // retrace one cell
+    assert.strictEqual(back.ok, true);
+    assert.strictEqual(back.rewound, true);
+    assert.strictEqual(back.usedFt, 5, 'refund drops spend back to earlier trail point');
+    assert.strictEqual(mgr.state.movement.usedFt, 5);
+    assert.strictEqual(mgr.state.movement.trail.length, 2);
+    assert.strictEqual(mgr.state.tokens[0].x, CELL);
+  });
+
+  test('rewinding to the turn anchor refunds the whole budget', () => {
+    const mgr = seedCombat();
+    mgr.attemptMove('tok_0', CELL, 0, 'user_a');
+    mgr.attemptMove('tok_0', CELL * 2, CELL, 'user_a');
+    const home = mgr.attemptMove('tok_0', 0, 0, 'user_a');
+    assert.strictEqual(home.ok, true);
+    assert.strictEqual(home.usedFt, 0);
+    assert.strictEqual(mgr.state.movement.usedFt, 0);
+  });
+
+  test('over-budget moves are rejected and the token stays put', () => {
+    const mgr = seedCombat(); // default speed 30ft
+    assert.strictEqual(mgr.attemptMove('tok_0', CELL * 3, CELL * 3, 'user_a').ok, true);  // 15ft
+    assert.strictEqual(mgr.attemptMove('tok_0', CELL * 6, CELL * 3, 'user_a').ok, true);  // 30ft total
+    const r = mgr.attemptMove('tok_0', CELL * 7, CELL * 3, 'user_a'); // would be 35ft
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(r.reason, 'no_movement');
+    assert.strictEqual(r.usedFt, 30);
+    assert.strictEqual(r.speed, 30);
+    assert.strictEqual(mgr.state.tokens[0].x, CELL * 6, 'position unchanged on reject');
+    assert.strictEqual(mgr.state.movement.usedFt, 30);
+  });
+
+  test('players cannot move a token on someone else\u2019s turn', () => {
+    const mgr = seedCombat(); // tok_0's turn
+    const r = mgr.attemptMove('tok_1', 280, 0, 'user_b');
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(r.reason, 'not_your_turn');
+    assert.strictEqual(mgr.state.tokens[1].x, 210, 'Borin unmoved');
+  });
+
+  test('players cannot move other people\u2019s tokens at all', () => {
+    const mgr = seedCombat();
+    const r = mgr.attemptMove('tok_2', 490, 0, 'user_a');
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(r.reason, 'forbidden');
+  });
+
+  test('DM is exempt from the budget and re-bases the trail of the active token', () => {
+    const mgr = seedCombat();
+    mgr.attemptMove('tok_0', CELL, 0, 'user_a'); // Aria spends 5ft
+    const dmMove = mgr.attemptMove('tok_0', CELL * 4, CELL * 2, 'dm_user');
+    assert.strictEqual(dmMove.ok, true);
+    assert.strictEqual(dmMove.free, true, 'DM pays nothing');
+    assert.strictEqual(mgr.state.movement.usedFt, 5, 'Aria\u2019s spend is preserved');
+    assert.deepStrictEqual(mgr.state.movement.trail, [{ x: CELL * 4, y: CELL * 2, cumFt: 5 }]);
+    // DM can also move non-active tokens freely mid-combat
+    const dmOther = mgr.attemptMove('tok_2', CELL * 8, 0, 'dm_user');
+    assert.strictEqual(dmOther.ok, true);
+  });
+
+  test('out-of-combat movement is free and untracked', () => {
+    const mgr = new VTTManager();
+    mgr.state.tokens.push(
+      { id: 'tok_0', name: 'Aria', type: 'player', ownerId: 'user_a', hpCur: 20, hpMax: 20, ac: 16, x: 0, y: 0, isPlaced: true, size: 1, conditions: [] }
+    );
+    const r = mgr.attemptMove('tok_0', CELL * 9, CELL * 9, 'user_a');
+    assert.strictEqual(r.ok, true);
+    assert.strictEqual(r.free, true);
+    assert.strictEqual(mgr.state.movement, null);
+  });
+
+  test('downed combatants have 0ft of movement; same-cell drops still commit', () => {
+    const mgr = seedCombat();
+    mgr.state.tokens[0].hpCur = 0;
+    const r = mgr.attemptMove('tok_0', CELL, 0, 'user_a');
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(r.reason, 'no_movement');
+    assert.strictEqual(r.speed, 0);
+    const stay = mgr.attemptMove('tok_0', 0, 0, 'user_a');
+    assert.strictEqual(stay.ok, true, 'dropping in place is free');
+    assert.strictEqual(stay.cost, 0);
+  });
+
+  test('setTurn re-anchors the budget for the jumped-to combatant', () => {
+    const mgr = seedCombat();
+    mgr.attemptMove('tok_0', CELL, 0, 'user_a');
+    assert.strictEqual(mgr.setTurn('tok_1'), true);
+    assert.strictEqual(mgr.state.currentTurn, 'tok_1');
+    assert.strictEqual(mgr.state.movement.tokenId, 'tok_1');
+    assert.strictEqual(mgr.state.movement.usedFt, 0);
+    assert.deepStrictEqual(mgr.state.movement.trail, [{ x: 210, y: 0, cumFt: 0 }]);
+    assert.strictEqual(mgr.setTurn('tok_missing'), false);
+  });
+
+  test('advanceTurn gives the next combatant a fresh budget', () => {
+    const mgr = seedCombat();
+    mgr.attemptMove('tok_0', CELL, 0, 'user_a');
+    mgr.advanceTurn();
+    assert.strictEqual(mgr.state.movement.tokenId, 'tok_1');
+    assert.strictEqual(mgr.state.movement.usedFt, 0);
+  });
+
+  test('setTokenSpeed changes the cap (DM-only) and enforcement follows', () => {
+    const mgr = seedCombat();
+    assert.strictEqual(mgr.setTokenSpeed('tok_0', 10, 'user_a'), null, 'players cannot set speed');
+    assert.strictEqual(mgr.setTokenSpeed('tok_0', 10, 'dm_user').speed, 10);
+    assert.strictEqual(mgr.attemptMove('tok_0', CELL, 0, 'user_a').ok, true);   // 5ft
+    assert.strictEqual(mgr.attemptMove('tok_0', CELL * 2, 0, 'user_a').ok, true); // 10ft total
+    const r = mgr.attemptMove('tok_0', CELL * 3, 0, 'user_a'); // would be 15ft
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(r.reason, 'no_movement');
+  });
+
+  test('DM deploys an unplaced active combatant for free; later steps charge', () => {
+    const mgr = seedCombat();
+    mgr.state.tokens[1].isPlaced = false;
+    mgr.advanceTurn(); // Borin's turn; unplaced → no budget yet
+    assert.strictEqual(mgr.state.movement, null);
+    const deploy = mgr.attemptMove('tok_1', CELL, CELL * 5, 'dm_user');
+    assert.strictEqual(deploy.ok, true);
+    assert.strictEqual(mgr.state.movement.tokenId, 'tok_1');
+    assert.strictEqual(mgr.state.movement.usedFt, 0);
+    assert.deepStrictEqual(mgr.state.movement.trail, [{ x: CELL, y: CELL * 5, cumFt: 0 }]);
+    // Borin's own first step after the DM deployment charges normally
+    const step = mgr.attemptMove('tok_1', CELL * 2, CELL * 5, 'user_b');
+    assert.strictEqual(step.ok, true);
+    assert.strictEqual(step.cost, 5);
+    assert.strictEqual(step.usedFt, 5);
+  });
+
+  test('resetInitiative clears the movement budget', () => {
+    const mgr = seedCombat();
+    mgr.attemptMove('tok_0', CELL, 0, 'user_a');
+    mgr.resetInitiative();
+    assert.strictEqual(mgr.state.movement, null);
+  });
+
+  test('movement budget survives a state round-trip (init_state shape)', () => {
+    const mgr = seedCombat();
+    mgr.attemptMove('tok_0', CELL, 0, 'user_a');
+    const snap = JSON.parse(JSON.stringify(mgr.getGameState()));
+    assert.strictEqual(snap.movement.tokenId, 'tok_0');
+    assert.strictEqual(snap.movement.usedFt, 5);
+    assert.strictEqual(snap.movement.trail.length, 2);
+  });
+
+  test('getCombatSnapshot exposes speed and the live movement block', () => {
+    const mgr = seedCombat();
+    mgr.attemptMove('tok_0', CELL, 0, 'user_a');
+    const snap = mgr.getCombatSnapshot('dm');
+    const aria = snap.combatants.find(c => c.id === 'tok_0');
+    assert.strictEqual(aria.speed, 30);
+    assert.strictEqual(snap.movement.usedFt, 5);
+    const agentSnap = mgr.getCombatSnapshot('agent');
+    assert.strictEqual(agentSnap.movement.usedFt, 5, 'bridge sees movement too');
+  });
+
+  test('parseSpeedFt normalizes numbers, SRD strings and { walk } objects', () => {
+    const mgr = new VTTManager();
+    assert.strictEqual(mgr.parseSpeedFt(30), 30);
+    assert.strictEqual(mgr.parseSpeedFt('30 ft.'), 30);
+    assert.strictEqual(mgr.parseSpeedFt({ walk: 25 }), 25);
+    assert.strictEqual(mgr.parseSpeedFt({ walk: '40 ft' }), 40);
+    assert.strictEqual(mgr.parseSpeedFt(null), null);
+    assert.strictEqual(mgr.parseSpeedFt('banana'), null);
+  });
+});
