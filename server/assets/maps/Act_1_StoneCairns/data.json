@@ -133,14 +133,151 @@
   "notes": [],
   "tokens": [
     {
-      "id": "npc_1788583547815e5fap",
+      "id": "npc_1790991947074tpy73",
       "ownerId": "DM",
       "type": "npc",
-      "name": "Charnel-Stipe Colossus",
-      "avatarUrl": "https://midwest-millions-tue-staying.trycloudflare.com/assets/tokens/THE%20CHARNEL-STIPE%20COLOSSUS.png",
-      "hpCur": 178,
-      "hpMax": 178,
-      "ac": 17,
+      "name": "Hollow King",
+      "avatarUrl": "https://perl-afternoon-commerce-auditor.trycloudflare.com/assets/tokens/Hollow%20King.jpg",
+      "hpCur": 0,
+      "hpMax": 600,
+      "hpRoll": null,
+      "ac": 20,
+      "speed": 35,
+      "x": 770,
+      "y": -70,
+      "isPlaced": true,
+      "size": 3,
+      "conditions": [],
+      "hidden": false,
+      "monsterData": {
+        "source": "",
+        "type": "aberration",
+        "size": "Huge",
+        "alignment": "Chaotic Evil",
+        "ac": 20,
+        "ac_desc": "Black Stone",
+        "hp": 600,
+        "hp_formula": "(30d12+108)",
+        "speed": {
+          "walk": 35,
+          "climb": 30
+        },
+        "ability_scores": {
+          "STR": 22,
+          "DEX": 18,
+          "CON": 24,
+          "INT": 18,
+          "WIS": 18,
+          "CHA": 18
+        },
+        "saves": {
+          "STR": 11,
+          "CON": 11,
+          "WIS": 9,
+          "CHA": 9
+        },
+        "skills": {
+          "Perception": 9,
+          "Athletics": 11
+        },
+        "resistances": [
+          "cold",
+          "fire",
+          "lightning",
+          "necrotic"
+        ],
+        "immunities": [
+          "psychic"
+        ],
+        "vulnerabilities": [],
+        "condition_immunities": [
+          "charmed",
+          "frightened"
+        ],
+        "senses": {
+          "passive_perception": 19,
+          "truesight": 60
+        },
+        "languages": "telepathy 120ft",
+        "cr": "12",
+        "traits": [
+          {
+            "name": "Aura of the Unremembered",
+            "description": "The King radiates drifting grey ash in a 20ft radius. The area is lightly obscured, creatures other than the King have disadvantage on Wisdom (Perception) checks inside it. Any creature that enters the aura for the first time on a turn or starts its turn there takes 5 (1d10) psychic damage."
+          },
+          {
+            "name": "Impossible Anatomy",
+            "description": "The King can move through the space of other creatures. First time it enters a creature's space on a turn, that creature must make DC 18 Dexterity save or take 10 (3d6) necrotic damage. The King cannot end its turn inside another creature."
+          },
+          {
+            "name": "Legendary Resistance (2/Day)",
+            "description": "If the King fails a saving throw, it can choose to succeed instead."
+          },
+          {
+            "name": "Phase II - The Eye Opens",
+            "description": "When the King is reduced to 100 HP, every creature within 30ft must make DC 17 Wisdom save: 18 (4d8) psychic damage and frightened until end of next turn on failure, half damage on success. Then the King gains: Second Movement - can teleport up to 30ft as bonus action; Eye of the Void - Void Lance deals 22 (4d10) psychic; Nightmare Pulse - at start of each of its turns, one random creature within 60ft takes 7 (2d6) psychic damage."
+          }
+        ],
+        "actions": [
+          {
+            "name": "Multiattack",
+            "description": "The King makes two Ruin Claw attacks and one Void Lance attack."
+          },
+          {
+            "name": "Ruin Claw",
+            "description": "Melee weapon attack: +11 to hit, reach 10ft, one target. Hit: 15 (2d8+6) slashing plus 5 (1d10) necrotic damage."
+          },
+          {
+            "name": "Void Lance",
+            "description": "Ranged spell attack: +9 to hit, range 90ft, one target. Hit: 18 (4d8) psychic damage and target must succeed on DC 17 Wisdom save or cannot take reactions until start of its next turn. After Phase II: 22 (4d10) psychic."
+          },
+          {
+            "name": "Collapse Reality",
+            "description": "(Recharge 5-6) Choose point within 90ft. Each creature in 20ft-radius sphere must make DC 18 Dexterity save: 27 (6d8) force damage and knocked prone on failure, half damage and not prone on success. Area becomes unstable until end of encounter: movement costs double, teleportation into/out of it fails, creatures standing there have disadvantage on Dexterity saves."
+          }
+        ],
+        "legendary_actions": [
+          {
+            "name": "Move",
+            "description": "The King moves up to half its speed without provoking opportunity attacks."
+          },
+          {
+            "name": "Ruin Claw",
+            "description": "Costs 2 Actions. The King makes one Ruin Claw attack."
+          },
+          {
+            "name": "Tear Open",
+            "description": "Costs 2 Actions. The King makes one Void Lance attack."
+          }
+        ],
+        "reactions": [],
+        "lair_actions": [],
+        "environment": "",
+        "description": "Enormous humanoid turned living ruin of black stone and corpse-grey flesh. Broken pillars from back, long black tendrils, featureless face except single cyan eye with concentric markings. Telepathic: 'You remember me.'"
+      },
+      "timesDowned": 1,
+      "deathSaveSuccesses": 0,
+      "deathSaveFailures": 0,
+      "isStable": false,
+      "isDead": false,
+      "wounds": [],
+      "woundCount": 0,
+      "visionRadius": 120,
+      "darkvisionRadius": 0,
+      "hasTorch": false,
+      "torchActive": false
+    },
+    {
+      "id": "npc_1790991970182dx3sq",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "Ashen Vexilla",
+      "avatarUrl": "https://perl-afternoon-commerce-auditor.trycloudflare.com/assets/tokens/ashen%20vexilla.png",
+      "hpCur": 152,
+      "hpMax": 152,
+      "hpRoll": null,
+      "ac": 16,
+      "speed": 0,
       "x": 0,
       "y": 0,
       "isPlaced": false,
@@ -149,107 +286,305 @@
       "hidden": false,
       "monsterData": {
         "source": "",
-        "type": "undead",
+        "type": "aberration",
         "size": "Huge",
         "alignment": "Neutral Evil",
-        "ac": 17,
-        "ac_desc": "Bone Plating, Petrified Stipe & Mimic Hide",
-        "hp": 178,
-        "hp_formula": "(17d12+68)",
+        "ac": 16,
+        "ac_desc": "Natural Armor",
+        "hp": 152,
+        "hp_formula": "(16d12+48)",
         "speed": {
-          "walk": 30
+          "walk": 0,
+          "fly": 40
         },
         "ability_scores": {
-          "STR": 24,
-          "DEX": 8,
-          "CON": 19,
-          "INT": 4,
-          "WIS": 11,
-          "CHA": 5
+          "STR": 18,
+          "DEX": 14,
+          "CON": 16,
+          "INT": 6,
+          "WIS": 16,
+          "CHA": 8
         },
-        "saves": {
-          "STR": 11,
-          "CON": 8,
-          "WIS": 4
-        },
+        "saves": {},
         "skills": {},
-        "resistances": [
-          "cold",
-          "fire"
-        ],
+        "resistances": [],
         "immunities": [
-          "necrotic",
-          "poison",
-          "psychic",
-          "bludgeoning",
-          "piercing",
-          "slashing"
+          "necrotic"
         ],
         "vulnerabilities": [],
         "condition_immunities": [
-          "charmed",
-          "exhaustion",
-          "frightened",
-          "paralyzed",
-          "petrified",
-          "poisoned"
+          "poisoned",
+          "prone"
         ],
         "senses": {
-          "passive_perception": 10,
-          "darkvision": 120
+          "passive_perception": 13,
+          "blindsight": 60
         },
-        "languages": "Understands Sura-Khai and Common (bound to summoner's commands)",
-        "cr": "9",
+        "languages": "",
+        "cr": "8",
         "traits": [
           {
-            "name": "Adhesive Hide (from Mimic Skin)",
-            "description": "The colossus's outer flesh is rubbery and adhesive. When a creature hits the colossus with a melee weapon attack, the attacker must succeed on a DC 16 Strength saving throw or the weapon becomes stuck to the colossus's shifting hide. A creature can use an action to make a DC 16 Strength check to pull a stuck weapon free."
+            "name": "Necrotic Absorption",
+            "description": "Whenever the Vexilla is subjected to necrotic damage, it takes no damage and instead regains hit points equal to the necrotic damage dealt."
           },
           {
-            "name": "Garnet Hearth (from 1x Garnet)",
-            "description": "A smoldering volcanic garnet serves as the colossus's engine. Its melee strikes and ground stomps deal additional fire damage (included in attacks). Grants resistance to cold and fire."
+            "name": "Floating Mass",
+            "description": "The Vexilla is immune to the prone condition and ignores difficult terrain while hovering. Speed 0 ft., fly 40 ft. (hover)."
           },
           {
-            "name": "Woven Resistance (from Operator Robes)",
-            "description": "The tattered Sura-Khai robes woven into its frame grant the colossus advantage on saving throws against spells and other magical effects."
-          },
-          {
-            "name": "Dual-Life Frenzy: Undead Fortitude",
-            "description": "From 8 Dead & 8 Live Chickens. If damage reduces the colossus to 0 hit points, it must make a Constitution saving throw with a DC of 5 + the damage taken, unless the damage is radiant or from a critical hit. On a success, it drops to 1 hit point instead."
-          },
-          {
-            "name": "Dual-Life Frenzy: Death Thrash",
-            "description": "When the colossus is finally destroyed, the eight restless spirits violently burst from its chest. Each creature within 10 feet must make a DC 15 Dexterity saving throw, taking 14 (4d6) necrotic damage on a failed save, or half as much on a successful one."
-          },
-          {
-            "name": "Siege Monster",
-            "description": "The colossus deals double damage to objects and structures. Immune to bludgeoning, piercing, and slashing from nonmagical attacks that aren't adamantine."
+            "name": "Warped Senses",
+            "description": "The Vexilla has disadvantage on Wisdom (Perception) checks while in vibrant light or clear air outside the standard heavy fog."
           }
         ],
         "actions": [
           {
             "name": "Multiattack",
-            "description": "The Colossus makes two attacks: one with its Bladed Staff Arm and one with its Fanged Bone Slam."
+            "description": "The Vexilla makes two Tar Slam attacks and, if available, uses Spore Expulsion."
           },
           {
-            "name": "Bladed Staff Arm",
-            "description": "Melee weapon attack: +11 to hit, reach 10ft, one target. Hit: 20 (3d8+7) slashing damage plus 4 (1d8) fire damage from the internal garnet core."
+            "name": "Tar Slam",
+            "description": "Melee weapon attack: +7 to hit, reach 15ft, one target. Hit: 15 (2d8+4) bludgeoning damage, and the target must make a DC 16 Constitution saving throw or be poisoned for 1 minute."
           },
           {
-            "name": "Fanged Bone Slam",
-            "description": "Melee weapon attack: +11 to hit, reach 10ft, one target. Hit: 18 (2d10+7) bludgeoning damage plus 7 (2d6) piercing/poison damage as four giant serpent fangs drive deep. Target must succeed on DC 16 Constitution saving throw or be poisoned until end of its next turn."
-          },
-          {
-            "name": "Charnel Loom-Quake",
-            "description": "(Recharge 5-6) The colossus stomps its bone-encrusted foot, discharging kinetic force and necrotic shrapnel in a 20-foot radius. Each creature on the ground in that area must make a DC 16 Dexterity saving throw. On failure: 22 (4d10) force damage plus 14 (4d6) necrotic damage and knocked prone. On success: half damage and not knocked prone."
+            "name": "Spore Expulsion",
+            "description": "(Recharge 5-6) The Vexilla expels a 30-foot cone of necrotic spores. Each creature in that area must make a DC 16 Constitution saving throw, taking 31 (7d8) necrotic damage on a failed save, or half as much on a successful one."
           }
         ],
         "legendary_actions": [],
         "reactions": [],
         "lair_actions": [],
         "environment": "",
-        "description": "Huge Undead (Construct), Neutral Evil. A towering horrific fusion of ancient engineering and dark necromancy. Petrified giant mushroom wood bound by pale shifting mimic hide and interlocking ribcages. A rusted Sura-Khai helmet crowns its splintered skull, tattered operator robes hang like burial shrouds. In the center of its bone-plated chest burns a single glowing red garnet, pulsing with the erratic heartbeat of sixteen sacrificed lives."
+        "description": "Huge Aberration (Cursed), floating mass of tar and spores."
       },
+      "timesDowned": 0,
+      "deathSaveSuccesses": 0,
+      "deathSaveFailures": 0,
+      "isStable": false,
+      "isDead": false,
+      "wounds": [],
+      "woundCount": 0,
+      "visionRadius": 120,
+      "darkvisionRadius": 0,
+      "hasTorch": false,
+      "torchActive": false
+    },
+    {
+      "id": "npc_1790991989673nlfxv",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "Bulette",
+      "avatarUrl": "https://perl-afternoon-commerce-auditor.trycloudflare.com/assets/tokens/Bulette.jpg",
+      "hpCur": 80,
+      "hpMax": 80,
+      "hpRoll": {
+        "formula": "9d10+45",
+        "total": 80
+      },
+      "ac": 17,
+      "speed": 40,
+      "x": 0,
+      "y": 0,
+      "isPlaced": false,
+      "size": 2,
+      "conditions": [],
+      "hidden": false,
+      "monsterData": {
+        "source": "MM",
+        "type": "monstrosity",
+        "size": "Large",
+        "alignment": "Unaligned",
+        "ac": 17,
+        "ac_desc": "natural armor",
+        "hp": 94,
+        "hp_formula": "9d10+45",
+        "speed": {
+          "walk": 40,
+          "burrow": 40
+        },
+        "ability_scores": {
+          "STR": 19,
+          "DEX": 11,
+          "CON": 21,
+          "INT": 2,
+          "WIS": 10,
+          "CHA": 5
+        },
+        "saves": {
+          "STR": 6,
+          "CON": 8
+        },
+        "skills": {
+          "Perception": 4
+        },
+        "senses": {
+          "darkvision": 60,
+          "tremorsense": 60,
+          "passive_perception": 14
+        },
+        "cr": "5",
+        "traits": [
+          {
+            "name": "Standing Leap",
+            "description": "Long jump up to 30 ft., high jump up to 15 ft., with or without running start."
+          },
+          {
+            "name": "Multiattack",
+            "description": "Two attacks: one with bite and one with claws."
+          }
+        ],
+        "actions": [
+          {
+            "name": "Bite",
+            "description": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 19 (3d10+3) piercing damage."
+          },
+          {
+            "name": "Claws",
+            "description": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 12 (2d6+5) slashing damage."
+          },
+          {
+            "name": "Deadly Leap",
+            "description": "If leaps 15+ ft. and lands next to target, DC 14 STR save or knocked prone + 12 (2d6+5) bludgeoning damage."
+          }
+        ],
+        "environment": "grassland, hill"
+      },
+      "timesDowned": 0,
+      "deathSaveSuccesses": 0,
+      "deathSaveFailures": 0,
+      "isStable": false,
+      "isDead": false,
+      "wounds": [],
+      "woundCount": 0,
+      "visionRadius": 120,
+      "darkvisionRadius": 0,
+      "hasTorch": false,
+      "torchActive": false
+    },
+    {
+      "id": "npc_17909923756204m3mm",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "Ash Elf Mercenary (Iron)",
+      "avatarUrl": "https://perl-afternoon-commerce-auditor.trycloudflare.com/assets/tokens/Ash%20Elf%20Mercenary%20(Iron).png",
+      "hpCur": 75,
+      "hpMax": 75,
+      "hpRoll": null,
+      "ac": 16,
+      "speed": 30,
+      "x": 0,
+      "y": 0,
+      "isPlaced": false,
+      "size": 1,
+      "conditions": [],
+      "hidden": true,
+      "monsterData": {
+        "source": "",
+        "type": "humanoid",
+        "size": "Medium",
+        "alignment": "Lawful Evil",
+        "ac": 16,
+        "ac_desc": "Spiked Battered Iron",
+        "hp": 75,
+        "hp_formula": "(10d8+30)",
+        "speed": {
+          "walk": 30
+        },
+        "ability_scores": {
+          "STR": 24,
+          "DEX": 17,
+          "CON": 20,
+          "INT": 7,
+          "WIS": 13,
+          "CHA": 5
+        },
+        "saves": {
+          "STR": 7,
+          "CON": 6
+        },
+        "skills": {
+          "Athletics": 7,
+          "Intimidation": 2
+        },
+        "resistances": [
+          "necrotic"
+        ],
+        "immunities": [],
+        "vulnerabilities": [],
+        "condition_immunities": [],
+        "senses": {
+          "passive_perception": 11,
+          "darkvision": 120
+        },
+        "languages": "Common, Modern Ash-Elven",
+        "cr": "5",
+        "traits": [
+          {
+            "name": "Ashen Acclimation",
+            "description": "The mercenary can see through fog or heavy ash up to 120 feet, allowing them to spot threats before they emerge."
+          },
+          {
+            "name": "Branding Precision",
+            "description": "Once per turn, when the mercenary hits a creature with a melee weapon attack, it can apply the Brand Mark. A branded creature has disadvantage on attack rolls against the mercenary until the start of the mercenary's next turn."
+          },
+          {
+            "name": "Iron Grip (Slave-Hunter)",
+            "description": "While a creature is grappled by the mercenary, that creature is also restrained, and the mercenary has advantage on attacks against it."
+          }
+        ],
+        "actions": [
+          {
+            "name": "Multiattack",
+            "description": "The mercenary makes two melee attacks."
+          },
+          {
+            "name": "Heavy Spiked Maul - Slaver's Weaponry (The Mauler)",
+            "description": "Melee weapon attack: +7 to hit, reach 5ft, one target. Hit: 15 (2d10+4) bludgeoning damage. If the target is a Medium or smaller creature, it must succeed on a DC 15 Strength saving throw or be knocked prone."
+          },
+          {
+            "name": "Instant Thermal Activation - Brander's Gauntlet (The Iron Hand)",
+            "description": "The mercenary activates the heating elements in its left gauntlet, which begins to pulse with the Dull Crimson glow. For 1 minute, the gauntlet is considered a magical weapon. Once per round, when the mercenary makes a successful Unarmed Strike with the gauntlet, it deals an additional 9 (2d8) fire damage."
+          },
+          {
+            "name": "Branding Fist (Unarmed Strike)",
+            "description": "Melee weapon attack: +7 to hit, reach 5ft, one target. Hit: 8 (1d8+4) bludgeoning damage. If Instant Thermal Activation is active, add 9 (2d8) fire damage. If the target is grappled, it must succeed on a DC 14 Constitution saving throw or be stunned until the start of its next turn."
+          }
+        ],
+        "legendary_actions": [],
+        "reactions": [],
+        "lair_actions": [],
+        "environment": "",
+        "description": "Medium Humanoid (Ash Elf), Lawful Evil. Mercenaries of Iron-Grip are brutal, disciplined warriors. Their combat styles are a calculated mix of a slaver's cruel efficiency and a brute's power, using customized spiked iron weaponry and the terrifying Brander's Gauntlet to break not just flesh, but will."
+      },
+      "timesDowned": 0,
+      "deathSaveSuccesses": 0,
+      "deathSaveFailures": 0,
+      "isStable": false,
+      "isDead": false,
+      "wounds": [],
+      "woundCount": 0,
+      "visionRadius": 120,
+      "darkvisionRadius": 0,
+      "hasTorch": false,
+      "torchActive": false
+    },
+    {
+      "id": "npc_1791000572389d3ynx",
+      "ownerId": "DM",
+      "type": "npc",
+      "name": "Spiritual Weapon",
+      "avatarUrl": null,
+      "hpCur": 10,
+      "hpMax": 10,
+      "hpRoll": null,
+      "ac": 10,
+      "speed": 30,
+      "x": 630,
+      "y": 280,
+      "isPlaced": true,
+      "size": 1,
+      "conditions": [],
+      "hidden": false,
+      "monsterData": null,
       "timesDowned": 0,
       "deathSaveSuccesses": 0,
       "deathSaveFailures": 0,

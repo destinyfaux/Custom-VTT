@@ -23412,24 +23412,102 @@
       "environment": "",
       "description": "Tall humanoid fused into black stone covered in concentric circular markings. No mouth, smooth face, single cyan eye in center of chest. Does not chase - it watches."
     },
+  "Ash Elf Mercenary (Iron)": {
+    "source": "",
+    "type": "humanoid",
+    "size": "Medium",
+    "alignment": "Lawful Evil",
+    "ac": 16,
+    "ac_desc": "Spiked Battered Iron",
+    "hp": 75,
+    "hp_formula": "(10d8+30)",
+    "speed": {
+      "walk": 30
+    },
+    "ability_scores": {
+      "STR": 24,
+      "DEX": 17,
+      "CON": 20,
+      "INT": 7,
+      "WIS": 13,
+      "CHA": 5
+    },
+    "saves": {
+      "STR": 7,
+      "CON": 6
+    },
+    "skills": {
+      "Athletics": 7,
+      "Intimidation": 2
+    },
+    "resistances": [
+      "necrotic"
+    ],
+    "immunities": [],
+    "vulnerabilities": [],
+    "condition_immunities": [],
+    "senses": {
+      "passive_perception": 11,
+      "darkvision": 120
+    },
+    "languages": "Common, Modern Ash-Elven",
+    "cr": "5",
+    "traits": [
+      {
+        "name": "Ashen Acclimation",
+        "description": "The mercenary can see through fog or heavy ash up to 120 feet, allowing them to spot threats before they emerge."
+      },
+      {
+        "name": "Branding Precision",
+        "description": "Once per turn, when the mercenary hits a creature with a melee weapon attack, it can apply the Brand Mark. A branded creature has disadvantage on attack rolls against the mercenary until the start of the mercenary's next turn."
+      },
+      {
+        "name": "Iron Grip (Slave-Hunter)",
+        "description": "While a creature is grappled by the mercenary, that creature is also restrained, and the mercenary has advantage on attacks against it."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "description": "The mercenary makes two melee attacks."
+      },
+      {
+        "name": "Heavy Spiked Maul - Slaver's Weaponry (The Mauler)",
+        "description": "Melee weapon attack: +7 to hit, reach 5ft, one target. Hit: 15 (2d10+4) bludgeoning damage. If the target is a Medium or smaller creature, it must succeed on a DC 15 Strength saving throw or be knocked prone."
+      },
+      {
+        "name": "Instant Thermal Activation - Brander's Gauntlet (The Iron Hand)",
+        "description": "The mercenary activates the heating elements in its left gauntlet, which begins to pulse with the Dull Crimson glow. For 1 minute, the gauntlet is considered a magical weapon. Once per round, when the mercenary makes a successful Unarmed Strike with the gauntlet, it deals an additional 9 (2d8) fire damage."
+      },
+      {
+        "name": "Branding Fist (Unarmed Strike)",
+        "description": "Melee weapon attack: +7 to hit, reach 5ft, one target. Hit: 8 (1d8+4) bludgeoning damage. If Instant Thermal Activation is active, add 9 (2d8) fire damage. If the target is grappled, it must succeed on a DC 14 Constitution saving throw or be stunned until the start of its next turn."
+      }
+    ],
+    "legendary_actions": [],
+    "reactions": [],
+    "lair_actions": [],
+    "environment": "",
+    "description": "Medium Humanoid (Ash Elf), Lawful Evil. Mercenaries of Iron-Grip are brutal, disciplined warriors. Their combat styles are a calculated mix of a slaver's cruel efficiency and a brute's power, using customized spiked iron weaponry and the terrifying Brander's Gauntlet to break not just flesh, but will."
+  },
     "Hollow King": {
       "source": "",
       "type": "aberration",
       "size": "Huge",
       "alignment": "Chaotic Evil",
-      "ac": 18,
+      "ac": 20,
       "ac_desc": "Black Stone",
-      "hp": 225,
-      "hp_formula": "(18d12+108)",
+      "hp": 600,
+      "hp_formula": "(30d12+108)",
       "speed": {
         "walk": 35,
         "climb": 30
       },
       "ability_scores": {
         "STR": 22,
-        "DEX": 14,
-        "CON": 22,
-        "INT": 16,
+        "DEX": 18,
+        "CON": 24,
+        "INT": 18,
         "WIS": 18,
         "CHA": 18
       },
